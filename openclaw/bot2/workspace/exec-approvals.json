@@ -1,0 +1,21 @@
+{
+  "allowed": [
+    "curl -s \"wttr.in/Coconut+Creek,FL?format=3\"",
+    "curl -s \"wttr.in/Port+Saint+Lucie,FL?format=3\"",
+    "uv run ./scripts/printout_sysinfo.py",
+    "find . -name \"printout_sysinfo.py\" 2>/dev/null",
+    "uv run ./workspace/skills/system_info/scripts/printout_sysinfo.py",
+    "uv run ./workspace/skills/running_processes/scripts/list_processes.py",
+    "curl -s \"wttr.in/Coconut+Creek+Florida?format=3\"",
+    "curl -s \"wttr.in/Miami,Florida?format=3\"",
+    "find /Users/jcolamendy/ai_ml/agents_tutorials/openclaw/bot2/workspace -name \"printout_sysinfo.py\"",
+    "uv run /Users/jcolamendy/ai_ml/agents_tutorials/openclaw/bot2/workspace/skills/system_info/scripts/printout_sysinfo.py",
+    "uv run /Users/jcolamendy/ai_ml/agents_tutorials/openclaw/bot2/workspace/skills/running_processes/scripts/list_processes.py",
+    "curl -s \"wttr.in/Coconut+Creek,Florida?format=3\"",
+    "system_profiler SPHardwareDataType",
+    "ps aux"
+  ],
+  "denied": [
+    "cd /Users/jcolamendy/ai_ml/agents_tutorials/openclaw/bot2/workspace/skills/system_info && uv run ./scripts/printout_sysinfo.py"
+  ]
+}
