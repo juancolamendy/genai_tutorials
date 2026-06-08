@@ -1,0 +1,12 @@
+[project]
+name = "crawl-mcp"
+version = "0.1.0"
+description = "mcp for crawl"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "mcp[cli]",
+    "python-dotenv",
+    "pylib @ git+ssh://git@bitbucket.org/juancolamendydevteam/pylib.git@v1.0.38",
+    "pyapplib @ git+ssh://git@bitbucket.org/juancolamendydevteam/pyapplib.git@v1.0.1"    
+]
