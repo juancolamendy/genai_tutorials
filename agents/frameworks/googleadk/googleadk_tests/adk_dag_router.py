@@ -20,7 +20,7 @@ Install:
     uv add google-adk python-dotenv
 
 Usage:
-    uv run adk_rag.py
+    uv run adk_dag_router.py
 """
 
 import asyncio
