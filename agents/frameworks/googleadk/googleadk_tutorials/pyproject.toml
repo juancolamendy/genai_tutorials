@@ -12,3 +12,8 @@ dependencies = [
     "aiosqlite>=0.20.0",
     "greenlet>=3.0.0",
 ]
+
+[tool.uv.workspace]
+members = [
+    "insurance_agent",
+]
