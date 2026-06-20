@@ -4,8 +4,8 @@ lib/session.py
 Session-state helpers shared by all Agno workflow implementations.
 
 Provides:
-  • append_turn()         — add a ConversationTurn to session_state["turns"]
-  • init_session_defaults() — ensure all required keys exist
+  • init_control_state_defaults() — initialize multi-turn control fields
+  • append_turn()         — add a turn to session_state["turns"]
   • build_history_prompt()  — format last N turns as XML for LLM injection
   • get_agno_history()      — pull Agno's built-in run-summary history
 """
@@ -19,6 +19,36 @@ from agno.workflow.types import StepInput
 
 
 # functions
+# ── Multi-turn initialization ────────────────────────────────────────────────
+def init_control_state_defaults(session_state: dict[str, Any]) -> None:
+    """
+    Initialize control plane fields for multi-turn workflows.
+
+    Sets defaults for turn management, semantic context, state machine control.
+    Called from _init_session_defaults() in subclass.
+
+    Args:
+        session_state: The Agno session_state dict (modified in-place)
+    """
+    defaults = {
+        "turn_input": None,
+        "turn_number": 0,
+        "turns": [],
+        "semantic_context": {"entities": {}, "intents": []},
+        "conversation_id": "",
+        "max_history_turns": 10,
+        "router_timeout_sec": 10.0,
+        "current_state": "init",
+        "proposed_next": "init",
+        "retry_count": 0,
+        "error_message": None,
+        "guardrail_ok": True,
+        "audit_trail": [],
+    }
+    for k, v in defaults.items():
+        session_state.setdefault(k, v)
+
+
 # ── Conversation history helpers ──────────────────────────────────────────────
 def append_turn(
     session_state: dict[str, Any],
