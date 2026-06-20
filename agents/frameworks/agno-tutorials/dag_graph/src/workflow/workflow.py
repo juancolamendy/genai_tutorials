@@ -128,6 +128,93 @@ class DocPipelineWorkflow(StateMachineWorkflow):
         print(pretty_audit(final))
         return final
 
+    def process_turn(self,
+                     user_id: str,
+                     session_id: str,
+                     turn_input: str,
+                     timeout_sec: float = 10.0) -> dict[str, Any]:
+        """
+        Execute one turn of a multi-turn conversation.
+
+        Args:
+            user_id: Caller identity
+            session_id: Multi-turn session ID
+            turn_input: User's input text
+            timeout_sec: LLM router timeout
+
+        Returns:
+            {
+              "current_state": str,
+              "waits_for_input": bool,
+              "turn_number": int,
+              "semantic_context": dict,
+              "router_confidence": float,
+              "error": str | None
+            }
+        """
+        from engine.input_validation import validate_turn_input, escape_for_llm, InputValidationError
+        from engine.handler_registry import does_state_wait_for_input
+
+        try:
+            # 1. Validate input
+            validate_turn_input(turn_input)
+            escaped = escape_for_llm(turn_input)
+
+            # 2. Initialize session if needed
+            if self.session_state is None:
+                self.session_state = {}
+            if self.steps is None or len(self.steps) == 0:
+                self._init_steps()
+
+            # 3. Append turn input and metadata
+            turn_num = self.session_state.get("turn_number", 0)
+            self.session_state["turn_input"] = escaped
+            self.session_state["turn_number"] = turn_num + 1
+            self.session_state["router_timeout_sec"] = timeout_sec
+
+            # 4. Run workflow loop
+            self.run(session_id=session_id, user_id=user_id)
+
+            # 5. Trim history
+            self._trim_history()
+
+            # 6. Check if current state waits for input
+            current = self.session_state.get("current_state", "init")
+            waits = does_state_wait_for_input(current)
+
+            # 7. Return response
+            return {
+                "current_state": current,
+                "waits_for_input": waits,
+                "turn_number": self.session_state.get("turn_number", 0),
+                "semantic_context": self.session_state.get("semantic_context", {}),
+                "router_confidence": self.session_state.get("router_confidence", 0.0),
+                "error": self.session_state.get("error_message")
+            }
+
+        except InputValidationError as e:
+            return {
+                "error": str(e),
+                "current_state": None,
+                "waits_for_input": False,
+            }
+        except Exception as e:
+            log.exception("process_turn failed: %s", e)
+            return {
+                "error": str(e),
+                "current_state": "error",
+                "waits_for_input": False,
+            }
+
+    def _trim_history(self) -> None:
+        """Keep only last max_history_turns in session_state."""
+        max_turns = self.session_state.get("max_history_turns", 10)
+        turns = self.session_state.get("turns", [])
+        if len(turns) > max_turns:
+            dropped = len(turns) - max_turns
+            self.session_state["turns"] = turns[-max_turns:]
+            log.info(f"Trimmed {dropped} turns; keeping last {max_turns}")
+
 
 def _ss_to_pipeline(ss: dict[str, Any]) -> PipelineState:
     """Read pipeline-related keys from session_state into a PipelineState dict."""
