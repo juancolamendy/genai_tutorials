@@ -12,7 +12,7 @@ All agents are created via lib.agents.make_agent so they are cached and
 reuse the same Claude client across the process.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from engine.agent import make_agent
 

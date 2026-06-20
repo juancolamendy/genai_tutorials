@@ -23,7 +23,7 @@ import random
 import uuid
 from dotenv import load_dotenv
 
-from doc_pipeline import build_doc_pipeline
+from workflow import build_doc_pipeline
 
 load_dotenv()
 
@@ -73,33 +73,29 @@ def main() -> None:
     # ── DOC-002: force fetch failure on first attempt ─────────────────────────
     run_doc("DOC-20240619-002", seed=0)   # seed=0 → random() < 0.25
 
-    # ── DOC-003: schema_version missing → HUMAN_REVIEW path ──────────────────
-    # Patch handle_fetch temporarily to return a malformed doc.
-    import doc_pipeline.handlers as h
+    # # ── DOC-003: schema_version missing → HUMAN_REVIEW path ──────────────────
+    # # Patch handle_fetch temporarily to return a malformed doc.
+    # _original_fetch = handlers.handle_fetch
+    # def _bad_fetch(p):
+    #     bad = {"id": p["document_id"], "content": "Important report text.", "schema_version": ""}
+    #     return audit({**p, "current_state": State.FETCH.value, "raw_data": bad},
+    #                  "fetch OK  (malformed schema_version)")
+    # handlers.handle_fetch = _bad_fetch
+    # handlers.HANDLER_MAP[State.FETCH] = _bad_fetch
 
-    _original_fetch = h.handle_fetch
-    def _bad_fetch(p):
-        from lib.pipeline_state import audit
-        from lib.state_machine import State
-        bad = {"id": p["document_id"], "content": "Important report text.", "schema_version": ""}
-        return audit({**p, "current_state": State.FETCH.value, "raw_data": bad},
-                     "fetch OK  (malformed schema_version)")
-    h.handle_fetch = _bad_fetch
-    h.HANDLER_MAP[h.State.FETCH] = _bad_fetch
+    # resume_session = str(uuid.uuid4())
+    # print(f"\n{SEP}")
+    # print(f"  PIPELINE  DOC-20240619-003  (bad schema → human_review path)")
+    # print(f"  session={resume_session[:8]}…")
+    # print(SEP)
+    # wf = build_doc_pipeline(resume_session)
+    # wf.process("DOC-20240619-003")
 
-    resume_session = str(uuid.uuid4())
-    print(f"\n{SEP}")
-    print(f"  PIPELINE  DOC-20240619-003  (bad schema → human_review path)")
-    print(f"  session={resume_session[:8]}…")
-    print(SEP)
-    wf = build_doc_pipeline(resume_session)
-    wf.process("DOC-20240619-003")
+    # handlers.handle_fetch        = _original_fetch   # restore
+    # handlers.HANDLER_MAP[State.FETCH] = _original_fetch
 
-    h.handle_fetch        = _original_fetch   # restore
-    h.HANDLER_MAP[h.State.FETCH] = _original_fetch
-
-    # ── Session resume (reload DOC-003 session from disk) ────────────────────
-    demo_session_resume(resume_session)
+    # # ── Session resume (reload DOC-003 session from disk) ────────────────────
+    # demo_session_resume(resume_session)
 
 
 if __name__ == "__main__":

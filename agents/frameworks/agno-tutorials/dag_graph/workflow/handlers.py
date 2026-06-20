@@ -68,7 +68,7 @@ def handle_validate(p: PipelineState) -> PipelineState:
         if result.is_valid:
             validated = {**result.sanitized_data, "_validated": True}
             return audit({**p, "current_state": State.VALIDATE.value, "validated_data": validated},
-                         f"validate OK  issues=[]")
+                         "validate OK  issues=[]")
 
         issues_str = "; ".join(result.issues)
         log.warning("[VALIDATE] FAILED  issues=%s", issues_str)

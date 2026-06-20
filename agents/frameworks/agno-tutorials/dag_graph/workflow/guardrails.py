@@ -1,10 +1,7 @@
-from dataclasses import dataclass
-from typing import Callable, Optional
-
 from engine.guardrail import GuardrailResult, GuardrailFn, GUARDRAIL_PASS, make_guardrail
 
-from pipeline.pipeline_state import PipelineState
-from pipeline.state_machine import State, is_transition_allowed
+from .pipeline_state import PipelineState
+from .state_machine import State, is_transition_allowed
 
 # functions
 # ── Individual checks ─────────────────────────────────────────────────────────

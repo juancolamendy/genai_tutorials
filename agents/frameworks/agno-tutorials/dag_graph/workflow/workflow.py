@@ -21,7 +21,7 @@ from agno.db.json.json_db import JsonDb
 from engine.workflow import StateMachineWorkflow
 
 from .handlers import HANDLER_MAP
-from .guardrails import GUARDRAILS, run_guardrail
+from .guardrails import run_guardrail
 from .pipeline_state import PipelineState, new_pipeline, pretty_audit
 from .session import init_session_defaults
 from .state_machine import State, TERMINAL_STATES
@@ -105,10 +105,16 @@ class DocPipelineWorkflow(StateMachineWorkflow):
         pipeline_runs for audit purposes).
         """
         fresh = new_pipeline(document_id)
+        # Ensure session_state is initialized
+        if self.session_state is None:
+            self.session_state = {}
+        # Ensure steps are initialized
+        if self.steps is None or len(self.steps) == 0:
+            self._init_steps()
         # Seed session_state from the fresh pipeline
         _pipeline_to_ss(fresh, self.session_state)
 
-        result = self.run(input=document_id)
+        self.run(input=document_id)
 
         # Snapshot to pipeline_runs history
         final = _ss_to_pipeline(self.session_state)

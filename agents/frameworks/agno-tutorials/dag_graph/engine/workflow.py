@@ -99,7 +99,10 @@ class StateMachineWorkflow(Workflow):
         if self.session_state is None:
             self.session_state = {}
         self._init_session_defaults()
+        self._init_steps()
 
+    def _init_steps(self) -> None:
+        """Initialize the workflow steps (called from __post_init__ and when needed)."""
         # Build handler Steps bound to `self` so they can access session_state.
         handler_steps: dict[Any, Step] = {
             state: Step(
@@ -117,7 +120,6 @@ class StateMachineWorkflow(Workflow):
         self.steps = [
             Loop(
                 name="StateMachineLoop",
-                forward_iteration_output=True,
                 max_iterations=_MAX_LOOP_ITERS,
                 end_condition=_is_terminal,
                 steps=[
