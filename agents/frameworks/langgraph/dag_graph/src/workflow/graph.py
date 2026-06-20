@@ -107,24 +107,3 @@ def build_graph() -> Any:
     graph = DocumentPipelineGraph()
     return graph.build_graph(PipelineState)
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# CONVENIENCE FUNCTIONS (backward compatibility)
-# ─────────────────────────────────────────────────────────────────────────────
-
-def router_node(state: PipelineState) -> PipelineState:
-    """Convenience function wrapping DocumentPipelineGraph._router_node."""
-    graph = DocumentPipelineGraph()
-    return graph._router_node(state)
-
-
-def guardrail_node(state: PipelineState) -> PipelineState:
-    """Convenience function wrapping DocumentPipelineGraph._guardrail_node."""
-    graph = DocumentPipelineGraph()
-    return graph._guardrail_node(state)
-
-
-def guardrail_router(state: PipelineState) -> str:
-    """Convenience function wrapping DocumentPipelineGraph._guardrail_router."""
-    graph = DocumentPipelineGraph()
-    return graph._guardrail_router(state)

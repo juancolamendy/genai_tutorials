@@ -3,7 +3,20 @@
 Provides guardrail composition patterns independent of domain-specific types.
 """
 
-from typing import Any, Callable
+from typing import Any, Callable, Optional
+from dataclasses import dataclass
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GUARDRAIL RESULT
+# ─────────────────────────────────────────────────────────────────────────────
+
+@dataclass
+class GuardrailResult:
+    """Result of guardrail check."""
+
+    passed: bool
+    reason: str = ""
+    fallback: Optional[Any] = None 
 
 # Generic guardrail result type
 GuardrailFn = Callable[[dict[str, Any]], Any]

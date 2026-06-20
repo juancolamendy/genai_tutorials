@@ -61,49 +61,8 @@ def is_transition_allowed(current: State, proposed: State) -> bool:
     return proposed in ALLOWED_TRANSITIONS.get(current, set())
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PIPELINE STATE
-# ─────────────────────────────────────────────────────────────────────────────
-
-class PipelineState(TypedDict):
-    """Central state dict for pipeline execution.
-
-    Fields organized into three categories:
-      • Control Plane: routing and error tracking
-      • Business Payload: document data
-    """
-
-    # ─ Control Plane ─────────────────────────────────────────────────────
-    current_state: str  # mirrors the active graph node
-    proposed_next: str  # router's suggestion
-    retry_count: int
-    error_message: Optional[str]
-    audit_trail: list[str]  # append-only log of every step
-
-    # ─ Business Payload ──────────────────────────────────────────────────
-    document_id: str
-    raw_data: Optional[Dict[str, Any]]
-    validated_data: Optional[Dict[str, Any]]
-    enriched_data: Optional[Dict[str, Any]]
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# GUARDRAIL RESULT
-# ─────────────────────────────────────────────────────────────────────────────
-
-@dataclass
-class GuardrailResult:
-    """Result of guardrail check."""
-
-    passed: bool
-    reason: str = ""
-    fallback: Optional[State] = None  # where to go when the check fails
-
-
 __all__ = [
     "State",
-    "PipelineState",
-    "GuardrailResult",
     "ALLOWED_TRANSITIONS",
     "is_transition_allowed",
 ]
