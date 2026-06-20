@@ -5,7 +5,7 @@ description = "Agno-based state machine workflow for document processing"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "agno>=2.3.5",
+    "agno>=2.6.18",
     "python-dotenv>=1.2.1",
 ]
 
