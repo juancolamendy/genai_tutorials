@@ -18,3 +18,8 @@ dependencies = [
     "sqlalchemy>=2.0.44",
     "yfinance>=1.1.0",
 ]
+
+[tool.uv.workspace]
+members = [
+    "dag_graph",
+]
