@@ -1,9 +1,9 @@
-"""Session management and run_pipeline public API."""
+"""Public API: run_pipeline for document processing workflow."""
 
 import time
 import logging
-from src.engine.state_machine import State, PipelineState
-from src.engine.workflow import build_graph
+from src.workflow.state_machine import State, PipelineState
+from src.workflow.graph import build_graph
 
 log = logging.getLogger(__name__)
 

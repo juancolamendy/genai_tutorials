@@ -2,10 +2,10 @@
 
 import pytest
 import time
-from src.engine.state_machine import State, PipelineState
+from src.workflow.state_machine import State, PipelineState
 from src.engine.router import router
-from src.engine.guardrail import GUARDRAILS
-from src.pipeline.handlers import (
+from src.workflow.guardrails import GUARDRAILS
+from src.workflow.handlers import (
     handle_fetch_template,
     handle_validate_template,
     handle_enrich_template,

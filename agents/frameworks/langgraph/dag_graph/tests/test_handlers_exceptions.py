@@ -1,8 +1,8 @@
 """Tests for handler architecture and exception handling pattern."""
 
 import pytest
-from src.engine.state_machine import State, PipelineState
-from src.pipeline.handlers import (
+from src.workflow.state_machine import State, PipelineState
+from src.workflow.handlers import (
     handle_fetch_template,
     handle_validate_template,
     handle_enrich_template,

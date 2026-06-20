@@ -18,7 +18,7 @@ def test_directory_structure_exists():
     root = Path(__file__).parent.parent
     assert (root / "src").exists(), "src/ directory missing"
     assert (root / "src" / "engine").exists(), "src/engine/ directory missing"
-    assert (root / "src" / "pipeline").exists(), "src/pipeline/ directory missing"
+    assert (root / "src" / "workflow").exists(), "src/workflow/ directory missing"
     assert (root / "tests").exists(), "tests/ directory missing"
 
 

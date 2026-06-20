@@ -1,7 +1,7 @@
 """Tests for public API: run_pipeline."""
 
 import pytest
-from src.pipeline.workflow import run_pipeline
+from src.workflow import run_pipeline
 
 
 class TestRunPipelineAPI:

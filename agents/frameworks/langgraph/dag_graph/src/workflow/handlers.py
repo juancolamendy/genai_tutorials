@@ -1,4 +1,4 @@
-"""Handler functions for document processing pipeline.
+"""Handler functions for document processing workflow.
 
 Handler Contract:
 - Input: PipelineState dict
@@ -11,7 +11,7 @@ Handler Contract:
 """
 
 import logging
-from src.engine.state_machine import State, PipelineState
+from src.workflow.state_machine import State, PipelineState
 
 log = logging.getLogger(__name__)
 
