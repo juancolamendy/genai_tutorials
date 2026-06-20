@@ -62,10 +62,7 @@ from src.workflow.state_machine import (
 )
 
 # Workflow entrypoint
-from src.workflow.workflow import (
-    run_pipeline,
-    run_pipeline_with_checkpoint,
-)
+from src.workflow.workflow import run_pipeline
 
 __all__ = [
     # Graph building
@@ -79,7 +76,6 @@ __all__ = [
     "TERMINAL_STATES",
     # Workflow entrypoint
     "run_pipeline",
-    "run_pipeline_with_checkpoint",
     # State machine
     "State",
     "PipelineState",

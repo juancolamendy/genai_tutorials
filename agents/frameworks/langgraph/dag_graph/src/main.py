@@ -15,6 +15,7 @@ Run:
     python -m src.main
 """
 
+import json
 import random
 import sys
 from pathlib import Path
@@ -23,7 +24,7 @@ from uuid import uuid4
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.engine.checkpointing import get_checkpointer, init_checkpointer
+from src.engine.checkpointing import SqliteCheckpointer
 from src.workflow import run_pipeline
 
 SEP = "═" * 80
@@ -54,7 +55,7 @@ def print_state_summary(result: dict, doc_id: str, session_id: str) -> None:
     print()
 
 
-def scenario_happy_path(seed: int = 99) -> str:
+def scenario_happy_path(seed: int = 99, db_path: str = ":memory:") -> str:
     """
     Scenario 1: Happy Path
     Expected: INIT → FETCH → VALIDATE → ENRICH → STORE → COMPLETE
@@ -74,13 +75,14 @@ def scenario_happy_path(seed: int = 99) -> str:
         document_id=doc_id,
         timeout_seconds=300,
         thread_id=session_id,
+        db_path=db_path,
     )
 
     print_state_summary(result, doc_id, session_id)
     return session_id
 
 
-def scenario_fetch_retry(seed: int = 0) -> str:
+def scenario_fetch_retry(seed: int = 0, db_path: str = ":memory:") -> str:
     """
     Scenario 2: Fetch Retry
     Expected: FETCH fails (30% chance with seed=0) → RETRY → FETCH → VALIDATE → ...
@@ -99,13 +101,14 @@ def scenario_fetch_retry(seed: int = 0) -> str:
         document_id=doc_id,
         timeout_seconds=300,
         thread_id=session_id,
+        db_path=db_path,
     )
 
     print_state_summary(result, doc_id, session_id)
     return session_id
 
 
-def scenario_human_review() -> str:
+def scenario_human_review(db_path: str = ":memory:") -> str:
     """
     Scenario 3: Human Review Path
     Expected: VALIDATE fails (schema_version validation) → HUMAN_REVIEW → ENRICH → STORE → COMPLETE
@@ -127,31 +130,38 @@ def scenario_human_review() -> str:
         document_id=doc_id,
         timeout_seconds=300,
         thread_id=session_id,
+        db_path=db_path,
     )
 
     print_state_summary(result, doc_id, session_id)
     return session_id
 
 
-def scenario_checkpoint_resume(thread_id: str) -> None:
+def scenario_checkpoint_resume(thread_id: str, db_path: str = ":memory:") -> None:
     """
     Scenario 4: Checkpoint Resume
-    Demonstrate loading and printing audit history from a previous execution.
+    Demonstrate loading and printing audit history from checkpoint.
     """
     print(f"\n\n{'█' * 80}")
     print("█ SCENARIO 4: CHECKPOINT RESUME")
     print(f"█ Load execution history from checkpoint: {thread_id[:8]}…")
     print(f"{'█' * 80}")
 
-    checkpointer = get_checkpointer()
-    if checkpointer is None:
-        print("\n  (Checkpointer not initialized)")
+    checkpointer = SqliteCheckpointer(db_path)
+
+    # Try to load the checkpoint tuple with metadata
+    config = {"configurable": {"thread_id": thread_id}}
+    checkpoint_tuple = checkpointer.get_tuple(config)
+
+    if not checkpoint_tuple:
+        print(f"\n  (No checkpoint found for thread: {thread_id})")
         return
 
-    # Try to load the final checkpoint
-    resumed_state = checkpointer.load(thread_id)
+    config_out, checkpoint, metadata = checkpoint_tuple
+    resumed_state = checkpoint.get("values", {})
+
     if not resumed_state:
-        print(f"\n  (No checkpoint found for thread: {thread_id})")
+        print(f"\n  (Checkpoint found but state is empty: {thread_id})")
         return
 
     print(f"\n  ✓ Checkpoint loaded for thread: {thread_id[:8]}…\n")
@@ -179,20 +189,21 @@ def main() -> None:
     print("▓ Three scenarios exercising different state paths + checkpoint resume")
     print(f"{'▓' * 80}")
 
-    # Initialize checkpointer (in-memory for demo)
-    init_checkpointer(":memory:")
+    # Use in-memory checkpointing for demo (checkpoints lost on exit)
+    # For production, use: db_path = str(Path.home() / ".cache" / "langgraph.db")
+    db_path = ":memory:"
 
     # Scenario 1: Happy path (seed avoids fetch failure)
-    session_1 = scenario_happy_path(seed=99)
+    session_1 = scenario_happy_path(seed=99, db_path=db_path)
 
     # Scenario 2: Fetch retry (seed triggers fetch failure)
-    session_2 = scenario_fetch_retry(seed=0)
+    session_2 = scenario_fetch_retry(seed=0, db_path=db_path)
 
     # Scenario 3: Human review (bad schema triggers review path)
-    session_3 = scenario_human_review()
+    session_3 = scenario_human_review(db_path=db_path)
 
     # Scenario 4: Resume from checkpoint
-    scenario_checkpoint_resume(session_3)
+    scenario_checkpoint_resume(session_3, db_path=db_path)
 
     print(f"\n{'▓' * 80}")
     print("▓ DEMO COMPLETE - All scenarios executed successfully")

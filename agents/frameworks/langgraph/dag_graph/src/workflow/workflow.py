@@ -9,8 +9,9 @@ from __future__ import annotations
 import logging
 import time
 from typing import Optional
+from uuid import uuid4
 
-from src.engine.checkpointing import get_checkpointer, init_checkpointer
+from src.engine.checkpointing import SqliteCheckpointer
 
 from .graph import build_graph
 from .pipeline_state import PipelineState
@@ -25,23 +26,24 @@ def run_pipeline(
     document_id: str,
     timeout_seconds: float = 300,
     thread_id: Optional[str] = None,
-    resume: bool = False,
+    db_path: str = ":memory:",
 ) -> PipelineState:
-    """Run the full document processing pipeline.
+    """Run the full document processing pipeline with checkpointing.
 
     Executes: State Machine → Router → Guardrail → Handler (loop) → End
 
     Features:
       • Input validation (document ID, content)
       • Timeout protection (default 5 minutes)
-      • Checkpointing for resumable execution
+      • Checkpointing via SqliteCheckpointer
+      • Resumable execution from checkpoints
       • Error handling with graceful degradation
 
     Args:
         document_id: ID of document to process
         timeout_seconds: Maximum pipeline execution time (default 300s)
         thread_id: Unique thread ID for checkpointing (auto-generated if None)
-        resume: Resume from last checkpoint if True
+        db_path: Path to SQLite checkpoint database (default ":memory:")
 
     Returns:
         Final PipelineState after execution
@@ -49,8 +51,6 @@ def run_pipeline(
     Raises:
         ValidationError: If input validation fails
     """
-    from uuid import uuid4
-
     # Generate thread ID if not provided
     if thread_id is None:
         thread_id = f"{document_id}-{uuid4().hex[:8]}"
@@ -65,20 +65,8 @@ def run_pipeline(
         log.error(f"Input validation failed: {e}")
         raise
 
-    # Initialize checkpointer
-    checkpointer = get_checkpointer()
-    if checkpointer is None:
-        init_checkpointer()
-        checkpointer = get_checkpointer()
-
-    # Try to resume from checkpoint
-    if resume:
-        log.info(f"Attempting to resume from checkpoint: {thread_id}")
-        final_state = checkpointer.load(thread_id)
-        if final_state:
-            log.info(f"Resumed from checkpoint: {thread_id}")
-            return final_state
-        log.warning(f"No checkpoint found, starting fresh: {thread_id}")
+    # Create checkpointer
+    checkpointer = SqliteCheckpointer(db_path)
 
     # Create initial state
     started_at = time.time()
@@ -98,18 +86,23 @@ def run_pipeline(
         "timeout_seconds": timeout_seconds,
     }
 
-    # Build and run graph
-    graph = build_graph()
+    # Build and compile graph with checkpointer
+    compiled_graph = build_graph(checkpointer=checkpointer)
 
     try:
-        final_state = graph.invoke(initial_state)
+        # Invoke graph with thread_id config
+        # LangGraph will automatically save intermediate checkpoints via the checkpointer
+        final_state = compiled_graph.invoke(
+            initial_state,
+            config={"configurable": {"thread_id": thread_id}},
+        )
 
-        # Save checkpoint on success
-        if checkpointer:
-            checkpointer.save(thread_id, "final", final_state)
-            log.info(f"Checkpoint saved: {thread_id}")
+        # Save final state as a complete snapshot for easy retrieval
+        checkpointer.save(thread_id, "final", final_state)
 
+        log.info(f"Pipeline completed: {thread_id}")
         return final_state
+
     except Exception as e:
         log.error(f"Pipeline execution failed: {e}", exc_info=True)
         # Return error state
@@ -119,28 +112,7 @@ def run_pipeline(
             "error_message": f"Pipeline error: {str(e)}",
             "error_type": type(e).__name__,
         }
-        if checkpointer:
-            checkpointer.save(thread_id, "error", error_state)
         return error_state
-
-
-def run_pipeline_with_checkpoint(document_id: str) -> PipelineState:
-    """Run pipeline with ability to resume from checkpoints.
-
-    This is a template for stateful execution using LangGraph persistence.
-    In production, would integrate with LangGraph's built-in checkpointing.
-
-    Args:
-        document_id: ID of document to process
-
-    Returns:
-        Final PipelineState after execution
-    """
-    # For now, just run normally. In production:
-    # - Use graph.with_config(configurable={...}) for checkpointing
-    # - Store intermediate states in persistent storage
-    # - Allow resumption from any node
-    return run_pipeline(document_id)
 
 
 if __name__ == "__main__":

@@ -10,9 +10,12 @@ from __future__ import annotations
 
 import logging
 from functools import wraps
-from typing import Any, Callable, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
 
 from langgraph.graph import END, StateGraph
+
+if TYPE_CHECKING:
+    from langgraph.checkpoint.base import BaseCheckpointSaver
 
 log = logging.getLogger(__name__)
 
@@ -201,13 +204,14 @@ class StateMachineGraph:
     # GRAPH BUILDING (generic, reusable for all subclasses)
     # ─────────────────────────────────────────────────────────────────────────
 
-    def build_graph(self, state_schema: Any) -> Any:
+    def build_graph(self, state_schema: Any, checkpointer: Optional[Any] = None) -> Any:
         """Build and compile the LangGraph state machine.
 
         Pattern: Router → Guardrail → Handler → (loop or end)
 
         Args:
             state_schema: TypedDict or dict defining the state structure
+            checkpointer: Optional BaseCheckpointSaver for checkpointing
 
         Returns:
             Compiled StateGraph ready for invocation
@@ -242,4 +246,5 @@ class StateMachineGraph:
             else:
                 g.add_edge(state_enum.value, "router")
 
-        return g.compile()
+        # Compile with optional checkpointer
+        return g.compile(checkpointer=checkpointer) if checkpointer else g.compile()

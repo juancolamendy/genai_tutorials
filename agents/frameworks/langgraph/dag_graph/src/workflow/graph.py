@@ -9,9 +9,12 @@ DocumentPipelineGraph inherits from StateMachineGraph and defines:
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from src.engine.graph import StateMachineGraph
+
+if TYPE_CHECKING:
+    from langgraph.checkpoint.base import BaseCheckpointSaver
 
 from .guardrails import GUARDRAILS
 from .handlers import (
@@ -102,10 +105,17 @@ class DocumentPipelineGraph(StateMachineGraph):
         return GUARDRAILS
 
 
-def build_graph() -> Any:
-    """Build and compile the state machine graph."""
+def build_graph(checkpointer: Optional[Any] = None) -> Any:
+    """Build and compile the state machine graph.
+
+    Args:
+        checkpointer: Optional BaseCheckpointSaver for checkpointing
+
+    Returns:
+        Compiled StateGraph ready for invocation
+    """
     graph = DocumentPipelineGraph()
-    return graph.build_graph(PipelineState)
+    return graph.build_graph(PipelineState, checkpointer=checkpointer)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
