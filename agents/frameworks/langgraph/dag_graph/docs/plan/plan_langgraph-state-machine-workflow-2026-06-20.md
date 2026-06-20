@@ -710,7 +710,7 @@ Actually, more carefully:
 
 ## TODO List (Ordered)
 
-- [ ] **Phase 1** — Project Structure & Dependencies
+- [x] **Phase 1** — Project Structure & Dependencies
 - [ ] **Checkpoint 1:** Tests pass, coverage ≥ 80%, guardrails logic reviewed
 - [ ] **Phase 2** — State Machine & Core Data Models
 - [ ] **Phase 3** — Guardrail Framework (High-Risk Safety)
