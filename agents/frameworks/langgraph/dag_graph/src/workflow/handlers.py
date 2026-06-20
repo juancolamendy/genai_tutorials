@@ -149,7 +149,7 @@ def handle_enrich(state: PipelineState) -> PipelineState:
             **state,
             "current_state": State.ENRICH.value,
             "enriched_data": enriched,
-            "audit_trail": _audit(state, f"enrich OK – tags={', '.join(result.tags)}"),
+            "audit_trail": _audit(state, f"enrich OK – tags={', '.join(tags)}"),
         }
     except Exception as e:
         log.error("[HANDLER] enrichment chain error: %s", str(e))
