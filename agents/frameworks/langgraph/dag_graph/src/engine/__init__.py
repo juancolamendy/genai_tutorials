@@ -20,6 +20,10 @@ from .guardrail import (
     check_pipeline_timeout,
     GUARDRAILS,
 )
+from .router import (
+    HAPPY_PATH,
+    router,
+)
 
 __all__ = [
     "State",
@@ -38,4 +42,6 @@ __all__ = [
     "check_fallback_depth",
     "check_pipeline_timeout",
     "GUARDRAILS",
+    "HAPPY_PATH",
+    "router",
 ]

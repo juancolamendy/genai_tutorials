@@ -711,9 +711,9 @@ Actually, more carefully:
 ## TODO List (Ordered)
 
 - [x] **Phase 1** — Project Structure & Dependencies
+- [x] **Phase 2** — State Machine & Core Data Models
+- [x] **Phase 3** — Guardrail Framework (High-Risk Safety)
 - [ ] **Checkpoint 1:** Tests pass, coverage ≥ 80%, guardrails logic reviewed
-- [ ] **Phase 2** — State Machine & Core Data Models
-- [ ] **Phase 3** — Guardrail Framework (High-Risk Safety)
 - [ ] **Phase 4** — Router & Timeout Guards (High-Risk)
 - [ ] **Phase 5** — Handler Architecture & Exception Handling Pattern (High-Risk)
 - [ ] **Phase 6** — Implement Specific Handlers
