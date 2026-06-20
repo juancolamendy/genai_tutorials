@@ -25,7 +25,7 @@ from agno.workflow.types import StepInput, StepOutput
 # variables
 log = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "claude-sonnet-4-6"
+DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 
 # Process-level agent cache — each agent is created once.
 _AGENT_REGISTRY: dict[str, Agent] = {}
