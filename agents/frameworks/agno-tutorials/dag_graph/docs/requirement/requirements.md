@@ -12,6 +12,18 @@
 - **Details**: One-turn execution, no session interruption, runs until COMPLETE or ERROR
 - **Constraint**: Loop runs continuously with max iteration safety cap (20 iterations default)
 
+### Multi-Turn Conversation Support (Future)
+- **Requirement**: System must support multi-turn conversations with user interaction
+- **Details**: Accept user text input per turn; save/restore conversation checkpoints between turns
+- **Turn Types**: Some steps continue immediately (no user input needed); others wait for next user turn
+- **Input**: Each turn includes user input text that affects routing decisions
+
+### Smart Multi-Turn Router (Future)
+- **Requirement**: Router must classify next proposed state given turn input text and saved checkpoints
+- **Details**: Router becomes LLM-powered semantic classifier, not pure-code state machine
+- **Context**: Router input includes current state, turn input text, checkpoint context (conversation history)
+- **Output**: Proposed next state with confidence score
+
 ### Handler Execution Model
 - **Requirement**: Each state must have an associated handler function
 - **Details**: Handler signature: `(state_dict) → state_dict`
@@ -75,6 +87,21 @@
 - **Requirement**: New workflows should be simple to implement
 - **Details**: Subclass base class, implement 5 hook methods, define routing table
 - **Documentation**: Implementation guide with complete examples
+
+### Conversational Latency (Future)
+- **Requirement**: Multi-turn system must respond within sub-1s per turn
+- **Details**: User-acceptable wait time; LLM router call dominates latency budget
+- **Tool**: Prompt caching to reuse conversation context across turns
+
+### Context Window Management (Future)
+- **Requirement**: System must manage conversation history within LLM context limits
+- **Details**: Implement conversation trimming; keep last N turns; summarize older turns if needed
+- **Metric**: Monitor total tokens per turn; stay within 80k token context window
+
+### Turn-Based Checkpoint Efficiency (Future)
+- **Requirement**: Checkpoints must be efficient between turns
+- **Details**: Store incremental changes, not full state; compress checkpoint (last N turns vs all turns)
+- **Impact**: Enables quick resume after network interruption
 
 ## Notes
 
