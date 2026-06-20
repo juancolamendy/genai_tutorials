@@ -121,17 +121,6 @@ def run_pipeline(
             checkpointer.save(thread_id, "error", error_state)
         return error_state
 
-    # Print audit trail
-    print("\n─── Audit Trail ───────────────────────────────────────────")
-    for i, entry in enumerate(final_state["audit_trail"], 1):
-        print(f"  {i:>2}. {entry}")
-    print(f"\n  Final state : {final_state['current_state'].upper()}")
-    if final_state.get("error_message"):
-        print(f"  Error       : {final_state['error_message']}")
-    print("────────────────────────────────────────────────────────────\n")
-
-    return final_state
-
 
 def run_pipeline_with_checkpoint(document_id: str) -> PipelineState:
     """Run pipeline with ability to resume from checkpoints.

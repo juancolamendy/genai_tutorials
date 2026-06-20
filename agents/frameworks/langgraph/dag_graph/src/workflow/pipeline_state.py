@@ -1,5 +1,7 @@
 from typing import TypedDict, Optional, Dict, Any
 
+from .state_machine import State
+
 # ─────────────────────────────────────────────────────────────────────────────
 # PIPELINE STATE
 # ─────────────────────────────────────────────────────────────────────────────
