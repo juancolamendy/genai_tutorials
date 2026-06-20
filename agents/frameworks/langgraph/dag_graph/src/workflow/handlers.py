@@ -1,286 +1,218 @@
 """Handler functions for document processing workflow.
 
-Handler Contract:
-- Input: PipelineState dict
-- Output: Updated PipelineState dict
-- MUST set current_state to own state value
-- MUST catch ALL exceptions (not just specific types)
-- SHOULD set error_type = "transient" or "permanent" on exception
-- MUST log exceptions with exc_info=True for debugging
-- MUST NOT raise exceptions to caller
+Each handler executes business logic for a state and must:
+  1. Read from state dict
+  2. Process the data
+  3. Update state dict with results
+  4. Return the updated state dict
+  5. ALWAYS set current_state to its own state value
 """
 
+from __future__ import annotations
+
 import logging
-from src.workflow.state_machine import State, PipelineState
+import random
+from typing import Any
+
+from .state_machine import State, PipelineState
 
 log = logging.getLogger(__name__)
 
 
-def handle_fetch_template(state: PipelineState) -> PipelineState:
-    """Template handler for FETCH state.
+def _audit(state: PipelineState, msg: str) -> list[str]:
+    """Helper: append audit message to trail."""
+    return state["audit_trail"] + [msg]
 
-    Contract: Fetch document by document_id, populate raw_data.
-    This is a template implementation for testing handler architecture.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HANDLERS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def handle_fetch(state: PipelineState) -> PipelineState:
+    """Fetch document by document_id and populate raw_data.
 
     Args:
         state: PipelineState with document_id set
 
     Returns:
-        Updated PipelineState with current_state set, raw_data populated or
-        error_message/error_type set on exception
+        Updated state with raw_data populated or error info set
     """
-    try:
-        # Simulate document fetch (in real implementation, would call external API)
-        raw_data = {"content": f"Document for {state['document_id']}"}
+    log.info("[HANDLER] fetch  doc_id=%s", state["document_id"])
 
+    # Simulate occasional fetch failures (30% of the time on first attempt)
+    if random.random() < 0.30 and state["retry_count"] == 0:
+        log.warning("[HANDLER] fetch failed – will retry")
         return {
             **state,
             "current_state": State.FETCH.value,
-            "raw_data": raw_data,
-            "error_type": None,
-            "error_message": None,
-        }
-    except TimeoutError as e:
-        log.warning(
-            "[FETCH] transient error (will retry): %s",
-            e,
-            exc_info=True,
-        )
-        return {
-            **state,
-            "current_state": State.FETCH.value,
-            "error_message": str(e),
-            "error_type": "transient",
             "raw_data": None,
-        }
-    except Exception as e:
-        log.error("[FETCH] unexpected exception: %s", e, exc_info=True)
-        return {
-            **state,
-            "current_state": State.FETCH.value,
-            "error_message": f"Unexpected error: {type(e).__name__}",
-            "error_type": "permanent",
-            "raw_data": None,
+            "audit_trail": _audit(state, "fetch FAILED"),
         }
 
+    raw = {
+        "id": state["document_id"],
+        "content": "Lorem ipsum dolor sit amet",
+        "schema_version": "2.1",
+    }
+    return {
+        **state,
+        "current_state": State.FETCH.value,
+        "raw_data": raw,
+        "audit_trail": _audit(state, f"fetch OK  payload_id={raw['id']}"),
+    }
 
-def handle_validate_template(state: PipelineState) -> PipelineState:
-    """Template handler for VALIDATE state.
 
-    Contract: Validate schema of raw_data, populate validated_data.
+def handle_validate(state: PipelineState) -> PipelineState:
+    """Validate schema of raw_data and populate validated_data.
 
     Args:
         state: PipelineState with raw_data set
 
     Returns:
-        Updated PipelineState with validated_data or error info
+        Updated state with validated_data or error info
     """
-    try:
-        # Simulate schema validation
-        validated_data = {
-            "schema_version": "1.0",
-            "content": state.get("raw_data", {}).get("content", ""),
-        }
+    log.info("[HANDLER] validate")
+    raw = state["raw_data"] or {}
 
+    # Require schema_version field
+    if "schema_version" not in raw:
+        log.warning("[HANDLER] validation failed – schema_version missing")
         return {
             **state,
             "current_state": State.VALIDATE.value,
-            "validated_data": validated_data,
-            "error_type": None,
-            "error_message": None,
-        }
-    except Exception as e:
-        log.error("[VALIDATE] unexpected exception: %s", e, exc_info=True)
-        return {
-            **state,
-            "current_state": State.VALIDATE.value,
-            "error_message": f"Unexpected error: {type(e).__name__}",
-            "error_type": "permanent",
             "validated_data": None,
+            "audit_trail": _audit(state, "validate FAILED – schema_version missing"),
         }
 
+    validated = {**raw, "_validated": True}
+    return {
+        **state,
+        "current_state": State.VALIDATE.value,
+        "validated_data": validated,
+        "audit_trail": _audit(state, "validate OK"),
+    }
 
-def handle_enrich_template(state: PipelineState) -> PipelineState:
-    """Template handler for ENRICH state.
 
-    Contract: Add metadata and tags to validated_data, populate enriched_data.
+def handle_enrich(state: PipelineState) -> PipelineState:
+    """Add metadata and tags to validated_data and populate enriched_data.
 
     Args:
         state: PipelineState with validated_data set
 
     Returns:
-        Updated PipelineState with enriched_data or error info
+        Updated state with enriched_data
     """
-    try:
-        # Simulate enrichment (add tags and metadata)
-        enriched_data = {
-            **state.get("validated_data", {}),
-            "tags": ["processed"],
-            "metadata": {
-                "document_id": state["document_id"],
-                "version": "1.0",
-            },
-        }
-
-        return {
-            **state,
-            "current_state": State.ENRICH.value,
-            "enriched_data": enriched_data,
-            "error_type": None,
-            "error_message": None,
-        }
-    except Exception as e:
-        log.error("[ENRICH] unexpected exception: %s", e, exc_info=True)
-        return {
-            **state,
-            "current_state": State.ENRICH.value,
-            "error_message": f"Unexpected error: {type(e).__name__}",
-            "error_type": "permanent",
-            "enriched_data": None,
-        }
+    log.info("[HANDLER] enrich")
+    base = state.get("validated_data") or state.get("raw_data") or {}
+    enriched = {**base, "tags": ["finance", "q3"], "word_count": 42}
+    return {
+        **state,
+        "current_state": State.ENRICH.value,
+        "enriched_data": enriched,
+        "audit_trail": _audit(state, "enrich OK"),
+    }
 
 
-def handle_store_template(state: PipelineState) -> PipelineState:
-    """Template handler for STORE state.
-
-    Contract: Persist enriched_data to database.
+def handle_store(state: PipelineState) -> PipelineState:
+    """Persist enriched_data to database.
 
     Args:
         state: PipelineState with enriched_data set
 
     Returns:
-        Updated PipelineState after persistence
+        Updated state after storage
     """
-    try:
-        # Simulate database write (in real implementation, would call database API)
-        # For testing, just simulate success
-
-        return {
-            **state,
-            "current_state": State.STORE.value,
-            "error_type": None,
-            "error_message": None,
-        }
-    except Exception as e:
-        log.error("[STORE] unexpected exception: %s", e, exc_info=True)
-        return {
-            **state,
-            "current_state": State.STORE.value,
-            "error_message": f"Unexpected error: {type(e).__name__}",
-            "error_type": "permanent",
-        }
+    log.info("[HANDLER] store")
+    # Simulate write to database
+    record_id = state["enriched_data"].get("id", "unknown") if state.get("enriched_data") else "unknown"
+    return {
+        **state,
+        "current_state": State.STORE.value,
+        "audit_trail": _audit(state, f"store OK  record_id={record_id}"),
+    }
 
 
-def handle_retry_template(state: PipelineState) -> PipelineState:
-    """Template handler for RETRY state.
-
-    Contract: Increment retry_count, clear stale raw_data, loop back to router.
+def handle_complete(state: PipelineState) -> PipelineState:
+    """Mark pipeline as complete.
 
     Args:
-        state: PipelineState with error_type set
+        state: PipelineState
 
     Returns:
-        Updated PipelineState with retry_count incremented and raw_data cleared
+        Updated state with COMPLETE status
     """
-    try:
-        new_retry_count = state["retry_count"] + 1
-        assert new_retry_count == state["retry_count"] + 1, "Retry count increment failed"
-
-        return {
-            **state,
-            "current_state": State.RETRY.value,
-            "retry_count": new_retry_count,
-            "raw_data": None,  # Clear stale data
-            "error_type": None,
-            "error_message": None,
-        }
-    except Exception as e:
-        log.error("[RETRY] unexpected exception: %s", e, exc_info=True)
-        return {
-            **state,
-            "current_state": State.RETRY.value,
-            "error_message": f"Unexpected error: {type(e).__name__}",
-            "error_type": "permanent",
-        }
+    log.info("[HANDLER] ✅  pipeline complete for doc_id=%s", state["document_id"])
+    return {
+        **state,
+        "current_state": State.COMPLETE.value,
+        "audit_trail": _audit(state, "COMPLETE"),
+    }
 
 
-def handle_human_review_template(state: PipelineState) -> PipelineState:
-    """Template handler for HUMAN_REVIEW state.
-
-    Contract: Route to human reviewer, simulate auto-approval for demo.
+def handle_retry(state: PipelineState) -> PipelineState:
+    """Increment retry counter and clear stale data.
 
     Args:
-        state: PipelineState requiring manual review
+        state: PipelineState with retry_count
 
     Returns:
-        Updated PipelineState with manual approval (simulated)
+        Updated state with incremented retry_count
     """
-    try:
-        # Simulate human review approval (auto-approve for demo)
-        return {
-            **state,
-            "current_state": State.HUMAN_REVIEW.value,
-            "error_type": None,
-            "error_message": None,
-        }
-    except Exception as e:
-        log.error("[HUMAN_REVIEW] unexpected exception: %s", e, exc_info=True)
-        return {
-            **state,
-            "current_state": State.HUMAN_REVIEW.value,
-            "error_message": f"Unexpected error: {type(e).__name__}",
-            "error_type": "permanent",
-        }
+    new_count = state["retry_count"] + 1
+    log.info("[HANDLER] retry  attempt=%d", new_count)
+    return {
+        **state,
+        "current_state": State.RETRY.value,
+        "retry_count": new_count,
+        "raw_data": None,  # clear stale payload
+        "audit_trail": _audit(state, f"retry #{new_count}"),
+    }
 
 
-def handle_complete_template(state: PipelineState) -> PipelineState:
-    """Template handler for COMPLETE state (terminal).
+def handle_human_review(state: PipelineState) -> PipelineState:
+    """Route document to human review.
 
-    Contract: No-op handler, just mark complete.
+    In production: push to review queue / Slack / ticketing system.
+    Here: auto-approve for demo purposes.
 
     Args:
-        state: PipelineState ready for completion
+        state: PipelineState
 
     Returns:
-        Updated PipelineState with COMPLETE as current_state
+        Updated state with human review result
     """
-    try:
-        return {
-            **state,
-            "current_state": State.COMPLETE.value,
-            "error_type": None,
-            "error_message": None,
-        }
-    except Exception as e:
-        log.error("[COMPLETE] unexpected exception: %s", e, exc_info=True)
-        return {
-            **state,
-            "current_state": State.COMPLETE.value,
-            "error_message": f"Unexpected error: {type(e).__name__}",
-            "error_type": "permanent",
-        }
+    log.warning("[HANDLER] 🔍  document routed to HUMAN_REVIEW  doc_id=%s", state["document_id"])
+
+    # Auto-approve for demo
+    approved_data = {
+        **(state["raw_data"] or {}),
+        "_human_approved": True,
+        "_validated": True,
+    }
+    return {
+        **state,
+        "current_state": State.HUMAN_REVIEW.value,
+        "validated_data": approved_data,
+        "audit_trail": _audit(state, "human_review: auto-approved for demo"),
+    }
 
 
-def handle_error_template(state: PipelineState) -> PipelineState:
-    """Template handler for ERROR state (terminal).
-
-    Contract: No-op handler, just mark error.
+def handle_error(state: PipelineState) -> PipelineState:
+    """Handle pipeline error state.
 
     Args:
-        state: PipelineState in error state
+        state: PipelineState with error_message set
 
     Returns:
-        Updated PipelineState with ERROR as current_state
+        Updated state with ERROR status
     """
-    try:
-        return {
-            **state,
-            "current_state": State.ERROR.value,
-        }
-    except Exception as e:
-        log.error("[ERROR] unexpected exception: %s", e, exc_info=True)
-        return {
-            **state,
-            "current_state": State.ERROR.value,
-            "error_message": f"Unexpected error: {type(e).__name__}",
-        }
+    log.error(
+        "[HANDLER] 🔴  pipeline ERROR  doc_id=%s  reason=%s",
+        state["document_id"],
+        state.get("error_message", "unknown"),
+    )
+    return {
+        **state,
+        "current_state": State.ERROR.value,
+        "audit_trail": _audit(state, f"ERROR: {state.get('error_message', 'unknown')}"),
+    }

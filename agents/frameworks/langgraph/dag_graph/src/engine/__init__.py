@@ -1,47 +1,51 @@
 """LangGraph state machine engine (reusable, domain-agnostic)."""
 
-from .state_machine import (
-    State,
-    PipelineState,
-    GuardrailResult,
-    ALLOWED_TRANSITIONS,
-    is_transition_allowed,
+# Generic engine utilities (framework-agnostic, reusable across projects)
+from .graph import (
+    StateMachineGraph,
+    serialize_session_state,
+    deserialize_to_session_state,
+    safe_node,
+    END,  # re-export for convenience
 )
-from .guardrail import (
-    GuardrailFn,
-    make_guardrail,
-    check_transition_allowed,
-    check_retry_budget_with_error_type,
-    check_raw_data_present,
-    check_validated_data_present,
-    check_enriched_data_present,
-    check_document_size,
-    check_fallback_depth,
-    check_pipeline_timeout,
-    GUARDRAILS,
+from .checkpointing import (
+    SqliteCheckpointer,
+    init_checkpointer,
+    get_checkpointer,
 )
-from .router import (
-    HAPPY_PATH,
-    router,
+from .chain import (
+    make_chain,
+    get_chain,
+    make_llm_chain,
+    render_as_xml,
+)
+from .session import (
+    append_turn,
+    build_history_prompt,
+    get_execution_context,
+    init_session_defaults,
 )
 
+# Note: Domain-specific state machine, handlers, and guardrails are in src/workflow/
+# This module provides only the generic engine utilities for reuse across projects.
+
 __all__ = [
-    "State",
-    "PipelineState",
-    "GuardrailResult",
-    "ALLOWED_TRANSITIONS",
-    "is_transition_allowed",
-    "GuardrailFn",
-    "make_guardrail",
-    "check_transition_allowed",
-    "check_retry_budget_with_error_type",
-    "check_raw_data_present",
-    "check_validated_data_present",
-    "check_enriched_data_present",
-    "check_document_size",
-    "check_fallback_depth",
-    "check_pipeline_timeout",
-    "GUARDRAILS",
-    "HAPPY_PATH",
-    "router",
+    # Generic engine (reusable across projects)
+    "StateMachineGraph",
+    "serialize_session_state",
+    "deserialize_to_session_state",
+    "safe_node",
+    "make_chain",
+    "get_chain",
+    "make_llm_chain",
+    "render_as_xml",
+    "append_turn",
+    "build_history_prompt",
+    "get_execution_context",
+    "init_session_defaults",
+    "END",
+    # Checkpointing
+    "SqliteCheckpointer",
+    "init_checkpointer",
+    "get_checkpointer",
 ]
