@@ -9,23 +9,23 @@ DocumentPipelineGraph inherits from StateMachineGraph and defines:
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict
+from typing import Any, Callable
 
 from src.engine.graph import StateMachineGraph
 
-from .state_machine import State, PipelineState, ALLOWED_TRANSITIONS, is_transition_allowed
 from .guardrails import GUARDRAILS
 from .handlers import (
-    handle_fetch,
-    handle_validate,
-    handle_enrich,
-    handle_store,
-    handle_retry,
-    handle_human_review,
     handle_complete,
+    handle_enrich,
     handle_error,
+    handle_fetch,
+    handle_human_review,
+    handle_retry,
+    handle_store,
+    handle_validate,
 )
-
+from .pipeline_state import PipelineState
+from .state_machine import State
 
 # ─────────────────────────────────────────────────────────────────────────────
 # DOMAIN-SPECIFIC CONFIGURATION
@@ -106,4 +106,26 @@ def build_graph() -> Any:
     """Build and compile the state machine graph."""
     graph = DocumentPipelineGraph()
     return graph.build_graph(PipelineState)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CONVENIENCE FUNCTIONS (backward compatibility)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def router_node(state: PipelineState) -> PipelineState:
+    """Convenience function wrapping DocumentPipelineGraph._router_node."""
+    graph = DocumentPipelineGraph()
+    return graph._router_node(state)
+
+
+def guardrail_node(state: PipelineState) -> PipelineState:
+    """Convenience function wrapping DocumentPipelineGraph._guardrail_node."""
+    graph = DocumentPipelineGraph()
+    return graph._guardrail_node(state)
+
+
+def guardrail_router(state: PipelineState) -> str:
+    """Convenience function wrapping DocumentPipelineGraph._guardrail_router."""
+    graph = DocumentPipelineGraph()
+    return graph._guardrail_router(state)
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 log = logging.getLogger(__name__)
 
@@ -53,8 +53,9 @@ class DocumentValidator:
             )
 
         if not re.match(DocumentValidator.DOCUMENT_ID_PATTERN, doc_id):
+            pattern = DocumentValidator.DOCUMENT_ID_PATTERN
             raise ValidationError(
-                f"Document ID contains invalid characters. Pattern: {DocumentValidator.DOCUMENT_ID_PATTERN}"
+                f"Document ID contains invalid characters. Pattern: {pattern}"
             )
 
         return doc_id
@@ -79,9 +80,10 @@ class DocumentValidator:
         try:
             content_json = json.dumps(content)
             size_bytes = len(content_json.encode("utf-8"))
-            if size_bytes > DocumentValidator.MAX_CONTENT_SIZE_BYTES:
+            max_size = DocumentValidator.MAX_CONTENT_SIZE_BYTES
+            if size_bytes > max_size:
                 raise ValidationError(
-                    f"Content too large ({size_bytes} > {DocumentValidator.MAX_CONTENT_SIZE_BYTES} bytes)"
+                    f"Content too large ({size_bytes} > {max_size} bytes)"
                 )
         except TypeError as e:
             raise ValidationError(f"Content is not JSON serializable: {e}")
@@ -125,7 +127,9 @@ class DocumentValidator:
         return retry_count
 
     @staticmethod
-    def validate_timeout(timeout_seconds: float, min_timeout: float = 1, max_timeout: float = 86400) -> float:
+    def validate_timeout(
+        timeout_seconds: float, min_timeout: float = 1, max_timeout: float = 86400
+    ) -> float:
         """Validate timeout value.
 
         Args:

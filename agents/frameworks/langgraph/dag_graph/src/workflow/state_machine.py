@@ -5,12 +5,8 @@ Defines states, allowed transitions, and state types for the workflow.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Optional, Set
-
-from typing_extensions import TypedDict
-
+from typing import Dict, Set
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STATE ENUMERATION

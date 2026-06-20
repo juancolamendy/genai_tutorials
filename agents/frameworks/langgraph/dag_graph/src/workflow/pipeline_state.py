@@ -1,4 +1,4 @@
-from typing import TypedDict, Optional, Dict, Any
+from typing import Any, Dict, Optional, TypedDict
 
 from .state_machine import State
 

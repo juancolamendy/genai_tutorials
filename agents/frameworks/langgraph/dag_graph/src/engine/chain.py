@@ -11,10 +11,14 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Optional, Type
 
-from pydantic import BaseModel
+from dotenv import load_dotenv
 from langchain_anthropic import ChatAnthropic
+from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
+from pydantic import BaseModel
+
+# Load environment variables from .env file
+load_dotenv()
 
 log = logging.getLogger(__name__)
 
@@ -33,9 +37,12 @@ PromptBuilder = Callable[[dict[str, Any]], str]
 
 def _get_llm(model_id: str = DEFAULT_MODEL) -> ChatAnthropic:
     """Get or create a cached ChatAnthropic instance."""
+    import os
+
     global _llm
     if _llm is None:
-        _llm = ChatAnthropic(model=model_id)
+        # ChatAnthropic will automatically use ANTHROPIC_API_KEY from environment
+        _llm = ChatAnthropic(model=model_id, api_key=os.getenv("ANTHROPIC_API_KEY"))
     return _llm
 
 

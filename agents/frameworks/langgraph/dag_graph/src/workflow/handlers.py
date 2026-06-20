@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import logging
 import random
-from typing import Any
 
-from .state_machine import State, PipelineState
+from .pipeline_state import PipelineState
+from .state_machine import State
 
 log = logging.getLogger(__name__)
 
@@ -80,21 +80,27 @@ def handle_validate(state: PipelineState) -> PipelineState:
         # Invoke the validation chain
         result = VALIDATE_CHAIN.invoke({"input": str(raw)})
 
-        if result.is_valid:
-            validated = {**result.sanitized_data, "_validated": True}
+        # Handle dict result from JsonOutputParser
+        is_valid = result.get("is_valid", False) if isinstance(result, dict) else result.is_valid
+        sanitized = result.get("sanitized_data", {}) if isinstance(result, dict) else result.sanitized_data
+        issues = result.get("issues", []) if isinstance(result, dict) else result.issues
+
+        if is_valid:
+            validated = {**sanitized, "_validated": True}
+            msg = f"validate OK – {'; '.join(issues) if issues else 'no issues'}"
             return {
                 **state,
                 "current_state": State.VALIDATE.value,
                 "validated_data": validated,
-                "audit_trail": _audit(state, f"validate OK – {'; '.join(result.issues) if result.issues else 'no issues'}"),
+                "audit_trail": _audit(state, msg),
             }
         else:
-            log.warning("[HANDLER] validation failed – %s", "; ".join(result.issues))
+            log.warning("[HANDLER] validation failed – %s", "; ".join(issues))
             return {
                 **state,
                 "current_state": State.VALIDATE.value,
                 "validated_data": None,
-                "audit_trail": _audit(state, f"validate FAILED – {'; '.join(result.issues)}"),
+                "audit_trail": _audit(state, f"validate FAILED – {'; '.join(issues)}"),
             }
     except Exception as e:
         log.error("[HANDLER] validation chain error: %s", str(e))
@@ -124,13 +130,20 @@ def handle_enrich(state: PipelineState) -> PipelineState:
         # Invoke the enrichment chain
         result = ENRICH_CHAIN.invoke({"input": str(base)})
 
+        # Handle dict result from JsonOutputParser
+        tags = result.get("tags", []) if isinstance(result, dict) else result.tags
+        summary = result.get("summary", "") if isinstance(result, dict) else result.summary
+        word_count = result.get("word_count", 0) if isinstance(result, dict) else result.word_count
+        language = result.get("language", "en") if isinstance(result, dict) else result.language
+        metadata = result.get("metadata", {}) if isinstance(result, dict) else result.metadata
+
         enriched = {
             **base,
-            "tags": result.tags,
-            "summary": result.summary,
-            "word_count": result.word_count,
-            "language": result.language,
-            "metadata": result.metadata,
+            "tags": tags,
+            "summary": summary,
+            "word_count": word_count,
+            "language": language,
+            "metadata": metadata,
         }
         return {
             **state,
@@ -161,7 +174,8 @@ def handle_store(state: PipelineState) -> PipelineState:
     """
     log.info("[HANDLER] store")
     # Simulate write to database
-    record_id = state["enriched_data"].get("id", "unknown") if state.get("enriched_data") else "unknown"
+    enriched = state.get("enriched_data")
+    record_id = enriched.get("id", "unknown") if enriched else "unknown"
     return {
         **state,
         "current_state": State.STORE.value,
@@ -224,25 +238,32 @@ def handle_human_review(state: PipelineState) -> PipelineState:
         # Invoke the review chain
         result = REVIEW_CHAIN.invoke({"input": str(raw)})
 
-        if result.approved:
+        # Handle dict result from JsonOutputParser
+        approved = result.get("approved", False) if isinstance(result, dict) else result.approved
+        fixed_data = result.get("fixed_data", {}) if isinstance(result, dict) else result.fixed_data
+        reviewer_note = result.get("reviewer_note", "") if isinstance(result, dict) else result.reviewer_note
+
+        if approved:
             approved_data = {
-                **(result.fixed_data or raw),
+                **(fixed_data or raw),
                 "_human_approved": True,
                 "_validated": True,
             }
+            msg = f"human_review: APPROVED – {reviewer_note[:50]}"
             return {
                 **state,
                 "current_state": State.HUMAN_REVIEW.value,
                 "validated_data": approved_data,
-                "audit_trail": _audit(state, f"human_review: APPROVED – {result.reviewer_note[:50]}"),
+                "audit_trail": _audit(state, msg),
             }
         else:
-            log.warning("[HANDLER] human_review REJECTED: %s", result.reviewer_note)
+            log.warning("[HANDLER] human_review REJECTED: %s", reviewer_note)
+            msg = f"human_review: REJECTED – {reviewer_note[:50]}"
             return {
                 **state,
                 "current_state": State.HUMAN_REVIEW.value,
                 "validated_data": None,
-                "audit_trail": _audit(state, f"human_review: REJECTED – {result.reviewer_note[:50]}"),
+                "audit_trail": _audit(state, msg),
             }
     except Exception as e:
         log.error("[HANDLER] review chain error: %s", str(e))

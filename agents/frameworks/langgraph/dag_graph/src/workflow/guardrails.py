@@ -7,10 +7,12 @@ to a fallback state if the check fails (e.g., RETRY, HUMAN_REVIEW, ERROR).
 from __future__ import annotations
 
 import time
-from typing import Callable, Dict
+from typing import Dict
 
-from src.engine.guardrail import make_guardrail
-from .state_machine import State, PipelineState, GuardrailResult, is_transition_allowed
+from src.engine.guardrail import GuardrailFn, GuardrailResult, make_guardrail
+
+from .pipeline_state import PipelineState
+from .state_machine import State, is_transition_allowed
 
 # ─────────────────────────────────────────────────────────────────────────────
 # INDIVIDUAL CHECKS

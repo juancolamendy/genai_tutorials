@@ -9,7 +9,6 @@ import json
 import logging
 import sqlite3
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Optional
 
 log = logging.getLogger(__name__)
@@ -192,7 +191,8 @@ class SqliteCheckpointer:
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.execute(
-                    "SELECT checkpoint_id FROM checkpoints WHERE thread_id = ? ORDER BY created_at DESC",
+                    "SELECT checkpoint_id FROM checkpoints "
+                    "WHERE thread_id = ? ORDER BY created_at DESC",
                     (thread_id,),
                 )
                 return [row[0] for row in cursor.fetchall()]

@@ -4423,5 +4423,1480 @@
     "created_at": 1781989912,
     "updated_at": 1781989912,
     "session_type": "workflow"
+  },
+  {
+    "session_id": "8f8e074d-30a5-43ba-a8d4-3aac8672a181",
+    "user_id": null,
+    "workflow_id": "docpipelineworkflow",
+    "workflow_name": null,
+    "runs": [
+      {
+        "input": "DOC-20240619-001",
+        "content": {
+          "current_state": "complete"
+        },
+        "content_type": "str",
+        "workflow_id": "docpipelineworkflow",
+        "workflow_name": "DocPipelineWorkflow",
+        "run_id": "4740a5b9-2a15-4239-aa97-35288152e4f2",
+        "session_id": "8f8e074d-30a5-43ba-a8d4-3aac8672a181",
+        "created_at": 1781991599,
+        "status": "COMPLETED",
+        "images": [],
+        "videos": [],
+        "audio": [],
+        "step_results": [
+          {
+            "content": "Loop StateMachineLoop completed 5 iterations with 15 total steps",
+            "step_name": "StateMachineLoop",
+            "step_id": "89d18124-e72e-4513-aebe-a4f5782f455c",
+            "step_type": "Loop",
+            "executor_type": null,
+            "executor_name": null,
+            "step_run_id": null,
+            "images": null,
+            "videos": null,
+            "audio": null,
+            "metrics": null,
+            "success": true,
+            "error": null,
+            "stop": false,
+            "files": null,
+            "steps": [
+              {
+                "content": {
+                  "proposed_next": "fetch"
+                },
+                "step_name": "Router",
+                "step_id": "b184861a-5890-4693-b744-ca3bf5185265",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_router_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": {
+                  "guardrail_ok": true,
+                  "proposed_next": "fetch"
+                },
+                "step_name": "Guardrail",
+                "step_id": "ff6cff68-60fc-445a-a526-053319ffc1cd",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_guardrail_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": "Router DispatchHandler completed with 1 results",
+                "step_name": "DispatchHandler",
+                "step_id": "6a67a827-7c2a-4b27-825f-790f53811cad",
+                "step_type": "Router",
+                "executor_type": null,
+                "executor_name": null,
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null,
+                "steps": [
+                  {
+                    "content": {
+                      "current_state": "fetch"
+                    },
+                    "step_name": "FetchHandler",
+                    "step_id": "4576ced9-afd3-47df-961a-e501ef019e45",
+                    "step_type": "Step",
+                    "executor_type": "function",
+                    "executor_name": "_executor",
+                    "step_run_id": null,
+                    "images": null,
+                    "videos": null,
+                    "audio": null,
+                    "metrics": null,
+                    "success": true,
+                    "error": null,
+                    "stop": false,
+                    "files": null
+                  }
+                ]
+              },
+              {
+                "content": {
+                  "proposed_next": "validate"
+                },
+                "step_name": "Router",
+                "step_id": "b184861a-5890-4693-b744-ca3bf5185265",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_router_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": {
+                  "guardrail_ok": true,
+                  "proposed_next": "validate"
+                },
+                "step_name": "Guardrail",
+                "step_id": "ff6cff68-60fc-445a-a526-053319ffc1cd",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_guardrail_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": "Router DispatchHandler completed with 1 results",
+                "step_name": "DispatchHandler",
+                "step_id": "07c6a075-b703-439d-b1bc-3b52ba4224e9",
+                "step_type": "Router",
+                "executor_type": null,
+                "executor_name": null,
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null,
+                "steps": [
+                  {
+                    "content": {
+                      "current_state": "validate"
+                    },
+                    "step_name": "ValidateHandler",
+                    "step_id": "385db894-ab4b-4ae8-b979-fe02cfbad17f",
+                    "step_type": "Step",
+                    "executor_type": "function",
+                    "executor_name": "_executor",
+                    "step_run_id": null,
+                    "images": null,
+                    "videos": null,
+                    "audio": null,
+                    "metrics": null,
+                    "success": true,
+                    "error": null,
+                    "stop": false,
+                    "files": null
+                  }
+                ]
+              },
+              {
+                "content": {
+                  "proposed_next": "enrich"
+                },
+                "step_name": "Router",
+                "step_id": "b184861a-5890-4693-b744-ca3bf5185265",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_router_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": {
+                  "guardrail_ok": true,
+                  "proposed_next": "enrich"
+                },
+                "step_name": "Guardrail",
+                "step_id": "ff6cff68-60fc-445a-a526-053319ffc1cd",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_guardrail_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": "Router DispatchHandler completed with 1 results",
+                "step_name": "DispatchHandler",
+                "step_id": "b1d094c8-154a-4bee-9414-c980ef7d5947",
+                "step_type": "Router",
+                "executor_type": null,
+                "executor_name": null,
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null,
+                "steps": [
+                  {
+                    "content": {
+                      "current_state": "enrich"
+                    },
+                    "step_name": "EnrichHandler",
+                    "step_id": "60c0ad55-b662-47aa-9255-3b7e6cbe7c9a",
+                    "step_type": "Step",
+                    "executor_type": "function",
+                    "executor_name": "_executor",
+                    "step_run_id": null,
+                    "images": null,
+                    "videos": null,
+                    "audio": null,
+                    "metrics": null,
+                    "success": true,
+                    "error": null,
+                    "stop": false,
+                    "files": null
+                  }
+                ]
+              },
+              {
+                "content": {
+                  "proposed_next": "store"
+                },
+                "step_name": "Router",
+                "step_id": "b184861a-5890-4693-b744-ca3bf5185265",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_router_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": {
+                  "guardrail_ok": true,
+                  "proposed_next": "store"
+                },
+                "step_name": "Guardrail",
+                "step_id": "ff6cff68-60fc-445a-a526-053319ffc1cd",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_guardrail_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": "Router DispatchHandler completed with 1 results",
+                "step_name": "DispatchHandler",
+                "step_id": "c93de363-7ca7-4802-9b46-09c5960740b4",
+                "step_type": "Router",
+                "executor_type": null,
+                "executor_name": null,
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null,
+                "steps": [
+                  {
+                    "content": {
+                      "current_state": "store"
+                    },
+                    "step_name": "StoreHandler",
+                    "step_id": "e2a89a28-a62d-4eb9-a293-6f49c5d7adca",
+                    "step_type": "Step",
+                    "executor_type": "function",
+                    "executor_name": "_executor",
+                    "step_run_id": null,
+                    "images": null,
+                    "videos": null,
+                    "audio": null,
+                    "metrics": null,
+                    "success": true,
+                    "error": null,
+                    "stop": false,
+                    "files": null
+                  }
+                ]
+              },
+              {
+                "content": {
+                  "proposed_next": "complete"
+                },
+                "step_name": "Router",
+                "step_id": "b184861a-5890-4693-b744-ca3bf5185265",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_router_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": {
+                  "guardrail_ok": true,
+                  "proposed_next": "complete"
+                },
+                "step_name": "Guardrail",
+                "step_id": "ff6cff68-60fc-445a-a526-053319ffc1cd",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_guardrail_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": "Router DispatchHandler completed with 1 results",
+                "step_name": "DispatchHandler",
+                "step_id": "d147c7ad-7707-4cef-a49f-452c2c5bd0d1",
+                "step_type": "Router",
+                "executor_type": null,
+                "executor_name": null,
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null,
+                "steps": [
+                  {
+                    "content": {
+                      "current_state": "complete"
+                    },
+                    "step_name": "CompleteHandler",
+                    "step_id": "1436c39c-4f04-4e68-b69e-6ab035391701",
+                    "step_type": "Step",
+                    "executor_type": "function",
+                    "executor_name": "_executor",
+                    "step_run_id": null,
+                    "images": null,
+                    "videos": null,
+                    "audio": null,
+                    "metrics": null,
+                    "success": true,
+                    "error": null,
+                    "stop": false,
+                    "files": null
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "metrics": {
+          "steps": {},
+          "duration": 3.5515612920280546
+        }
+      }
+    ],
+    "session_data": {
+      "session_state": {
+        "current_state": "init",
+        "proposed_next": "fetch",
+        "guardrail_ok": true,
+        "retry_count": 0,
+        "error_message": null,
+        "audit_trail": [
+          "init  doc_id=DOC-20240619-001"
+        ],
+        "document_id": "DOC-20240619-001",
+        "raw_data": null,
+        "validated_data": null,
+        "enriched_data": null
+      },
+      "session_metrics": {}
+    },
+    "workflow_data": {
+      "workflow_id": "docpipelineworkflow",
+      "name": "DocPipelineWorkflow",
+      "steps": [
+        {
+          "name": "StateMachineLoop",
+          "description": null,
+          "type": "Loop"
+        }
+      ]
+    },
+    "metadata": {},
+    "created_at": 1781991599,
+    "updated_at": 1781991599,
+    "session_type": "workflow"
+  },
+  {
+    "session_id": "cda09a9a-b70c-4124-b4ff-c4980159af4f",
+    "user_id": null,
+    "workflow_id": "docpipelineworkflow",
+    "workflow_name": null,
+    "runs": [
+      {
+        "input": "DOC-20240619-002",
+        "content": {
+          "current_state": "complete"
+        },
+        "content_type": "str",
+        "workflow_id": "docpipelineworkflow",
+        "workflow_name": "DocPipelineWorkflow",
+        "run_id": "ed526abf-bd16-4387-8a3b-833e83fbf326",
+        "session_id": "cda09a9a-b70c-4124-b4ff-c4980159af4f",
+        "created_at": 1781991603,
+        "status": "COMPLETED",
+        "images": [],
+        "videos": [],
+        "audio": [],
+        "step_results": [
+          {
+            "content": "Loop StateMachineLoop completed 5 iterations with 15 total steps",
+            "step_name": "StateMachineLoop",
+            "step_id": "49e1cd6a-81e8-49d4-93f5-e0ac8dcb2250",
+            "step_type": "Loop",
+            "executor_type": null,
+            "executor_name": null,
+            "step_run_id": null,
+            "images": null,
+            "videos": null,
+            "audio": null,
+            "metrics": null,
+            "success": true,
+            "error": null,
+            "stop": false,
+            "files": null,
+            "steps": [
+              {
+                "content": {
+                  "proposed_next": "fetch"
+                },
+                "step_name": "Router",
+                "step_id": "84217bc9-3c72-465d-b14e-6cf9ad4083f0",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_router_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": {
+                  "guardrail_ok": true,
+                  "proposed_next": "fetch"
+                },
+                "step_name": "Guardrail",
+                "step_id": "348045e8-a164-4344-9ee5-5b49579cc288",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_guardrail_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": "Router DispatchHandler completed with 1 results",
+                "step_name": "DispatchHandler",
+                "step_id": "e4c3608f-938d-43fa-9062-519493d42449",
+                "step_type": "Router",
+                "executor_type": null,
+                "executor_name": null,
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null,
+                "steps": [
+                  {
+                    "content": {
+                      "current_state": "fetch"
+                    },
+                    "step_name": "FetchHandler",
+                    "step_id": "ae6fb433-5587-471b-a4a4-ddba9b84cdb3",
+                    "step_type": "Step",
+                    "executor_type": "function",
+                    "executor_name": "_executor",
+                    "step_run_id": null,
+                    "images": null,
+                    "videos": null,
+                    "audio": null,
+                    "metrics": null,
+                    "success": true,
+                    "error": null,
+                    "stop": false,
+                    "files": null
+                  }
+                ]
+              },
+              {
+                "content": {
+                  "proposed_next": "validate"
+                },
+                "step_name": "Router",
+                "step_id": "84217bc9-3c72-465d-b14e-6cf9ad4083f0",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_router_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": {
+                  "guardrail_ok": true,
+                  "proposed_next": "validate"
+                },
+                "step_name": "Guardrail",
+                "step_id": "348045e8-a164-4344-9ee5-5b49579cc288",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_guardrail_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": "Router DispatchHandler completed with 1 results",
+                "step_name": "DispatchHandler",
+                "step_id": "0a41cf8d-886f-4a78-92a0-bc63971cbd40",
+                "step_type": "Router",
+                "executor_type": null,
+                "executor_name": null,
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null,
+                "steps": [
+                  {
+                    "content": {
+                      "current_state": "validate"
+                    },
+                    "step_name": "ValidateHandler",
+                    "step_id": "b54a3630-b60f-4317-8831-c250a25a0617",
+                    "step_type": "Step",
+                    "executor_type": "function",
+                    "executor_name": "_executor",
+                    "step_run_id": null,
+                    "images": null,
+                    "videos": null,
+                    "audio": null,
+                    "metrics": null,
+                    "success": true,
+                    "error": null,
+                    "stop": false,
+                    "files": null
+                  }
+                ]
+              },
+              {
+                "content": {
+                  "proposed_next": "enrich"
+                },
+                "step_name": "Router",
+                "step_id": "84217bc9-3c72-465d-b14e-6cf9ad4083f0",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_router_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": {
+                  "guardrail_ok": true,
+                  "proposed_next": "enrich"
+                },
+                "step_name": "Guardrail",
+                "step_id": "348045e8-a164-4344-9ee5-5b49579cc288",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_guardrail_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": "Router DispatchHandler completed with 1 results",
+                "step_name": "DispatchHandler",
+                "step_id": "361eccd7-99a2-42fa-a762-16fa018099f8",
+                "step_type": "Router",
+                "executor_type": null,
+                "executor_name": null,
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null,
+                "steps": [
+                  {
+                    "content": {
+                      "current_state": "enrich"
+                    },
+                    "step_name": "EnrichHandler",
+                    "step_id": "3c5c382a-0a89-44fa-b1e5-9cc6a8b720c9",
+                    "step_type": "Step",
+                    "executor_type": "function",
+                    "executor_name": "_executor",
+                    "step_run_id": null,
+                    "images": null,
+                    "videos": null,
+                    "audio": null,
+                    "metrics": null,
+                    "success": true,
+                    "error": null,
+                    "stop": false,
+                    "files": null
+                  }
+                ]
+              },
+              {
+                "content": {
+                  "proposed_next": "store"
+                },
+                "step_name": "Router",
+                "step_id": "84217bc9-3c72-465d-b14e-6cf9ad4083f0",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_router_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": {
+                  "guardrail_ok": true,
+                  "proposed_next": "store"
+                },
+                "step_name": "Guardrail",
+                "step_id": "348045e8-a164-4344-9ee5-5b49579cc288",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_guardrail_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": "Router DispatchHandler completed with 1 results",
+                "step_name": "DispatchHandler",
+                "step_id": "cd880173-a36b-4673-b98d-c15d2ace5ac2",
+                "step_type": "Router",
+                "executor_type": null,
+                "executor_name": null,
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null,
+                "steps": [
+                  {
+                    "content": {
+                      "current_state": "store"
+                    },
+                    "step_name": "StoreHandler",
+                    "step_id": "75f55057-bba3-42d2-8267-7cc6a1b57cff",
+                    "step_type": "Step",
+                    "executor_type": "function",
+                    "executor_name": "_executor",
+                    "step_run_id": null,
+                    "images": null,
+                    "videos": null,
+                    "audio": null,
+                    "metrics": null,
+                    "success": true,
+                    "error": null,
+                    "stop": false,
+                    "files": null
+                  }
+                ]
+              },
+              {
+                "content": {
+                  "proposed_next": "complete"
+                },
+                "step_name": "Router",
+                "step_id": "84217bc9-3c72-465d-b14e-6cf9ad4083f0",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_router_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": {
+                  "guardrail_ok": true,
+                  "proposed_next": "complete"
+                },
+                "step_name": "Guardrail",
+                "step_id": "348045e8-a164-4344-9ee5-5b49579cc288",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_guardrail_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": "Router DispatchHandler completed with 1 results",
+                "step_name": "DispatchHandler",
+                "step_id": "0a03fc74-1357-4ac6-9be0-275377444c1c",
+                "step_type": "Router",
+                "executor_type": null,
+                "executor_name": null,
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null,
+                "steps": [
+                  {
+                    "content": {
+                      "current_state": "complete"
+                    },
+                    "step_name": "CompleteHandler",
+                    "step_id": "b2b0ca6c-dd2e-4b8a-b28a-46a6f704543a",
+                    "step_type": "Step",
+                    "executor_type": "function",
+                    "executor_name": "_executor",
+                    "step_run_id": null,
+                    "images": null,
+                    "videos": null,
+                    "audio": null,
+                    "metrics": null,
+                    "success": true,
+                    "error": null,
+                    "stop": false,
+                    "files": null
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "metrics": {
+          "steps": {},
+          "duration": 2.2659104170743376
+        }
+      }
+    ],
+    "session_data": {
+      "session_state": {
+        "current_state": "init",
+        "proposed_next": "fetch",
+        "guardrail_ok": true,
+        "retry_count": 0,
+        "error_message": null,
+        "audit_trail": [
+          "init  doc_id=DOC-20240619-002"
+        ],
+        "document_id": "DOC-20240619-002",
+        "raw_data": null,
+        "validated_data": null,
+        "enriched_data": null
+      },
+      "session_metrics": {}
+    },
+    "workflow_data": {
+      "workflow_id": "docpipelineworkflow",
+      "name": "DocPipelineWorkflow",
+      "steps": [
+        {
+          "name": "StateMachineLoop",
+          "description": null,
+          "type": "Loop"
+        }
+      ]
+    },
+    "metadata": {},
+    "created_at": 1781991603,
+    "updated_at": 1781991603,
+    "session_type": "workflow"
+  },
+  {
+    "session_id": "862c3bbe-0810-4d63-8fae-e0d9e94cc595",
+    "user_id": null,
+    "workflow_id": "docpipelineworkflow",
+    "workflow_name": null,
+    "runs": [
+      {
+        "input": "DOC-20240619-003",
+        "content": {
+          "current_state": "complete"
+        },
+        "content_type": "str",
+        "workflow_id": "docpipelineworkflow",
+        "workflow_name": "DocPipelineWorkflow",
+        "run_id": "f5e015be-d134-4ad9-bb6e-4b1e800d90de",
+        "session_id": "862c3bbe-0810-4d63-8fae-e0d9e94cc595",
+        "created_at": 1781991606,
+        "status": "COMPLETED",
+        "images": [],
+        "videos": [],
+        "audio": [],
+        "step_results": [
+          {
+            "content": "Loop StateMachineLoop completed 6 iterations with 18 total steps",
+            "step_name": "StateMachineLoop",
+            "step_id": "880c51c0-aa4b-411c-897d-c6bbbe4b1767",
+            "step_type": "Loop",
+            "executor_type": null,
+            "executor_name": null,
+            "step_run_id": null,
+            "images": null,
+            "videos": null,
+            "audio": null,
+            "metrics": null,
+            "success": true,
+            "error": null,
+            "stop": false,
+            "files": null,
+            "steps": [
+              {
+                "content": {
+                  "proposed_next": "fetch"
+                },
+                "step_name": "Router",
+                "step_id": "adb7479e-cdfd-4d38-9973-42f572ca3cd7",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_router_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": {
+                  "guardrail_ok": true,
+                  "proposed_next": "fetch"
+                },
+                "step_name": "Guardrail",
+                "step_id": "c725214f-c026-441a-95d6-75658e3f4401",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_guardrail_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": "Router DispatchHandler completed with 1 results",
+                "step_name": "DispatchHandler",
+                "step_id": "ac6c8c37-b536-43a7-8302-1a01d199af99",
+                "step_type": "Router",
+                "executor_type": null,
+                "executor_name": null,
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null,
+                "steps": [
+                  {
+                    "content": {
+                      "current_state": "fetch"
+                    },
+                    "step_name": "FetchHandler",
+                    "step_id": "387fdd60-c047-41a8-95d8-97a4aec02b2a",
+                    "step_type": "Step",
+                    "executor_type": "function",
+                    "executor_name": "_executor",
+                    "step_run_id": null,
+                    "images": null,
+                    "videos": null,
+                    "audio": null,
+                    "metrics": null,
+                    "success": true,
+                    "error": null,
+                    "stop": false,
+                    "files": null
+                  }
+                ]
+              },
+              {
+                "content": {
+                  "proposed_next": "validate"
+                },
+                "step_name": "Router",
+                "step_id": "adb7479e-cdfd-4d38-9973-42f572ca3cd7",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_router_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": {
+                  "guardrail_ok": true,
+                  "proposed_next": "validate"
+                },
+                "step_name": "Guardrail",
+                "step_id": "c725214f-c026-441a-95d6-75658e3f4401",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_guardrail_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": "Router DispatchHandler completed with 1 results",
+                "step_name": "DispatchHandler",
+                "step_id": "85907b8b-8a58-4bff-b83d-0f2f4beb623d",
+                "step_type": "Router",
+                "executor_type": null,
+                "executor_name": null,
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null,
+                "steps": [
+                  {
+                    "content": {
+                      "current_state": "validate"
+                    },
+                    "step_name": "ValidateHandler",
+                    "step_id": "2e5ed435-a0b6-469e-9717-8990060ba9fc",
+                    "step_type": "Step",
+                    "executor_type": "function",
+                    "executor_name": "_executor",
+                    "step_run_id": null,
+                    "images": null,
+                    "videos": null,
+                    "audio": null,
+                    "metrics": null,
+                    "success": true,
+                    "error": null,
+                    "stop": false,
+                    "files": null
+                  }
+                ]
+              },
+              {
+                "content": {
+                  "proposed_next": "enrich"
+                },
+                "step_name": "Router",
+                "step_id": "adb7479e-cdfd-4d38-9973-42f572ca3cd7",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_router_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": {
+                  "guardrail_ok": false,
+                  "proposed_next": "human_review"
+                },
+                "step_name": "Guardrail",
+                "step_id": "c725214f-c026-441a-95d6-75658e3f4401",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_guardrail_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": "Router DispatchHandler completed with 1 results",
+                "step_name": "DispatchHandler",
+                "step_id": "1eceaaba-394d-4ede-9855-88aad4c57916",
+                "step_type": "Router",
+                "executor_type": null,
+                "executor_name": null,
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null,
+                "steps": [
+                  {
+                    "content": {
+                      "current_state": "human_review"
+                    },
+                    "step_name": "HumanReviewHandler",
+                    "step_id": "e5e28d67-0804-45f8-8489-7227d33ad294",
+                    "step_type": "Step",
+                    "executor_type": "function",
+                    "executor_name": "_executor",
+                    "step_run_id": null,
+                    "images": null,
+                    "videos": null,
+                    "audio": null,
+                    "metrics": null,
+                    "success": true,
+                    "error": null,
+                    "stop": false,
+                    "files": null
+                  }
+                ]
+              },
+              {
+                "content": {
+                  "proposed_next": "enrich"
+                },
+                "step_name": "Router",
+                "step_id": "adb7479e-cdfd-4d38-9973-42f572ca3cd7",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_router_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": {
+                  "guardrail_ok": true,
+                  "proposed_next": "enrich"
+                },
+                "step_name": "Guardrail",
+                "step_id": "c725214f-c026-441a-95d6-75658e3f4401",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_guardrail_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": "Router DispatchHandler completed with 1 results",
+                "step_name": "DispatchHandler",
+                "step_id": "18ba36da-7b73-4080-81bd-c3f41da01fb4",
+                "step_type": "Router",
+                "executor_type": null,
+                "executor_name": null,
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null,
+                "steps": [
+                  {
+                    "content": {
+                      "current_state": "enrich"
+                    },
+                    "step_name": "EnrichHandler",
+                    "step_id": "7deb0473-8d15-43ef-9f39-9db49054dc3a",
+                    "step_type": "Step",
+                    "executor_type": "function",
+                    "executor_name": "_executor",
+                    "step_run_id": null,
+                    "images": null,
+                    "videos": null,
+                    "audio": null,
+                    "metrics": null,
+                    "success": true,
+                    "error": null,
+                    "stop": false,
+                    "files": null
+                  }
+                ]
+              },
+              {
+                "content": {
+                  "proposed_next": "store"
+                },
+                "step_name": "Router",
+                "step_id": "adb7479e-cdfd-4d38-9973-42f572ca3cd7",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_router_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": {
+                  "guardrail_ok": true,
+                  "proposed_next": "store"
+                },
+                "step_name": "Guardrail",
+                "step_id": "c725214f-c026-441a-95d6-75658e3f4401",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_guardrail_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": "Router DispatchHandler completed with 1 results",
+                "step_name": "DispatchHandler",
+                "step_id": "683fb597-a43b-4535-bc5b-88b9d9dfcd2e",
+                "step_type": "Router",
+                "executor_type": null,
+                "executor_name": null,
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null,
+                "steps": [
+                  {
+                    "content": {
+                      "current_state": "store"
+                    },
+                    "step_name": "StoreHandler",
+                    "step_id": "5ef13ed4-0c33-441e-b861-0ee8a2dfced8",
+                    "step_type": "Step",
+                    "executor_type": "function",
+                    "executor_name": "_executor",
+                    "step_run_id": null,
+                    "images": null,
+                    "videos": null,
+                    "audio": null,
+                    "metrics": null,
+                    "success": true,
+                    "error": null,
+                    "stop": false,
+                    "files": null
+                  }
+                ]
+              },
+              {
+                "content": {
+                  "proposed_next": "complete"
+                },
+                "step_name": "Router",
+                "step_id": "adb7479e-cdfd-4d38-9973-42f572ca3cd7",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_router_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": {
+                  "guardrail_ok": true,
+                  "proposed_next": "complete"
+                },
+                "step_name": "Guardrail",
+                "step_id": "c725214f-c026-441a-95d6-75658e3f4401",
+                "step_type": "Step",
+                "executor_type": "function",
+                "executor_name": "_guardrail_step",
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null
+              },
+              {
+                "content": "Router DispatchHandler completed with 1 results",
+                "step_name": "DispatchHandler",
+                "step_id": "a6ea275d-657c-4126-b169-313268bcaeb7",
+                "step_type": "Router",
+                "executor_type": null,
+                "executor_name": null,
+                "step_run_id": null,
+                "images": null,
+                "videos": null,
+                "audio": null,
+                "metrics": null,
+                "success": true,
+                "error": null,
+                "stop": false,
+                "files": null,
+                "steps": [
+                  {
+                    "content": {
+                      "current_state": "complete"
+                    },
+                    "step_name": "CompleteHandler",
+                    "step_id": "2e6f83a7-f0f5-4e68-8e1f-77cff7a6c80b",
+                    "step_type": "Step",
+                    "executor_type": "function",
+                    "executor_name": "_executor",
+                    "step_run_id": null,
+                    "images": null,
+                    "videos": null,
+                    "audio": null,
+                    "metrics": null,
+                    "success": true,
+                    "error": null,
+                    "stop": false,
+                    "files": null
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "metrics": {
+          "steps": {},
+          "duration": 3.980275000212714
+        }
+      }
+    ],
+    "session_data": {
+      "session_state": {
+        "current_state": "init",
+        "proposed_next": "fetch",
+        "guardrail_ok": true,
+        "retry_count": 0,
+        "error_message": null,
+        "audit_trail": [
+          "init  doc_id=DOC-20240619-003"
+        ],
+        "document_id": "DOC-20240619-003",
+        "raw_data": null,
+        "validated_data": null,
+        "enriched_data": null
+      },
+      "session_metrics": {}
+    },
+    "workflow_data": {
+      "workflow_id": "docpipelineworkflow",
+      "name": "DocPipelineWorkflow",
+      "steps": [
+        {
+          "name": "StateMachineLoop",
+          "description": null,
+          "type": "Loop"
+        }
+      ]
+    },
+    "metadata": {},
+    "created_at": 1781991606,
+    "updated_at": 1781991606,
+    "session_type": "workflow"
   }
 ]

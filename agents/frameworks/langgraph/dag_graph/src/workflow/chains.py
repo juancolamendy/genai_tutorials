@@ -10,8 +10,8 @@ reuse the same Claude client across the process.
 """
 
 from pydantic import BaseModel
-from src.engine.chain import make_chain
 
+from src.engine.chain import make_chain
 
 # ─────────────────────────────────────────────────────────────────────────────
 # OUTPUT SCHEMAS
@@ -51,12 +51,12 @@ class ReviewDecision(BaseModel):
 VALIDATE_CHAIN = make_chain(
     name="ValidateChain",
     description="Validates document schema and content quality.",
-    system_prompt="""You are a document validator. Analyze raw document payloads and determine validity.
+    system_prompt="""You are a document validator. Analyze payloads for validity.
 
 Your job is to:
-1. Check that the document has non-empty 'content' field
-2. Check for 'schema_version' field presence
-3. Return cleaned/sanitized data with normalized keys and trimmed whitespace
+1. Check for non-empty 'content' field
+2. Check for 'schema_version' field
+3. Return cleaned data with normalized keys
 4. List any issues found
 
 Respond ONLY with valid JSON matching this structure:
@@ -98,12 +98,12 @@ Respond ONLY with valid JSON matching this structure:
 REVIEW_CHAIN = make_chain(
     name="ReviewChain",
     description="Simulates a human expert reviewing a flagged document.",
-    system_prompt="""You are a document review expert. Decide whether to approve flagged documents.
+    system_prompt="""You are a review expert. Approve or reject documents.
 
-You receive raw documents that failed automatic validation. Your job is to:
-1. Decide whether to approve (true) or reject (false)
-2. If approving: provide corrected payload with 'content', 'schema_version' (set to '2.0'), '_human_approved': true
-3. If rejecting: explain clearly in reviewer_note and return fixed_data={{}}
+Your job is to:
+1. Approve (true) or reject (false)
+2. If approving: provide corrected payload with 'content', 'schema_version'='2.0'
+3. If rejecting: explain in reviewer_note, return empty fixed_data
 
 Approve if document has substantive content despite minor schema issues.
 Reject only if empty, malicious, or completely malformed.
