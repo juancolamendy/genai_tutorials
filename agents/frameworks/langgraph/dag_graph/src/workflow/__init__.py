@@ -55,6 +55,16 @@ from src.workflow.guardrails import (
     check_enriched_data_present,
 )
 
+# LLM chains (domain-specific)
+from src.workflow.chains import (
+    VALIDATE_CHAIN,
+    ENRICH_CHAIN,
+    REVIEW_CHAIN,
+    ValidationResult,
+    EnrichmentResult,
+    ReviewDecision,
+)
+
 __all__ = [
     # Graph building
     "DocumentPipelineGraph",
@@ -90,4 +100,11 @@ __all__ = [
     "check_raw_data_present",
     "check_validated_data_present",
     "check_enriched_data_present",
+    # LLM chains
+    "VALIDATE_CHAIN",
+    "ENRICH_CHAIN",
+    "REVIEW_CHAIN",
+    "ValidationResult",
+    "EnrichmentResult",
+    "ReviewDecision",
 ]

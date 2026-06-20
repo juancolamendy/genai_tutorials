@@ -1,7 +1,7 @@
-"""Generic chain factory and LLM step builder for LangChain.
+"""Generic chain factory and LLM step builder using LangChain LCEL.
 
 Provides:
-  • make_chain() — cached chain factory
+  • make_chain() — cached LCEL chain factory
   • make_llm_chain() — wrap an LLM + prompt-builder into a chain
   • render_as_xml() — generic list-of-dicts → XML block renderer
 """
@@ -12,6 +12,9 @@ import logging
 from typing import Any, Callable, Optional, Type
 
 from pydantic import BaseModel
+from langchain_anthropic import ChatAnthropic
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 
 log = logging.getLogger(__name__)
 
@@ -20,36 +23,64 @@ DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 # Process-level chain cache — each chain is created once.
 _CHAIN_REGISTRY: dict[str, Any] = {}
 
+# Global LLM instance
+_llm: Optional[ChatAnthropic] = None
+
 # Types
 # Callable alias so type annotations are concise everywhere.
 PromptBuilder = Callable[[dict[str, Any]], str]
+
+
+def _get_llm(model_id: str = DEFAULT_MODEL) -> ChatAnthropic:
+    """Get or create a cached ChatAnthropic instance."""
+    global _llm
+    if _llm is None:
+        _llm = ChatAnthropic(model=model_id)
+    return _llm
 
 
 # ── Chain factory ─────────────────────────────────────────────────────────────
 def make_chain(
     name: str,
     description: str,
-    llm: Any,
+    system_prompt: str,
     output_schema: Optional[Type[BaseModel]] = None,
+    model_id: str = DEFAULT_MODEL,
 ) -> Any:
-    """Return a cached LLM chain.
+    """Return a cached LCEL chain using Claude.
 
     Calling this twice with the same `name` returns the same instance so no
     duplicate LLM clients are created across the codebase.
+
+    Args:
+        name: Chain identifier for caching
+        description: Chain purpose (for logging)
+        system_prompt: System message for the model
+        output_schema: Optional Pydantic model for structured output
+        model_id: Claude model ID to use
+
+    Returns:
+        LCEL chain (prompt | llm | parser)
     """
     if name in _CHAIN_REGISTRY:
         return _CHAIN_REGISTRY[name]
 
-    from langchain.chains import LLMChain
-    from langchain.prompts import PromptTemplate
+    llm = _get_llm(model_id)
 
-    # Create a basic prompt template (can be customized per use case)
-    prompt = PromptTemplate(
-        input_variables=["input"],
-        template="{input}",
-    )
+    # Create prompt template
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", system_prompt),
+        ("user", "{input}"),
+    ])
 
-    chain = LLMChain(llm=llm, prompt=prompt)
+    # Choose parser based on output schema
+    if output_schema is not None:
+        parser = JsonOutputParser(pydantic_object=output_schema)
+    else:
+        parser = StrOutputParser()
+
+    # Build LCEL chain using pipe operator
+    chain = prompt | llm | parser
     _CHAIN_REGISTRY[name] = chain
     log.debug("[engine] registered chain '%s'", name)
     return chain
@@ -65,19 +96,43 @@ def get_chain(name: str) -> Any:
 # ── Step builder ──────────────────────────────────────────────────────────────
 def make_llm_chain(
     name: str,
-    llm: Any,
     build_prompt: PromptBuilder,
-) -> Callable[[dict[str, Any]], dict[str, Any]]:
-    """Wrap an LLM in a named chain function.
+    output_schema: Optional[Type[BaseModel]] = None,
+    model_id: str = DEFAULT_MODEL,
+) -> Callable[[dict[str, Any]], Any]:
+    """Wrap an LLM + prompt into a chain function.
 
     The `build_prompt` callable assembles the full prompt string from the
-    state dict; the LLM response is stored in the state.
+    state dict; the LLM response is parsed and returned.
+
+    Args:
+        name: Chain identifier
+        build_prompt: Callable that builds prompt from state dict
+        output_schema: Optional Pydantic model for structured output
+        model_id: Claude model ID to use
+
+    Returns:
+        Chain executor function
     """
 
-    def _executor(state: dict[str, Any]) -> dict[str, Any]:
-        prompt = build_prompt(state)
-        response = llm.invoke(prompt)
-        return {"content": response.content if hasattr(response, "content") else str(response)}
+    def _executor(state: dict[str, Any]) -> Any:
+        prompt_text = build_prompt(state)
+        llm = _get_llm(model_id)
+
+        # Create prompt template
+        prompt = ChatPromptTemplate.from_messages([
+            ("user", prompt_text),
+        ])
+
+        # Choose parser
+        if output_schema is not None:
+            parser = JsonOutputParser(pydantic_object=output_schema)
+        else:
+            parser = StrOutputParser()
+
+        # Build and execute chain
+        chain = prompt | llm | parser
+        return chain.invoke({})
 
     return _executor
 

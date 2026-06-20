@@ -63,7 +63,7 @@ def handle_fetch(state: PipelineState) -> PipelineState:
 
 
 def handle_validate(state: PipelineState) -> PipelineState:
-    """Validate schema of raw_data and populate validated_data.
+    """Validate schema of raw_data and populate validated_data using VALIDATE_CHAIN.
 
     Args:
         state: PipelineState with raw_data set
@@ -72,29 +72,42 @@ def handle_validate(state: PipelineState) -> PipelineState:
         Updated state with validated_data or error info
     """
     log.info("[HANDLER] validate")
+    from .chains import VALIDATE_CHAIN
+
     raw = state["raw_data"] or {}
 
-    # Require schema_version field
-    if "schema_version" not in raw:
-        log.warning("[HANDLER] validation failed – schema_version missing")
+    try:
+        # Invoke the validation chain
+        result = VALIDATE_CHAIN.invoke({"input": str(raw)})
+
+        if result.is_valid:
+            validated = {**result.sanitized_data, "_validated": True}
+            return {
+                **state,
+                "current_state": State.VALIDATE.value,
+                "validated_data": validated,
+                "audit_trail": _audit(state, f"validate OK – {'; '.join(result.issues) if result.issues else 'no issues'}"),
+            }
+        else:
+            log.warning("[HANDLER] validation failed – %s", "; ".join(result.issues))
+            return {
+                **state,
+                "current_state": State.VALIDATE.value,
+                "validated_data": None,
+                "audit_trail": _audit(state, f"validate FAILED – {'; '.join(result.issues)}"),
+            }
+    except Exception as e:
+        log.error("[HANDLER] validation chain error: %s", str(e))
         return {
             **state,
             "current_state": State.VALIDATE.value,
             "validated_data": None,
-            "audit_trail": _audit(state, "validate FAILED – schema_version missing"),
+            "audit_trail": _audit(state, f"validate ERROR – {str(e)}"),
         }
-
-    validated = {**raw, "_validated": True}
-    return {
-        **state,
-        "current_state": State.VALIDATE.value,
-        "validated_data": validated,
-        "audit_trail": _audit(state, "validate OK"),
-    }
 
 
 def handle_enrich(state: PipelineState) -> PipelineState:
-    """Add metadata and tags to validated_data and populate enriched_data.
+    """Add metadata and tags to validated_data using ENRICH_CHAIN.
 
     Args:
         state: PipelineState with validated_data set
@@ -103,14 +116,38 @@ def handle_enrich(state: PipelineState) -> PipelineState:
         Updated state with enriched_data
     """
     log.info("[HANDLER] enrich")
+    from .chains import ENRICH_CHAIN
+
     base = state.get("validated_data") or state.get("raw_data") or {}
-    enriched = {**base, "tags": ["finance", "q3"], "word_count": 42}
-    return {
-        **state,
-        "current_state": State.ENRICH.value,
-        "enriched_data": enriched,
-        "audit_trail": _audit(state, "enrich OK"),
-    }
+
+    try:
+        # Invoke the enrichment chain
+        result = ENRICH_CHAIN.invoke({"input": str(base)})
+
+        enriched = {
+            **base,
+            "tags": result.tags,
+            "summary": result.summary,
+            "word_count": result.word_count,
+            "language": result.language,
+            "metadata": result.metadata,
+        }
+        return {
+            **state,
+            "current_state": State.ENRICH.value,
+            "enriched_data": enriched,
+            "audit_trail": _audit(state, f"enrich OK – tags={', '.join(result.tags)}"),
+        }
+    except Exception as e:
+        log.error("[HANDLER] enrichment chain error: %s", str(e))
+        # Fallback to simple enrichment
+        enriched = {**base, "tags": ["unknown"], "word_count": len(str(base))}
+        return {
+            **state,
+            "current_state": State.ENRICH.value,
+            "enriched_data": enriched,
+            "audit_trail": _audit(state, f"enrich FALLBACK – {str(e)}"),
+        }
 
 
 def handle_store(state: PipelineState) -> PipelineState:
@@ -170,10 +207,7 @@ def handle_retry(state: PipelineState) -> PipelineState:
 
 
 def handle_human_review(state: PipelineState) -> PipelineState:
-    """Route document to human review.
-
-    In production: push to review queue / Slack / ticketing system.
-    Here: auto-approve for demo purposes.
+    """Route document to human review using REVIEW_CHAIN.
 
     Args:
         state: PipelineState
@@ -182,19 +216,48 @@ def handle_human_review(state: PipelineState) -> PipelineState:
         Updated state with human review result
     """
     log.warning("[HANDLER] 🔍  document routed to HUMAN_REVIEW  doc_id=%s", state["document_id"])
+    from .chains import REVIEW_CHAIN
 
-    # Auto-approve for demo
-    approved_data = {
-        **(state["raw_data"] or {}),
-        "_human_approved": True,
-        "_validated": True,
-    }
-    return {
-        **state,
-        "current_state": State.HUMAN_REVIEW.value,
-        "validated_data": approved_data,
-        "audit_trail": _audit(state, "human_review: auto-approved for demo"),
-    }
+    raw = state.get("raw_data") or {}
+
+    try:
+        # Invoke the review chain
+        result = REVIEW_CHAIN.invoke({"input": str(raw)})
+
+        if result.approved:
+            approved_data = {
+                **(result.fixed_data or raw),
+                "_human_approved": True,
+                "_validated": True,
+            }
+            return {
+                **state,
+                "current_state": State.HUMAN_REVIEW.value,
+                "validated_data": approved_data,
+                "audit_trail": _audit(state, f"human_review: APPROVED – {result.reviewer_note[:50]}"),
+            }
+        else:
+            log.warning("[HANDLER] human_review REJECTED: %s", result.reviewer_note)
+            return {
+                **state,
+                "current_state": State.HUMAN_REVIEW.value,
+                "validated_data": None,
+                "audit_trail": _audit(state, f"human_review: REJECTED – {result.reviewer_note[:50]}"),
+            }
+    except Exception as e:
+        log.error("[HANDLER] review chain error: %s", str(e))
+        # Fallback: auto-approve
+        approved_data = {
+            **raw,
+            "_human_approved": True,
+            "_validated": True,
+        }
+        return {
+            **state,
+            "current_state": State.HUMAN_REVIEW.value,
+            "validated_data": approved_data,
+            "audit_trail": _audit(state, f"human_review: FALLBACK approved – {str(e)[:30]}"),
+        }
 
 
 def handle_error(state: PipelineState) -> PipelineState:
