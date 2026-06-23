@@ -14,7 +14,7 @@ Also exports helpers for common mutations.
 
 from typing import Any, Optional, TypedDict
 
-from engine.engine_state import EngineState
+from engine.engine_state import EngineState, init_engine_state
 from .state_machine import State, TERMINAL_STATES
 
 
@@ -33,24 +33,17 @@ class PipelineState(EngineState):
 
 def new_pipeline(document_id: str) -> PipelineState:
     """Return a fresh PipelineState ready to start at INIT."""
-    return PipelineState(
-        current_state=State.INIT.value,
-        proposed_next=State.FETCH.value,
-        retry_count=0,
-        error_message=None,
-        guardrail_ok=True,
-        audit_trail=[f"init  doc_id={document_id}"],
-        turn_input=None,
-        turn_number=0,
-        turns=[],
-        semantic_context={"entities": {}, "intents": []},
-        conversation_id="",
-        max_history_turns=10,
-        document_id=document_id,
-        raw_data=None,
-        validated_data=None,
-        enriched_data=None,
-    )
+    base = init_engine_state()
+    return {
+        **base,
+        "current_state": State.INIT.value,
+        "proposed_next": State.FETCH.value,
+        "audit_trail": [f"init  doc_id={document_id}"],
+        "document_id": document_id,
+        "raw_data": None,
+        "validated_data": None,
+        "enriched_data": None,
+    }
 
 
 def audit(state: PipelineState, entry: str) -> PipelineState:
