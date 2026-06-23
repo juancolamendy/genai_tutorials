@@ -157,33 +157,17 @@ class DocPipelineWorkflow(StateMachineWorkflow):
             }
         """
         from engine.input_validation import validate_turn_input, escape_for_llm, InputValidationError
-        from engine.handler_registry import does_state_wait_for_input
 
         try:
             validate_turn_input(turn_input)
             escaped = escape_for_llm(turn_input)
             self._ensure_initialized()
 
-            # Append turn input and metadata
-            turn_num = self.session_state.get("turn_number", 0)
-            self.session_state["turn_input"] = escaped
-            self.session_state["turn_number"] = turn_num + 1
-            self.session_state["router_timeout_sec"] = timeout_sec
-
+            self._prepare_turn_metadata(escaped, timeout_sec)
             self.run(session_id=session_id, user_id=user_id)
             self._trim_history()
 
-            current = self.session_state.get("current_state", "init")
-            waits = does_state_wait_for_input(current)
-
-            return {
-                "current_state": current,
-                "waits_for_input": waits,
-                "turn_number": self.session_state.get("turn_number", 0),
-                "semantic_context": self.session_state.get("semantic_context", {}),
-                "router_confidence": self.session_state.get("router_confidence", 0.0),
-                "error": self.session_state.get("error_message")
-            }
+            return self._build_turn_response()
 
         except InputValidationError as e:
             return {"error": str(e), "current_state": None, "waits_for_input": False}
@@ -199,6 +183,29 @@ class DocPipelineWorkflow(StateMachineWorkflow):
             dropped = len(turns) - max_turns
             self.session_state["turns"] = turns[-max_turns:]
             log.info(f"Trimmed {dropped} turns; keeping last {max_turns}")
+
+    def _prepare_turn_metadata(self, turn_input: str, timeout_sec: float) -> None:
+        """Prepare session_state for a new turn."""
+        turn_num = self.session_state.get("turn_number", 0)
+        self.session_state.update({
+            "turn_input": turn_input,
+            "turn_number": turn_num + 1,
+            "router_timeout_sec": timeout_sec,
+        })
+
+    def _build_turn_response(self) -> dict[str, Any]:
+        """Build response dict from current session_state."""
+        from engine.handler_registry import does_state_wait_for_input
+
+        current = self.session_state.get("current_state", "init")
+        return {
+            "current_state": current,
+            "waits_for_input": does_state_wait_for_input(current),
+            "turn_number": self.session_state.get("turn_number", 0),
+            "semantic_context": self.session_state.get("semantic_context", {}),
+            "router_confidence": self.session_state.get("router_confidence", 0.0),
+            "error": self.session_state.get("error_message")
+        }
 
 
 # ── Factory ────────────────────────────────────────────────────────────────────
