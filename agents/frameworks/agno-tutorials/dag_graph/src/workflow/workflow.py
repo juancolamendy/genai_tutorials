@@ -109,7 +109,19 @@ class DocPipelineWorkflow(StateMachineWorkflow):
 
         self.run(input=document_id)
 
-        final = _ss_to_pipeline(self.session_state)
+        final = PipelineState(
+            current_state=self.session_state["current_state"],
+            proposed_next=self.session_state["proposed_next"],
+            retry_count=self.session_state["retry_count"],
+            error_message=self.session_state.get("error_message"),
+            guardrail_ok=self.session_state["guardrail_ok"],
+            audit_trail=self.session_state["audit_trail"],
+            document_id=self.session_state["document_id"],
+            raw_data=self.session_state.get("raw_data"),
+            validated_data=self.session_state.get("validated_data"),
+            enriched_data=self.session_state.get("enriched_data"),
+        )
+
         self.session_state.setdefault("pipeline_runs", []).append({
             "document_id": document_id,
             "final_state": final["current_state"],
@@ -187,22 +199,6 @@ class DocPipelineWorkflow(StateMachineWorkflow):
             dropped = len(turns) - max_turns
             self.session_state["turns"] = turns[-max_turns:]
             log.info(f"Trimmed {dropped} turns; keeping last {max_turns}")
-
-
-def _ss_to_pipeline(ss: dict[str, Any]) -> PipelineState:
-    """Read pipeline-related keys from session_state into a PipelineState dict."""
-    return PipelineState(
-        current_state  = ss.get("current_state",  State.INIT.value),
-        proposed_next  = ss.get("proposed_next",  State.FETCH.value),
-        retry_count    = ss.get("retry_count",    0),
-        error_message  = ss.get("error_message"),
-        guardrail_ok   = ss.get("guardrail_ok",   True),
-        audit_trail    = list(ss.get("audit_trail", [])),
-        document_id    = ss.get("document_id",    ""),
-        raw_data       = ss.get("raw_data"),
-        validated_data = ss.get("validated_data"),
-        enriched_data  = ss.get("enriched_data"),
-    )
 
 
 # ── Factory ────────────────────────────────────────────────────────────────────
