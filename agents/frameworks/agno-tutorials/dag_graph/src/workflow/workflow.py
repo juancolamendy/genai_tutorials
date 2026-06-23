@@ -104,9 +104,8 @@ class DocPipelineWorkflow(StateMachineWorkflow):
         fresh PipelineState is created (the session accumulates runs in
         pipeline_runs for audit purposes).
         """
-        fresh = new_pipeline(document_id)
         self._ensure_initialized()
-        _pipeline_to_ss(fresh, self.session_state)
+        self.session_state.update(new_pipeline(document_id))
 
         self.run(input=document_id)
 
@@ -204,13 +203,6 @@ def _ss_to_pipeline(ss: dict[str, Any]) -> PipelineState:
         validated_data = ss.get("validated_data"),
         enriched_data  = ss.get("enriched_data"),
     )
-
-
-def _pipeline_to_ss(p: PipelineState, ss: dict[str, Any]) -> None:
-    """Write all pipeline state keys back into session_state in-place."""
-    for k in _PIPELINE_KEYS:
-        if k in p:
-            ss[k] = p[k]
 
 
 # ── Factory ────────────────────────────────────────────────────────────────────
