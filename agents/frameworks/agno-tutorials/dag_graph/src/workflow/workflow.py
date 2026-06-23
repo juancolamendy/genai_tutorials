@@ -105,18 +105,11 @@ class DocPipelineWorkflow(StateMachineWorkflow):
         pipeline_runs for audit purposes).
         """
         fresh = new_pipeline(document_id)
-        # Ensure session_state is initialized
-        if self.session_state is None:
-            self.session_state = {}
-        # Ensure steps are initialized
-        if self.steps is None or len(self.steps) == 0:
-            self._init_steps()
-        # Seed session_state from the fresh pipeline
+        self._ensure_initialized()
         _pipeline_to_ss(fresh, self.session_state)
 
         self.run(input=document_id)
 
-        # Snapshot to pipeline_runs history
         final = _ss_to_pipeline(self.session_state)
         self.session_state.setdefault("pipeline_runs", []).append({
             "document_id": document_id,
@@ -156,33 +149,22 @@ class DocPipelineWorkflow(StateMachineWorkflow):
         from engine.handler_registry import does_state_wait_for_input
 
         try:
-            # 1. Validate input
             validate_turn_input(turn_input)
             escaped = escape_for_llm(turn_input)
+            self._ensure_initialized()
 
-            # 2. Initialize session if needed
-            if self.session_state is None:
-                self.session_state = {}
-            if self.steps is None or len(self.steps) == 0:
-                self._init_steps()
-
-            # 3. Append turn input and metadata
+            # Append turn input and metadata
             turn_num = self.session_state.get("turn_number", 0)
             self.session_state["turn_input"] = escaped
             self.session_state["turn_number"] = turn_num + 1
             self.session_state["router_timeout_sec"] = timeout_sec
 
-            # 4. Run workflow loop
             self.run(session_id=session_id, user_id=user_id)
-
-            # 5. Trim history
             self._trim_history()
 
-            # 6. Check if current state waits for input
             current = self.session_state.get("current_state", "init")
             waits = does_state_wait_for_input(current)
 
-            # 7. Return response
             return {
                 "current_state": current,
                 "waits_for_input": waits,
@@ -193,18 +175,10 @@ class DocPipelineWorkflow(StateMachineWorkflow):
             }
 
         except InputValidationError as e:
-            return {
-                "error": str(e),
-                "current_state": None,
-                "waits_for_input": False,
-            }
+            return {"error": str(e), "current_state": None, "waits_for_input": False}
         except Exception as e:
             log.exception("process_turn failed: %s", e)
-            return {
-                "error": str(e),
-                "current_state": "error",
-                "waits_for_input": False,
-            }
+            return {"error": str(e), "current_state": "error", "waits_for_input": False}
 
     def _trim_history(self) -> None:
         """Keep only last max_history_turns in session_state."""

@@ -101,6 +101,13 @@ class StateMachineWorkflow(Workflow):
         self._init_session_defaults()
         self._init_steps()
 
+    def _ensure_initialized(self) -> None:
+        """Ensure session_state and steps are initialized (idempotent)."""
+        if self.session_state is None:
+            self.session_state = {}
+        if self.steps is None or len(self.steps) == 0:
+            self._init_steps()
+
     def _init_steps(self) -> None:
         """Initialize the workflow steps (called from __post_init__ and when needed)."""
         # Build handler Steps bound to `self` so they can access session_state.
