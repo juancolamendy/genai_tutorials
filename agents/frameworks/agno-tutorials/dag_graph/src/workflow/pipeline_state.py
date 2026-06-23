@@ -1,57 +1,58 @@
 """
-pipeline_state.py
+workflow/pipeline_state.py
 ────────────────────────────────────────────────────────────────────────────
-PipelineState — the single typed dict that flows through every step.
+PipelineState — document processing state combining control and business planes.
 
-Split into two logical planes:
-  • Control plane  — routing, guardrails, retries, audit log
-  • Business plane — document payload at each processing stage
+Inherits EngineState (control plane) and adds business-specific fields:
+  • document_id: Document being processed
+  • raw_data: Document as fetched
+  • validated_data: Document after validation
+  • enriched_data: Document after enrichment
 
-Also exports helpers for common mutations so callers never format audit
-entries by hand.
+Also exports helpers for common mutations.
 """
 
 from typing import Any, Optional, TypedDict
 
+from engine.engine_state import EngineState
 from .state_machine import State, TERMINAL_STATES
 
 
-# structures
-class PipelineState(TypedDict):
-    # ── Control plane ─────────────────────────────────────────────────────────
-    current_state:  str           # current active state (mirrors the node just executed)
-    proposed_next:  str           # router's candidate for the next state
-    retry_count:    int
-    error_message:  Optional[str]
-    guardrail_ok:   bool          # True after guardrail passed; False after fallback override
-    audit_trail:    list[str]     # append-only chronological log
+class PipelineState(EngineState):
+    """
+    Full pipeline state = control plane (EngineState) + business payload.
 
-    # ── Business plane ────────────────────────────────────────────────────────
-    document_id:    str
-    raw_data:       Optional[dict[str, Any]]    # set by FETCH
-    validated_data: Optional[dict[str, Any]]    # set by VALIDATE / HUMAN_REVIEW
-    enriched_data:  Optional[dict[str, Any]]    # set by ENRICH
+    Adds document-specific fields to the base EngineState.
+    """
+
+    document_id: str
+    raw_data: Optional[dict[str, Any]]       # set by FETCH
+    validated_data: Optional[dict[str, Any]]  # set by VALIDATE / HUMAN_REVIEW
+    enriched_data: Optional[dict[str, Any]]   # set by ENRICH
 
 
-# functions
-# ── Constructor ───────────────────────────────────────────────────────────────
 def new_pipeline(document_id: str) -> PipelineState:
     """Return a fresh PipelineState ready to start at INIT."""
     return PipelineState(
-        current_state  = State.INIT.value,
-        proposed_next  = State.FETCH.value,
-        retry_count    = 0,
-        error_message  = None,
-        guardrail_ok   = True,
-        audit_trail    = [f"init  doc_id={document_id}"],
-        document_id    = document_id,
-        raw_data       = None,
-        validated_data = None,
-        enriched_data  = None,
+        current_state=State.INIT.value,
+        proposed_next=State.FETCH.value,
+        retry_count=0,
+        error_message=None,
+        guardrail_ok=True,
+        audit_trail=[f"init  doc_id={document_id}"],
+        turn_input=None,
+        turn_number=0,
+        turns=[],
+        semantic_context={"entities": {}, "intents": []},
+        conversation_id="",
+        max_history_turns=10,
+        document_id=document_id,
+        raw_data=None,
+        validated_data=None,
+        enriched_data=None,
     )
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
 def audit(state: PipelineState, entry: str) -> PipelineState:
     """Return state with `entry` appended to audit_trail (immutable-style update)."""
     return {**state, "audit_trail": state["audit_trail"] + [entry]}

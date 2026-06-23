@@ -1,5 +1,5 @@
 """
-engine/pipeline_state.py
+engine/engine_state.py
 ────────────────────────────────────────────────────────────────────────────
 EngineState TypedDict — control plane fields for multi-turn conversations.
 
@@ -12,7 +12,7 @@ workflows. It includes fields for:
   • Audit trail (immutable append-only log)
 
 Workflow-specific business state (document_id, raw_data, etc.) is defined
-in workflow/pipeline_state.py.
+in workflow/pipeline_state.py, which inherits from EngineState.
 """
 
 from __future__ import annotations
