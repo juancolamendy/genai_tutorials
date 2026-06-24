@@ -3,6 +3,9 @@
 .env.local
 .env.*.local
 
+# sessions
+.doc_sessions/
+
 # Python
 __pycache__/
 *.py[cod]
