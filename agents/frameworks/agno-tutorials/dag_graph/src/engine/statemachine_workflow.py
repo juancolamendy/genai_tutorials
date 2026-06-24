@@ -337,3 +337,56 @@ class StateMachineWorkflow(Workflow):
             "router_confidence": self.session_state.get("router_confidence", 0.0),
             "error": self.session_state.get("error_message")
         }
+
+    # ── Multi-turn entry point ──────────────────────────────────────────────
+
+    def process_turn(self,
+                     user_id: str,
+                     session_id: str,
+                     turn_input: str,
+                     timeout_sec: float = 10.0) -> dict[str, Any]:
+        """
+        Execute one turn of a multi-turn conversation.
+
+        Provides generic multi-turn support for any workflow:
+          1. Validate input (token count, length, injection prevention)
+          2. Escape for LLM (prompt injection safety)
+          3. Prepare turn metadata (turn_input, turn_number, router_timeout)
+          4. Execute state machine loop (routing, handlers, guardrails)
+          5. Trim conversation history to max_history_turns
+          6. Return response with state, entities, intents, confidence
+
+        Args:
+            user_id: Caller identity (for audit trail)
+            session_id: Multi-turn session ID (for persistence)
+            turn_input: User's input text (will be validated & escaped)
+            timeout_sec: LLM router timeout in seconds
+
+        Returns:
+            {
+              "current_state": str,           # Current state after execution
+              "waits_for_input": bool,        # True if workflow paused (waits_for_input=True)
+              "turn_number": int,             # Turn counter (incremented each call)
+              "semantic_context": dict,       # {entities, intents} from router
+              "router_confidence": float,     # LLM router confidence [0.0, 1.0]
+              "error": str | None             # Error message if validation failed
+            }
+        """
+        from engine.input_validation import validate_turn_input, escape_for_llm, InputValidationError
+
+        try:
+            validate_turn_input(turn_input)
+            escaped = escape_for_llm(turn_input)
+            self._ensure_initialized()
+
+            self._prepare_turn_metadata(escaped, timeout_sec)
+            self.run(session_id=session_id, user_id=user_id)
+            self._trim_history()
+
+            return self._build_turn_response()
+
+        except InputValidationError as e:
+            return {"error": str(e), "current_state": None, "waits_for_input": False}
+        except Exception as e:
+            log.exception("process_turn failed: %s", e)
+            return {"error": str(e), "current_state": "error", "waits_for_input": False}

@@ -139,49 +139,6 @@ class DocPipelineWorkflow(StateMachineWorkflow):
         print(pretty_audit(final))
         return final
 
-    def process_turn(self,
-                     user_id: str,
-                     session_id: str,
-                     turn_input: str,
-                     timeout_sec: float = 10.0) -> dict[str, Any]:
-        """
-        Execute one turn of a multi-turn conversation.
-
-        Args:
-            user_id: Caller identity
-            session_id: Multi-turn session ID
-            turn_input: User's input text
-            timeout_sec: LLM router timeout
-
-        Returns:
-            {
-              "current_state": str,
-              "waits_for_input": bool,
-              "turn_number": int,
-              "semantic_context": dict,
-              "router_confidence": float,
-              "error": str | None
-            }
-        """
-        from engine.input_validation import validate_turn_input, escape_for_llm, InputValidationError
-
-        try:
-            validate_turn_input(turn_input)
-            escaped = escape_for_llm(turn_input)
-            self._ensure_initialized()
-
-            self._prepare_turn_metadata(escaped, timeout_sec)
-            self.run(session_id=session_id, user_id=user_id)
-            self._trim_history()
-
-            return self._build_turn_response()
-
-        except InputValidationError as e:
-            return {"error": str(e), "current_state": None, "waits_for_input": False}
-        except Exception as e:
-            log.exception("process_turn failed: %s", e)
-            return {"error": str(e), "current_state": "error", "waits_for_input": False}
-
 
 # ── Factory ────────────────────────────────────────────────────────────────────
 
