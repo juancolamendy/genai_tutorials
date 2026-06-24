@@ -18,7 +18,7 @@ from typing import Any
 
 from agno.db.json.json_db import JsonDb
 
-from engine.workflow import StateMachineWorkflow
+from engine.statemachine_workflow import StateMachineWorkflow
 
 from .handlers import HANDLER_MAP
 from .guardrails import run_guardrail
@@ -122,11 +122,11 @@ class DocPipelineWorkflow(StateMachineWorkflow):
             enriched_data=self.session_state.get("enriched_data"),
         )
 
-        self.session_state.setdefault("pipeline_runs", []).append({
+        self.session_state.setdefault("output", {}).append({
             "document_id": document_id,
-            "final_state": final["current_state"],
-            "retry_count": final["retry_count"],
-            "audit_trail": final["audit_trail"],
+            "final_state": final.current_state,
+            "retry_count": final.retry_count,
+            "audit_trail": final.audit_trail,
         })
 
         print(pretty_audit(final))

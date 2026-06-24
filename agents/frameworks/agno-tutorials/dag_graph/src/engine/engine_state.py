@@ -5,7 +5,7 @@ EngineState TypedDict — control plane fields for multi-turn conversations.
 
 This module defines the shared, reusable state structure used across all
 workflows. It includes fields for:
-  • Turn management (turn_input, turn_number, turns history)
+  • Turn management (turn_input, turn_number, conversation_history)
   • Semantic context (entities, intents extracted by router)
   • State machine control (current_state, proposed_next, retry_count)
   • Error tracking (error_message, guardrail_ok)
@@ -30,7 +30,7 @@ class EngineState(TypedDict, total=False):
     Fields:
         turn_input: User input text for this turn (validated, escaped)
         turn_number: 0-indexed turn count
-        turns: List of {input, output, state_from, state_to, ...} dicts
+        conversation_history: List of {input, output, state_from, state_to, ...} dicts
         semantic_context: {entities: dict, intents: list[str]} from router
         conversation_id: UUID for multi-turn session grouping
         max_history_turns: Keep last N turns in memory (default 10)
@@ -40,11 +40,12 @@ class EngineState(TypedDict, total=False):
         error_message: Error text if in ERROR state
         guardrail_ok: True if last guardrail passed
         audit_trail: Append-only chronological log
+        output: Output of the last turn
     """
 
     turn_input: Optional[str]
     turn_number: int
-    turns: list
+    conversation_history: list
     semantic_context: dict
     conversation_id: str
     max_history_turns: int
@@ -54,6 +55,7 @@ class EngineState(TypedDict, total=False):
     error_message: Optional[str]
     guardrail_ok: bool
     audit_trail: list
+    output: Optional[dict]
 
 
 def init_engine_state() -> EngineState:
@@ -65,7 +67,7 @@ def init_engine_state() -> EngineState:
     return EngineState(
         turn_input=None,
         turn_number=0,
-        turns=[],
+        conversation_history=[],
         semantic_context={"entities": {}, "intents": []},
         conversation_id="",
         max_history_turns=10,
@@ -75,6 +77,7 @@ def init_engine_state() -> EngineState:
         error_message=None,
         guardrail_ok=True,
         audit_trail=[],
+        output=None,
     )
 
 

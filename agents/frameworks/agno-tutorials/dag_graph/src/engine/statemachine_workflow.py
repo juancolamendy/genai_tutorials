@@ -250,10 +250,10 @@ class StateMachineWorkflow(Workflow):
     def _trim_history(self) -> None:
         """Keep only last max_history_turns in session_state."""
         max_turns = self.session_state.get("max_history_turns", 10)
-        turns = self.session_state.get("turns", [])
-        if len(turns) > max_turns:
-            dropped = len(turns) - max_turns
-            self.session_state["turns"] = turns[-max_turns:]
+        history = self.session_state.get("conversation_history", [])
+        if len(history) > max_turns:
+            dropped = len(history) - max_turns
+            self.session_state["conversation_history"] = history[-max_turns:]
             log.info(f"Trimmed {dropped} turns; keeping last {max_turns}")
 
     def _build_turn_response(self) -> dict[str, Any]:

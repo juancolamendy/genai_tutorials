@@ -21,7 +21,7 @@ class EngineState(TypedDict, total=False):
     # ── Multi-turn conversation control ────────────────────────────────────
     turn_input: str | None              # User input for this turn (validated, escaped)
     turn_number: int                    # 0-indexed turn count
-    turns: list[dict]                   # [{input, output, state_from, state_to, timestamp, ...}]
+    conversation_history: list[dict]    # [{input, output, state_from, state_to, timestamp, ...}]
     semantic_context: dict              # {entities: dict, intents: list[str]}
     conversation_id: str                # UUID for multi-turn session
     max_history_turns: int              # Configurable, default 10
@@ -39,7 +39,7 @@ def init_engine_state() -> EngineState:
     return EngineState(
         turn_input=None,
         turn_number=0,
-        turns=[],
+        conversation_history=[],
         semantic_context={"entities": {}, "intents": []},
         conversation_id="",
         max_history_turns=10,
@@ -231,7 +231,7 @@ class BaseSemanticRouter(ABC):
         Args:
             current_state: Current state (e.g., "validate")
             turn_input: User's input text (validated, escaped)
-            history: Last N turns from session_state["turns"]
+            history: Last N turns from session_state["conversation_history"]
             allowed_states: Valid next states per ALLOWED_TRANSITIONS
             timeout_sec: LLM call timeout
             
@@ -420,7 +420,7 @@ def _semantic_router_step(self, step_input: StepInput) -> StepOutput:
     
     current = self._get_current_state(self.session_state)
     turn_input = self.session_state.get("turn_input", "")
-    history = self.session_state.get("turns", [])
+    history = self.session_state.get("conversation_history", [])
     
     # Get allowed transitions
     routing_table = self._build_routing_table()
@@ -476,7 +476,7 @@ wf = DocPipelineWorkflow(
     session_state={
         "document_id": "DOC-001",
         "current_state": "init",
-        "turns": [],
+        "conversation_history": [],
     }
 )
 wf.run()
@@ -494,7 +494,7 @@ wf = DocPipelineWorkflow(
     session_state={
         "document_id": "DOC-001",
         "current_state": "init",
-        "turns": [],
+        "conversation_history": [],
         "conversation_id": "",
         "max_history_turns": 10,
     }
@@ -566,9 +566,9 @@ class DocPipelineWorkflow(StateMachineWorkflow):
             self.session_state["turn_number"] = turn_num + 1
             self.session_state["router_timeout_sec"] = timeout_sec
             
-            # Initialize turns list
-            if "turns" not in self.session_state:
-                self.session_state["turns"] = []
+            # Initialize conversation history list
+            if "conversation_history" not in self.session_state:
+                self.session_state["conversation_history"] = []
             
             # 4. Run workflow loop (calls _semantic_router_step, guardrail, handler)
             self.run(session_id=session_id, user_id=user_id)
@@ -607,10 +607,10 @@ class DocPipelineWorkflow(StateMachineWorkflow):
     def _trim_history(self) -> None:
         """Keep only last max_history_turns in session state."""
         max_turns = self.session_state.get("max_history_turns", 10)
-        turns = self.session_state.get("turns", [])
-        if len(turns) > max_turns:
-            dropped = len(turns) - max_turns
-            self.session_state["turns"] = turns[-max_turns:]
+        history = self.session_state.get("conversation_history", [])
+        if len(history) > max_turns:
+            dropped = len(history) - max_turns
+            self.session_state["conversation_history"] = history[-max_turns:]
             log.info(f"Trimmed {dropped} turns; keeping last {max_turns}")
     
     def _choose_router_step(self):
@@ -637,7 +637,7 @@ def init_control_state_defaults(session_state: dict[str, Any]) -> None:
     defaults = {
         "turn_input": None,
         "turn_number": 0,
-        "turns": [],
+        "conversation_history": [],
         "semantic_context": {"entities": {}, "intents": []},
         "conversation_id": "",
         "max_history_turns": 10,
@@ -659,7 +659,7 @@ def append_turn(session_state: dict[str, Any],
                 state_to: str = "",
                 router_confidence: float = 0.0) -> None:
     """
-    Append a conversation turn to session_state["turns"].
+    Append a conversation turn to session_state["conversation_history"].
     Automatically persisted by agno at end of run().
     """
     turn = {
@@ -670,7 +670,7 @@ def append_turn(session_state: dict[str, Any],
         "router_confidence": router_confidence,
         "timestamp": datetime.now(tz=timezone.utc).isoformat(),
     }
-    session_state.setdefault("turns", []).append(turn)
+    session_state.setdefault("conversation_history", []).append(turn)
 ```
 
 ---

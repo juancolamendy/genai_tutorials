@@ -5,7 +5,7 @@ Session-state helpers shared by all Agno workflow implementations.
 
 Provides:
   • init_control_state_defaults() — initialize multi-turn control fields
-  • append_turn()         — add a turn to session_state["turns"]
+  • append_turn()         — add a turn to session_state["conversation_history"]
   • build_history_prompt()  — format last N turns as XML for LLM injection
   • get_agno_history()      — pull Agno's built-in run-summary history
 """
@@ -33,7 +33,7 @@ def init_control_state_defaults(session_state: dict[str, Any]) -> None:
     defaults = {
         "turn_input": None,
         "turn_number": 0,
-        "turns": [],
+        "conversation_history": [],
         "semantic_context": {"entities": {}, "intents": []},
         "conversation_id": "",
         "max_history_turns": 10,
@@ -57,7 +57,7 @@ def append_turn(
     intent:        Optional[str] = None,
 ) -> None:
     """
-    Append a turn to session_state["turns"] in-place.
+    Append a turn to session_state["conversation_history"] in-place.
 
     session_state is the Agno-persisted dict, so this is automatically
     checkpointed to the db backend after the run completes.
@@ -68,7 +68,7 @@ def append_turn(
         "intent":    intent,
         "timestamp": datetime.now(tz=timezone.utc).isoformat(),
     }
-    session_state.setdefault("turns", []).append(turn)
+    session_state.setdefault("conversation_history", []).append(turn)
     session_state["turn_count"] = session_state.get("turn_count", 0) + 1
 
 
@@ -81,7 +81,7 @@ def build_history_prompt(
 
     Returns an empty string when there are no turns yet.
     """
-    turns = session_state.get("turns", [])[-max_turns:]
+    turns = session_state.get("conversation_history", [])[-max_turns:]
     if not turns:
         return ""
     lines = []

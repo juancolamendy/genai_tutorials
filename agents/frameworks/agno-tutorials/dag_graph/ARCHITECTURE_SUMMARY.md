@@ -250,7 +250,7 @@ wf = DocPipelineWorkflow(
     session_state={  # Initial state for NEW sessions only
         "conversation_id": "conv_123",
         "turn_number": 0,
-        "turns": [],
+        "conversation_history": [],
         "max_history_turns": 10,
         "current_state": "init",
     }
@@ -282,13 +282,13 @@ response = wf.process_turn(
 )
 # Agno:
 # 1. Checks DB: "session_abc_123" exists
-# 2. Loads persisted session_state (turn_number=1, turns=[...], etc.)
+# 2. Loads persisted session_state (turn_number=1, conversation_history=[...], etc.)
 # 3. Executes workflow (turn 2, starting from previous state)
 # 4. Saves updated session_state to DB
 ```
 
 **Full session_state persisted includes:**
-- Control fields: turn_input, turn_number, turns, semantic_context, conversation_id
+- Control fields: turn_input, turn_number, conversation_history, semantic_context, conversation_id
 - Business fields: document_id, raw_data, validated_data, enriched_data
 - Machine fields: current_state, proposed_next, retry_count, audit_trail
 
