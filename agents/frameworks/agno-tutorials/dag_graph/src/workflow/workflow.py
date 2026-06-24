@@ -121,6 +121,8 @@ class DocPipelineWorkflow(StateMachineWorkflow):
         print(pretty_audit(final))
         return final
 
+    # Inherit process() and process_turn() from StateMachineWorkflow base class
+
 
 # ── Factory ────────────────────────────────────────────────────────────────────
 

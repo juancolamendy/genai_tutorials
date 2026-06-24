@@ -192,20 +192,30 @@ class StateMachineWorkflow(Workflow):
         """
         raise NotImplementedError("Subclass must implement _new_session_state()")
 
-    def _build_response(self, entity_id: str) -> Any:
+    def _build_response(self, entity_id: str) -> dict[str, Any]:
         """
-        Build response object from current session_state.
+        Build response dict from current session_state.
 
-        Subclasses must override to construct their specific response type
-        (e.g., PipelineState, InvoiceState, etc.).
+        Extracts standard fields (current_state, retry_count, error_message, etc.)
+        into a response dict. Subclasses can override to return a custom response
+        type (e.g., PipelineState, InvoiceState) if needed.
 
         Args:
             entity_id: The entity being processed (document_id, invoice_id, etc.)
 
         Returns:
-            A response object of the workflow's domain type
+            Response dict with current_state, audit_trail, errors, etc.
         """
-        raise NotImplementedError("Subclass must implement _build_response()")
+        return {
+            "current_state": self.session_state.get("current_state", "init"),
+            "proposed_next": self.session_state.get("proposed_next"),
+            "retry_count": self.session_state.get("retry_count", 0),
+            "error_message": self.session_state.get("error_message"),
+            "guardrail_ok": self.session_state.get("guardrail_ok", True),
+            "audit_trail": self.session_state.get("audit_trail", []),
+            "semantic_context": self.session_state.get("semantic_context", {}),
+            "router_confidence": self.session_state.get("router_confidence", 0.0),
+        }
 
     # ── Step: Router (Pure Code or Semantic) ──────────────────────────────────
 
