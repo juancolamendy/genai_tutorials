@@ -428,7 +428,9 @@ class StateMachineWorkflow(Workflow):
         self.run(input=entity_id)
         self._auto_progress()
         response = self._build_response(entity_id)
-        self.session_state.setdefault("output", []).append({
+        if self.session_state.get("output") is None:
+            self.session_state["output"] = []
+        self.session_state["output"].append({
             "entity_id": entity_id,
             "final_state": self.session_state.get("current_state"),
         })
