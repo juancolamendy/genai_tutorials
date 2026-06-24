@@ -18,14 +18,27 @@ import logging
 import re
 from typing import Any, Optional
 
+from pydantic import BaseModel
+
 from engine.router import BaseSemanticRouter, RouterDecision
+from engine.agent import make_agent
 
 log = logging.getLogger(__name__)
 
 
+# Output schema for router LLM calls
+class RouterOutput(BaseModel):
+    """Structure for router LLM output."""
+    proposed_next: str
+    confidence: float
+    semantic_intents: list[str] = []
+    semantic_entities: dict[str, Any] = {}
+    reasoning: str = ""
+
+
 class DocPipelineRouter(BaseSemanticRouter):
     """
-    Document pipeline semantic router using Claude LLM.
+    Document pipeline semantic router using Claude LLM via Agno.
 
     Classifies user input and determines next state based on:
       • Current state in workflow
@@ -40,15 +53,30 @@ class DocPipelineRouter(BaseSemanticRouter):
 
     def __init__(self, model: str = "claude-haiku-4-5-20251001"):
         """
-        Initialize router with Claude model.
+        Initialize router with Claude LLM via Agno.
 
         Args:
             model: Claude model ID (default claude-haiku for cost efficiency)
         """
         self.model = model
-        # Note: Claude LLM would be initialized here when agno is available
-        # from agno.models.anthropic import Claude
-        # self.llm = Claude(id=model)
+
+        # Create Agno agent for routing decisions
+        self.router_agent = make_agent(
+            name="DocPipelineRouter",
+            description="Routes document processing workflow based on user intent and context.",
+            output_schema=RouterOutput,
+            instructions=[
+                "You are a state machine router for document processing workflows.",
+                "Given the current state, user input, conversation history, and allowed next states,",
+                "determine which state the workflow should transition to next.",
+                "",
+                "Classify the user's intent: confirm, clarify, escalate, upload, cancel, proceed, etc.",
+                "Extract entities: amounts (e.g. '$99.99'), document IDs, item names, keywords.",
+                "Always propose one of the ALLOWED NEXT STATES.",
+                "Return confidence 0.0-1.0 based on how clear the user's intent is.",
+                "Provide brief reasoning for your decision.",
+            ],
+        )
 
     def route(self,
               current_state: str,
@@ -57,7 +85,7 @@ class DocPipelineRouter(BaseSemanticRouter):
               allowed_states: list,
               timeout_sec: float = 10.0) -> RouterDecision:
         """
-        Classify next state using Claude LLM.
+        Classify next state using Claude LLM via Agno.
 
         Args:
             current_state: Current state (e.g., "validate")
@@ -78,12 +106,37 @@ class DocPipelineRouter(BaseSemanticRouter):
                 current_state, turn_input, history_text, allowed_states
             )
 
-            # Call Claude LLM (would be: response = self.llm.call(prompt, timeout=timeout_sec))
-            # For now, return stub response showing the structure
-            response = self._mock_llm_call(prompt)
+            # Call Claude LLM via Agno agent
+            result = self.router_agent.run(prompt)
 
-            # Parse LLM response to RouterDecision
-            decision = self._parse_response(response, allowed_states)
+            # Extract RouterOutput from agent result
+            router_output: RouterOutput = result.content
+
+            # Validate proposed next state is in allowed_states
+            proposed = router_output.proposed_next
+            if proposed not in allowed_states:
+                log.warning(
+                    f"Router proposed invalid state '{proposed}'. "
+                    f"Allowed: {allowed_states}. Falling back to first allowed state."
+                )
+                proposed = allowed_states[0] if allowed_states else "error"
+
+            # Convert RouterOutput to RouterDecision
+            decision = RouterDecision(
+                proposed_next=proposed,
+                confidence=max(0.0, min(1.0, router_output.confidence)),  # Clamp to [0, 1]
+                semantic_entities=router_output.semantic_entities or {},
+                semantic_intents=router_output.semantic_intents or [],
+                reasoning=router_output.reasoning
+            )
+
+            log.info(
+                "[Router] %s + '%s...' → %s (confidence: %.2f)",
+                current_state,
+                turn_input[:30] if turn_input else "(empty)",
+                proposed,
+                decision.confidence
+            )
 
             return decision
 
@@ -105,29 +158,26 @@ class DocPipelineRouter(BaseSemanticRouter):
         """Build LLM prompt for state classification."""
         allowed_str = ", ".join(allowed_states)
         prompt = f"""
-You are a state machine router for document processing workflows.
+WORKFLOW STATE MACHINE ROUTING
 
-Current state: {current_state}
-Allowed next states: {allowed_str}
+Current State: {current_state}
+Allowed Next States: {allowed_str}
 
-Conversation history:
+Conversation History:
 {history_text}
 
-User input: {repr(turn_input)}
+User Input: {repr(turn_input)}
 
-Classify the user's intent and determine the next state:
-1. What are the user's intents? (confirm, clarify, escalate, upload, cancel, etc.)
-2. What entities did the user mention? (amounts, items, document_ids, keywords)
-3. Which allowed next state should we transition to?
+---
 
-Respond with JSON:
-{{
-  "proposed_next": "<state>",
-  "confidence": 0.95,
-  "semantic_intents": ["confirm"],
-  "semantic_entities": {{"amounts": ["$99.99"], "items": []}},
-  "reasoning": "User confirmed amount"
-}}
+Your task:
+1. Analyze the user's input to identify their intent (confirm, clarify, escalate, upload, cancel, etc.)
+2. Extract relevant entities (amounts like "$99.99", document IDs, item names, keywords)
+3. Determine the best next state from the ALLOWED NEXT STATES list
+4. Rate your confidence 0.0-1.0 (how clear was the user's intent?)
+5. Provide brief reasoning for your decision
+
+IMPORTANT: You MUST choose one of the allowed next states. Never propose a state outside that list.
 """
         return prompt
 
@@ -142,18 +192,6 @@ Respond with JSON:
             content = turn.get("content", "")
             lines.append(f"[{role}]: {content}")
         return "\n".join(lines)
-
-    def _mock_llm_call(self, prompt: str) -> str:
-        """Mock LLM call (would be replaced with actual Claude call)."""
-        # In production: response = self.llm.call(prompt)
-        # For testing: return valid JSON structure
-        return json.dumps({
-            "proposed_next": "validate",
-            "confidence": 0.9,
-            "semantic_intents": ["confirm"],
-            "semantic_entities": {},
-            "reasoning": "User provided input"
-        })
 
     def _parse_response(self, response: str, allowed_states: list) -> RouterDecision:
         """Parse LLM response and extract RouterDecision."""
