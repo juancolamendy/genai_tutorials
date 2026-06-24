@@ -130,7 +130,7 @@ class StateMachineWorkflow(Workflow):
                 max_iterations=_MAX_LOOP_ITERS,
                 end_condition=_is_terminal,
                 steps=[
-                    Step(name="Router", executor=self._router_step),
+                    Step(name="Router", executor=self._dispatch_router_step),
                     Step(name="Guardrail", executor=self._guardrail_step),
                     Router(
                         name="DispatchHandler",
@@ -179,6 +179,18 @@ class StateMachineWorkflow(Workflow):
         return state_dict, Result()
 
     # ── Step: Router (Pure Code or Semantic) ──────────────────────────────────
+
+    def _dispatch_router_step(self, step_input: StepInput) -> StepOutput:
+        """
+        Dispatch to appropriate router based on mode.
+        - Multi-turn (has turn_input): Use semantic router with LLM
+        - One-turn (no turn_input): Use pure code router
+        """
+        is_multiturn = self.session_state.get("turn_input") is not None
+        if is_multiturn:
+            return self._semantic_router_step(step_input)
+        else:
+            return self._router_step(step_input)
 
     def _semantic_router_step(self, step_input: StepInput) -> StepOutput:
         """

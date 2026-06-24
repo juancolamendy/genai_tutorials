@@ -24,6 +24,7 @@ import logging
 import random
 from typing import Any
 
+from engine.handler_registry import handler
 from .agents import ENRICH_AGENT, REVIEW_AGENT, VALIDATE_AGENT
 
 from .pipeline_state import PipelineState, audit
@@ -36,28 +37,36 @@ log = logging.getLogger(__name__)
 
 # functions
 # ── FETCH ─────────────────────────────────────────────────────────────────────
+@handler(state="fetch", waits_for_input=False, description="Fetch document from store")
 def handle_fetch(p: PipelineState) -> PipelineState:
     """Simulate fetching a document from an external source."""
     doc_id = p["document_id"]
     log.info("[FETCH]   doc_id=%s  attempt=%d", doc_id, p["retry_count"] + 1)
 
-    # Simulate a 25 % transient fetch failure on the first attempt only.
-    if random.random() < 0.25 and p["retry_count"] == 0:
-        log.warning("[FETCH]   transient failure — will retry")
-        return audit({**p, "current_state": State.FETCH.value, "raw_data": None},
-                     "fetch FAILED (simulated transient error)")
+    try:
+        # Simulate a 25 % transient fetch failure on the first attempt only.
+        if random.random() < 0.25 and p["retry_count"] == 0:
+            log.warning("[FETCH]   transient failure — will retry")
+            return audit({**p, "current_state": State.FETCH.value, "raw_data": None},
+                         "fetch FAILED (simulated transient error)")
 
-    raw = {
-        "id":             doc_id,
-        "content":        f"Full text of document {doc_id}. Lorem ipsum dolor sit amet.",
-        "schema_version": "2.1",
-        "source":         "document-store-v2",
-    }
-    return audit({**p, "current_state": State.FETCH.value, "raw_data": raw},
-                 f"fetch OK  schema_version={raw['schema_version']}")
+        raw = {
+            "id":             doc_id,
+            "content":        f"Full text of document {doc_id}. Lorem ipsum dolor sit amet.",
+            "schema_version": "2.1",
+            "source":         "document-store-v2",
+        }
+        return audit({**p, "current_state": State.FETCH.value, "raw_data": raw},
+                     f"fetch OK  schema_version={raw['schema_version']}")
+
+    except Exception as exc:
+        log.error("[FETCH] exception: %s", exc)
+        return audit({**p, "current_state": State.ERROR.value, "error_message": str(exc)},
+                     f"fetch EXCEPTION: {exc}")
 
 
 # ── VALIDATE ──────────────────────────────────────────────────────────────────
+@handler(state="validate", waits_for_input=False, description="Validate document schema and content")
 def handle_validate(p: PipelineState) -> PipelineState:
     """LLM validates raw_data; sets validated_data on success."""
     log.info("[VALIDATE] doc_id=%s", p["document_id"])
@@ -77,13 +86,13 @@ def handle_validate(p: PipelineState) -> PipelineState:
 
     except Exception as exc:
         log.error("[VALIDATE] exception: %s", exc)
-        return audit({**p, "current_state": State.VALIDATE.value,
+        return audit({**p, "current_state": State.ERROR.value,
                       "validated_data": None, "error_message": str(exc)},
                      f"validate EXCEPTION: {exc}")
 
 
 # ── ENRICH ────────────────────────────────────────────────────────────────────
-
+@handler(state="enrich", waits_for_input=False, description="Enrich document with tags and summary")
 def handle_enrich(p: PipelineState) -> PipelineState:
     """LLM enriches validated_data with tags, summary, and metadata."""
     log.info("[ENRICH]  doc_id=%s", p["document_id"])
@@ -105,21 +114,30 @@ def handle_enrich(p: PipelineState) -> PipelineState:
 
     except Exception as exc:
         log.error("[ENRICH] exception: %s", exc)
-        return audit({**p, "current_state": State.ENRICH.value,
+        return audit({**p, "current_state": State.ERROR.value,
                       "enriched_data": None, "error_message": str(exc)},
                      f"enrich EXCEPTION: {exc}")
 
 
 # ── STORE ─────────────────────────────────────────────────────────────────────
+@handler(state="store", waits_for_input=False, description="Store processed document")
 def handle_store(p: PipelineState) -> PipelineState:
     """Simulate persisting enriched_data to the document store."""
     log.info("[STORE]   doc_id=%s", p["document_id"])
-    record_id = f"rec-{p['document_id']}-{id(p) & 0xFFFF:04x}"
-    return audit({**p, "current_state": State.STORE.value},
-                 f"store OK  record_id={record_id}")
+
+    try:
+        record_id = f"rec-{p['document_id']}-{id(p) & 0xFFFF:04x}"
+        return audit({**p, "current_state": State.STORE.value},
+                     f"store OK  record_id={record_id}")
+
+    except Exception as exc:
+        log.error("[STORE] exception: %s", exc)
+        return audit({**p, "current_state": State.ERROR.value, "error_message": str(exc)},
+                     f"store EXCEPTION: {exc}")
 
 
 # ── COMPLETE ──────────────────────────────────────────────────────────────────
+@handler(state="complete", waits_for_input=False, description="Complete processing")
 def handle_complete(p: PipelineState) -> PipelineState:
     """Terminal success state."""
     log.info("[COMPLETE] ✅  doc_id=%s", p["document_id"])
@@ -127,6 +145,7 @@ def handle_complete(p: PipelineState) -> PipelineState:
 
 
 # ── RETRY ─────────────────────────────────────────────────────────────────────
+@handler(state="retry", waits_for_input=False, description="Retry failed operation")
 def handle_retry(p: PipelineState) -> PipelineState:
     """Increment retry counter and clear stale payload to force a clean re-fetch."""
     new_count = p["retry_count"] + 1
@@ -140,6 +159,7 @@ def handle_retry(p: PipelineState) -> PipelineState:
 
 
 # ── HUMAN_REVIEW ──────────────────────────────────────────────────────────────
+@handler(state="human_review", waits_for_input=True, description="Route to human reviewer (pauses workflow)")
 def handle_human_review(p: PipelineState) -> PipelineState:
     """
     Route a failed-validation document to a human (LLM-simulated) reviewer.
@@ -171,12 +191,13 @@ def handle_human_review(p: PipelineState) -> PipelineState:
 
     except Exception as exc:
         log.error("[REVIEW] exception: %s", exc)
-        return audit({**p, "current_state": State.HUMAN_REVIEW.value,
+        return audit({**p, "current_state": State.ERROR.value,
                       "validated_data": None, "error_message": str(exc)},
                      f"human_review EXCEPTION: {exc}")
 
 
 # ── ERROR ─────────────────────────────────────────────────────────────────────
+@handler(state="error", waits_for_input=False, description="Terminal error state")
 def handle_error(p: PipelineState) -> PipelineState:
     """Terminal error state — log and freeze."""
     reason = p.get("error_message", "unknown error")
