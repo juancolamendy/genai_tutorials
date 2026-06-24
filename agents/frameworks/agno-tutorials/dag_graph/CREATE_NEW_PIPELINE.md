@@ -549,16 +549,12 @@ class InvoiceWorkflow(StateMachineWorkflow):
 
         return state_dict, Result()
 
-    def process(self, invoice_id: str) -> InvoiceState:
-        """
-        Process a single invoice through the entire pipeline.
-        One-turn entry point (synchronous).
-        """
-        self._ensure_initialized()
-        self.session_state.update(new_invoice_state(invoice_id))
+    def _new_session_state(self, entity_id: str) -> dict[str, Any]:
+        """Initialize fresh session state for a new invoice."""
+        return new_invoice_state(entity_id)
 
-        self.run(input=invoice_id)
-
+    def _build_response(self, entity_id: str) -> InvoiceState:
+        """Build InvoiceState from current session_state."""
         final = InvoiceState(
             current_state=self.session_state["current_state"],
             proposed_next=self.session_state["proposed_next"],
@@ -574,8 +570,7 @@ class InvoiceWorkflow(StateMachineWorkflow):
             validated_invoice=self.session_state.get("validated_invoice"),
             approved_invoice=self.session_state.get("approved_invoice"),
         )
-
-        print(f"\n✅ Invoice {invoice_id} processed to state: {final['current_state']}")
+        print(f"\n✅ Invoice {entity_id} processed to state: {final['current_state']}")
         return final
 ```
 

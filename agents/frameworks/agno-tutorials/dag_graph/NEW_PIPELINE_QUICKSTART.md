@@ -107,6 +107,9 @@ class MyWorkflow(StateMachineWorkflow):
     def _get_proposed_state(self, session_state):
         return State(session_state.get("proposed_next", "init"))
 
+    def _new_session_state(self, entity_id: str) -> dict:
+        return {"current_state": State.INIT.value, "entity_id": entity_id, ...}
+
     def _run_guardrail(self, state_dict):
         from dataclasses import dataclass
         @dataclass
@@ -114,13 +117,19 @@ class MyWorkflow(StateMachineWorkflow):
             passed: bool = True
             reason: str = ""
         return state_dict, Result()
+
+    # Optional: override _build_response() to return domain-specific type
+    # def _build_response(self, entity_id: str) -> MyPipelineState:
+    #     return MyPipelineState(...from session_state...)
+    # (if not overridden, base class returns dict with standard fields)
 ```
 
 ---
 
 ## That's It! You Get Automatically
 
-✅ **Multi-turn support** — process_turn() works out of the box  
+✅ **One-turn support** — process(entity_id) inherited from base class  
+✅ **Multi-turn support** — process_turn() inherited from base class  
 ✅ **Semantic routing** — LLM-powered state classification  
 ✅ **Error handling** — Exceptions route to ERROR state  
 ✅ **Session persistence** — Auto-save to DB  
@@ -128,6 +137,7 @@ class MyWorkflow(StateMachineWorkflow):
 ✅ **Entity extraction** — Router returns semantic_context  
 ✅ **Conversation history** — Auto-trimmed to max_history_turns  
 ✅ **Pause/resume** — waits_for_input flag pauses workflow  
+✅ **Response building** — _build_response() default extracts standard fields  
 
 ---
 
@@ -151,13 +161,18 @@ response = wf.process_turn(
 
 ## File Template Checklist
 
-- [ ] `src/my_pipeline/state_machine.py` — State enum
-- [ ] `src/my_pipeline/pipeline_state.py` — Business TypedDict
-- [ ] `src/my_pipeline/handlers.py` — All handlers with @decorator
-- [ ] `src/my_pipeline/router.py` — Domain router class
-- [ ] `src/my_pipeline/workflow.py` — Workflow class (5 hooks)
-- [ ] `src/my_pipeline/__init__.py` — Exports
-- [ ] `tests/my_pipeline/test_workflow.py` — Tests (copy from doc-pipeline)
+- [ ] `src/my_pipeline/state_machine.py` — State enum + TERMINAL_STATES
+- [ ] `src/my_pipeline/pipeline_state.py` — Business TypedDict (inherit from EngineState)
+- [ ] `src/my_pipeline/handlers.py` — All handlers with @handler decorator
+- [ ] `src/my_pipeline/router.py` — Domain router (inherit from BaseSemanticRouter)
+- [ ] `src/my_pipeline/workflow.py` — Workflow class with 5 required hooks:
+  - `_init_session_defaults()`
+  - `_build_routing_table()`
+  - `_get_current_state()`
+  - `_get_proposed_state()`
+  - `_new_session_state(entity_id)`
+- [ ] `src/my_pipeline/__init__.py` — Exports (workflow factory, state types)
+- [ ] `tests/my_pipeline/test_workflow_integration.py` — Integration tests
 
 ---
 
