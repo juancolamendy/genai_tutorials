@@ -178,6 +178,35 @@ class StateMachineWorkflow(Workflow):
 
         return state_dict, Result()
 
+    def _new_session_state(self, entity_id: str) -> dict[str, Any]:
+        """
+        Create a fresh session state for processing an entity.
+
+        Subclasses must override to initialize their domain-specific state.
+
+        Args:
+            entity_id: The entity being processed (document_id, invoice_id, etc.)
+
+        Returns:
+            A new session state dict ready for processing
+        """
+        raise NotImplementedError("Subclass must implement _new_session_state()")
+
+    def _build_response(self, entity_id: str) -> Any:
+        """
+        Build response object from current session_state.
+
+        Subclasses must override to construct their specific response type
+        (e.g., PipelineState, InvoiceState, etc.).
+
+        Args:
+            entity_id: The entity being processed (document_id, invoice_id, etc.)
+
+        Returns:
+            A response object of the workflow's domain type
+        """
+        raise NotImplementedError("Subclass must implement _build_response()")
+
     # ── Step: Router (Pure Code or Semantic) ──────────────────────────────────
 
     def _dispatch_router_step(self, step_input: StepInput) -> StepOutput:
@@ -337,6 +366,35 @@ class StateMachineWorkflow(Workflow):
             "router_confidence": self.session_state.get("router_confidence", 0.0),
             "error": self.session_state.get("error_message")
         }
+
+    # ── One-turn entry point ────────────────────────────────────────────────
+
+    def process(self, entity_id: str) -> Any:
+        """
+        Execute one complete run of the workflow for an entity.
+
+        Provides generic one-turn support for any workflow:
+          1. Initialize fresh session state via _new_session_state()
+          2. Execute state machine loop (routing, handlers, guardrails)
+          3. Build response object via _build_response()
+          4. Record run in output history
+          5. Return response
+
+        Args:
+            entity_id: The entity identifier (document_id, invoice_id, etc.)
+
+        Returns:
+            Response object of the workflow's domain type
+        """
+        self._ensure_initialized()
+        self.session_state.update(self._new_session_state(entity_id))
+        self.run(input=entity_id)
+        response = self._build_response(entity_id)
+        self.session_state.setdefault("output", []).append({
+            "entity_id": entity_id,
+            "final_state": self.session_state.get("current_state"),
+        })
+        return response
 
     # ── Multi-turn entry point ──────────────────────────────────────────────
 

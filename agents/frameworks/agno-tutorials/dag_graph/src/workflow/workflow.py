@@ -100,22 +100,12 @@ class DocPipelineWorkflow(StateMachineWorkflow):
         """Run guardrails on proposed transition."""
         return run_guardrail(state_dict)
 
-    # ── Workflow entry: initialise and run ────────────────────────────────────
+    def _new_session_state(self, entity_id: str) -> dict[str, Any]:
+        """Initialize fresh session state for a new document."""
+        return new_pipeline(entity_id)
 
-    def process(self, document_id: str) -> PipelineState:
-        """
-        Run the full state machine for `document_id` and return the final
-        PipelineState.
-
-        If the session already has a completed pipeline for this document, a
-        fresh PipelineState is created (the session accumulates runs in
-        pipeline_runs for audit purposes).
-        """
-        self._ensure_initialized()
-        self.session_state.update(new_pipeline(document_id))
-
-        self.run(input=document_id)
-
+    def _build_response(self, entity_id: str) -> PipelineState:
+        """Build PipelineState from current session_state."""
         final = PipelineState(
             current_state=self.session_state["current_state"],
             proposed_next=self.session_state["proposed_next"],
@@ -128,14 +118,6 @@ class DocPipelineWorkflow(StateMachineWorkflow):
             validated_data=self.session_state.get("validated_data"),
             enriched_data=self.session_state.get("enriched_data"),
         )
-
-        self.session_state.setdefault("output", {}).append({
-            "document_id": document_id,
-            "final_state": final.current_state,
-            "retry_count": final.retry_count,
-            "audit_trail": final.audit_trail,
-        })
-
         print(pretty_audit(final))
         return final
 
