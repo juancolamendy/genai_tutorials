@@ -38,11 +38,11 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
-import uuid
 import logging
 import re
 import sys
 import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -76,6 +76,7 @@ class FilingMetadata:
     form_type: str | None = None
     fiscal_period: str | None = None
     filing_date: str | None = None
+    url: str | None = None
 
     def to_dict(self) -> dict:
         return dataclasses.asdict(self)
@@ -115,16 +116,14 @@ def _parse_cover(text: str) -> FilingMetadata:
 
 
 def load_metadata(md_path: Path, cover_text: str) -> FilingMetadata:
-    """Sidecar JSON is authoritative; cover-page parsing fills any gaps."""
+    """Load filing metadata from sidecar JSON (guaranteed by converter.py).
+
+    Sidecar is authoritative; cover-page parsing fills any gaps.
+    """
     sidecar = md_path.with_suffix(".meta.json")
-    sidecar_meta = FilingMetadata()
-    if sidecar.is_file():
-        try:
-            raw = json.loads(sidecar.read_text(encoding="utf-8"))
-            known = {f.name for f in dataclasses.fields(FilingMetadata)}
-            sidecar_meta = FilingMetadata(**{k: v for k, v in raw.items() if k in known})
-        except (json.JSONDecodeError, TypeError) as exc:
-            log.warning("Bad sidecar %s: %s", sidecar, exc)
+    raw = json.loads(sidecar.read_text(encoding="utf-8"))
+    known = {f.name for f in dataclasses.fields(FilingMetadata)}
+    sidecar_meta = FilingMetadata(**{k: v for k, v in raw.items() if k in known})
     return sidecar_meta.merged_with(_parse_cover(cover_text))
 
 
@@ -156,8 +155,7 @@ def process_file(
     d_id = new_id()
 
     document_record = {
-        "doc_id": d_id,
-        "source_file": source_rel,
+        "id": d_id,
         **meta.to_dict(),
     }
 
@@ -167,16 +165,13 @@ def process_file(
         # contextualize()   — heading-prefixed text; pass this to the embedding API
         content = chunker.contextualize(chunk=chunk)
         headings: list[str] = list(chunk.meta.headings or [])
-        captions: list[str] = list(chunk.meta.captions or [])
 
         chunk_records.append(
             {
-                "chunk_id": new_id(),
-                "doc_id": d_id,
+                "id": new_id(),
+                "document_id": d_id,
                 "chunk_index": index,
                 "section": " > ".join(headings) if headings else None,
-                "headings": headings,
-                "captions": captions,
                 # This is the string sent to text-embedding-3-large.
                 "content": content,
             }
@@ -208,7 +203,7 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         help="Directory containing .md files from converter.py.",
     )
     p.add_argument(
-        "--output-dir", type=Path, default=Path("data"),
+        "--output-dir", type=Path, default=Path("data/chunks"),
         help="Directory to write documents.jsonl and chunks.jsonl.",
     )
     p.add_argument(
