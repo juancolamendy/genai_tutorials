@@ -104,25 +104,6 @@ class DocPipelineWorkflow(StateMachineWorkflow):
         """Initialize fresh session state for a new document."""
         return new_pipeline(entity_id)
 
-    def _build_response(self, entity_id: str) -> PipelineState:
-        """Build PipelineState from current session_state."""
-        final = PipelineState(
-            current_state=self.session_state["current_state"],
-            proposed_next=self.session_state["proposed_next"],
-            retry_count=self.session_state["retry_count"],
-            error_message=self.session_state.get("error_message"),
-            guardrail_ok=self.session_state["guardrail_ok"],
-            audit_trail=self.session_state["audit_trail"],
-            document_id=self.session_state["document_id"],
-            raw_data=self.session_state.get("raw_data"),
-            validated_data=self.session_state.get("validated_data"),
-            enriched_data=self.session_state.get("enriched_data"),
-        )
-        print(pretty_audit(final))
-        return final
-
-    # Inherit process() and process_turn() from StateMachineWorkflow base class
-
 
 # ── Factory ────────────────────────────────────────────────────────────────────
 

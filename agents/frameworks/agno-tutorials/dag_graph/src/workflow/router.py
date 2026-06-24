@@ -1,14 +1,18 @@
 """
 workflow/router.py
 ────────────────────────────────────────────────────────────────────────────
-DocPipelineRouter — LLM-powered semantic router for document processing.
+DocPipelineRouter — Domain-specific semantic router for document processing.
 
-Inherits from BaseSemanticRouter and provides:
-  • Claude LLM integration for state classification
-  • Domain-specific entity extraction (amounts, items, document_ids)
-  • Domain-specific intent extraction (confirm, clarify, escalate, etc.)
-  • Constraint retry logic for invalid transitions
-  • Timeout handling
+Inherits from DefaultSemanticRouter and overrides:
+  • get_instructions() — Domain-specific LLM instructions
+  • build_router_prompt() — Domain-specific prompt format
+  • output_schema — Domain-specific Pydantic model
+
+Reuses from DefaultSemanticRouter:
+  • Agent initialization and LLM calls
+  • State validation and fallback logic
+  • Confidence clamping and error handling
+  • History formatting
 """
 
 from __future__ import annotations
@@ -20,13 +24,11 @@ from typing import Any, Optional
 
 from pydantic import BaseModel
 
-from engine.router import BaseSemanticRouter, RouterDecision
-from engine.agent import make_agent
+from engine.router import DefaultSemanticRouter
 
 log = logging.getLogger(__name__)
 
 
-# Output schema for router LLM calls
 class RouterOutput(BaseModel):
     """Structure for router LLM output."""
     proposed_next: str
@@ -36,128 +38,42 @@ class RouterOutput(BaseModel):
     reasoning: str = ""
 
 
-class DocPipelineRouter(BaseSemanticRouter):
+class DocPipelineRouter(DefaultSemanticRouter):
     """
     Document pipeline semantic router using Claude LLM via Agno.
 
-    Classifies user input and determines next state based on:
-      • Current state in workflow
-      • User's turn input (entities like amounts, items)
-      • Conversation history
-      • Allowed next states per state machine
+    Inherits common routing logic from DefaultSemanticRouter and provides
+    domain-specific instructions and prompt formatting for document processing.
 
     Extracts:
       • Entities: amounts (e.g., "$99.99"), items (e.g., "document.pdf")
       • Intents: confirm, clarify, escalate, upload, cancel
     """
 
-    def __init__(self, model: str = "claude-haiku-4-5-20251001"):
-        """
-        Initialize router with Claude LLM via Agno.
+    output_schema = RouterOutput
 
-        Args:
-            model: Claude model ID (default claude-haiku for cost efficiency)
-        """
-        self.model = model
+    def get_instructions(self) -> list[str]:
+        """Return domain-specific instructions for document routing."""
+        return [
+            "You are a state machine router for document processing workflows.",
+            "Given the current state, user input, conversation history, and allowed next states,",
+            "determine which state the workflow should transition to next.",
+            "",
+            "Classify the user's intent: confirm, clarify, escalate, upload, cancel, proceed, etc.",
+            "Extract entities: amounts (e.g. '$99.99'), document IDs, item names, keywords.",
+            "Always propose one of the ALLOWED NEXT STATES.",
+            "Return confidence 0.0-1.0 based on how clear the user's intent is.",
+            "Provide brief reasoning for your decision.",
+        ]
 
-        # Create Agno agent for routing decisions
-        self.router_agent = make_agent(
-            name="DocPipelineRouter",
-            description="Routes document processing workflow based on user intent and context.",
-            output_schema=RouterOutput,
-            instructions=[
-                "You are a state machine router for document processing workflows.",
-                "Given the current state, user input, conversation history, and allowed next states,",
-                "determine which state the workflow should transition to next.",
-                "",
-                "Classify the user's intent: confirm, clarify, escalate, upload, cancel, proceed, etc.",
-                "Extract entities: amounts (e.g. '$99.99'), document IDs, item names, keywords.",
-                "Always propose one of the ALLOWED NEXT STATES.",
-                "Return confidence 0.0-1.0 based on how clear the user's intent is.",
-                "Provide brief reasoning for your decision.",
-            ],
-        )
-
-    def route(self,
-              current_state: str,
-              turn_input: str,
-              history: list,
-              allowed_states: list,
-              timeout_sec: float = 10.0) -> RouterDecision:
-        """
-        Classify next state using Claude LLM via Agno.
-
-        Args:
-            current_state: Current state (e.g., "validate")
-            turn_input: User's input (already validated and escaped)
-            history: Recent turn history (last N turns)
-            allowed_states: Valid next states
-            timeout_sec: LLM call timeout
-
-        Returns:
-            RouterDecision with proposed next state and semantic entities
-        """
-        try:
-            # Format history for LLM context
-            history_text = self._format_history(history)
-
-            # Build prompt with current state, user input, allowed states
-            prompt = self._build_router_prompt(
-                current_state, turn_input, history_text, allowed_states
-            )
-
-            # Call Claude LLM via Agno agent
-            result = self.router_agent.run(prompt)
-
-            # Extract RouterOutput from agent result
-            router_output: RouterOutput = result.content
-
-            # Validate proposed next state is in allowed_states
-            proposed = router_output.proposed_next
-            if proposed not in allowed_states:
-                log.warning(
-                    f"Router proposed invalid state '{proposed}'. "
-                    f"Allowed: {allowed_states}. Falling back to first allowed state."
-                )
-                proposed = allowed_states[0] if allowed_states else "error"
-
-            # Convert RouterOutput to RouterDecision
-            decision = RouterDecision(
-                proposed_next=proposed,
-                confidence=max(0.0, min(1.0, router_output.confidence)),  # Clamp to [0, 1]
-                semantic_entities=router_output.semantic_entities or {},
-                semantic_intents=router_output.semantic_intents or [],
-                reasoning=router_output.reasoning
-            )
-
-            log.info(
-                "[Router] %s + '%s...' → %s (confidence: %.2f)",
-                current_state,
-                turn_input[:30] if turn_input else "(empty)",
-                proposed,
-                decision.confidence
-            )
-
-            return decision
-
-        except Exception as e:
-            log.exception("Router error: %s", e)
-            return RouterDecision(
-                proposed_next="error",
-                confidence=0.0,
-                semantic_entities={},
-                semantic_intents=[],
-                reasoning=f"Router error: {str(e)}"
-            )
-
-    def _build_router_prompt(self,
-                             current_state: str,
-                             turn_input: str,
-                             history_text: str,
-                             allowed_states: list) -> str:
-        """Build LLM prompt for state classification."""
+    def build_router_prompt(self,
+                           current_state: str,
+                           turn_input: str,
+                           history_text: str,
+                           allowed_states: list) -> str:
+        """Build domain-specific LLM prompt for state classification."""
         allowed_str = ", ".join(allowed_states)
-        prompt = f"""
+        return f"""
 WORKFLOW STATE MACHINE ROUTING
 
 Current State: {current_state}
@@ -179,45 +95,3 @@ Your task:
 
 IMPORTANT: You MUST choose one of the allowed next states. Never propose a state outside that list.
 """
-        return prompt
-
-    def _format_history(self, history: list, max_turns: int = 10) -> str:
-        """Format turn history for LLM context."""
-        if not history:
-            return "(no history)"
-        recent = history[-max_turns:]
-        lines = []
-        for turn in recent:
-            role = turn.get("role", "?")
-            content = turn.get("content", "")
-            lines.append(f"[{role}]: {content}")
-        return "\n".join(lines)
-
-    def _parse_response(self, response: str, allowed_states: list) -> RouterDecision:
-        """Parse LLM response and extract RouterDecision."""
-        try:
-            # Extract JSON from response
-            match = re.search(r'\{.*\}', response, re.DOTALL)
-            if not match:
-                return RouterDecision(proposed_next=allowed_states[0], confidence=0.5)
-
-            data = json.loads(match.group())
-
-            proposed = data.get("proposed_next", allowed_states[0])
-
-            # Constraint retry: if invalid transition, use allowed state
-            if proposed not in allowed_states:
-                log.warning(f"Router proposed invalid state {proposed}; using {allowed_states[0]}")
-                proposed = allowed_states[0]
-
-            return RouterDecision(
-                proposed_next=proposed,
-                confidence=float(data.get("confidence", 0.5)),
-                semantic_entities=data.get("semantic_entities", {}),
-                semantic_intents=data.get("semantic_intents", []),
-                reasoning=data.get("reasoning")
-            )
-
-        except Exception as e:
-            log.error("Failed to parse router response: %s", e)
-            return RouterDecision(proposed_next=allowed_states[0], confidence=0.5)
