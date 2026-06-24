@@ -78,7 +78,12 @@ class DocPipelineWorkflow(StateMachineWorkflow):
     def __post_init__(self) -> None:
         """Initialize base class and semantic router for multi-turn support."""
         super().__post_init__()
-        self.router = DocPipelineRouter()
+        self._init_router()
+
+    def _init_router(self) -> None:
+        """Initialize semantic router (idempotent)."""
+        if not hasattr(self, 'router') or self.router is None:
+            self.router = DocPipelineRouter()
 
     def _init_session_defaults(self) -> None:
         """Initialize session with pipeline-specific defaults."""

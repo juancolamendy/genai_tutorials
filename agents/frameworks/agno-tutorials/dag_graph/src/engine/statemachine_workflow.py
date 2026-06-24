@@ -487,6 +487,10 @@ class StateMachineWorkflow(Workflow):
             escaped = escape_for_llm(turn_input)
             self._ensure_initialized()
 
+            # Initialize router if subclass provides one (for semantic routing in multi-turn)
+            if hasattr(self, '_init_router'):
+                self._init_router()
+
             # Initialize session state on first turn (turn_number == 0)
             if self.session_state.get("turn_number", 0) == 0:
                 # First turn: initialize fresh session state
