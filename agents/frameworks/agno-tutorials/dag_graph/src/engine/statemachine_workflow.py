@@ -363,6 +363,32 @@ class StateMachineWorkflow(Workflow):
             self.session_state["conversation_history"] = history[-max_turns:]
             log.info(f"Trimmed {dropped} turns; keeping last {max_turns}")
 
+    def _auto_progress(self) -> None:
+        """
+        Auto-progress workflow through non-blocking states.
+
+        If current state has waits_for_input=False, continue running the state
+        machine loop until we hit a state with waits_for_input=True or a
+        terminal state. This allows workflows to skip through automatic
+        processing steps without waiting for user input.
+        """
+        from engine.handler_registry import does_state_wait_for_input
+
+        while True:
+            current = self._get_current_state(self.session_state)
+
+            # Stop if we hit a terminal state
+            if current in self._TERMINAL_STATES:
+                break
+
+            # Stop if we hit a state that waits for input
+            if does_state_wait_for_input(current.value if hasattr(current, 'value') else current):
+                break
+
+            # Continue: state is non-blocking, so run one more iteration
+            log.debug(f"[AutoProgress] {current} has waits_for_input=False, continuing...")
+            self.run(input=self.session_state.get("turn_input", ""))
+
     def _build_turn_response(self) -> dict[str, Any]:
         """Build response dict from current session_state."""
         from engine.handler_registry import does_state_wait_for_input
@@ -386,9 +412,10 @@ class StateMachineWorkflow(Workflow):
         Provides generic one-turn support for any workflow:
           1. Initialize fresh session state via _new_session_state()
           2. Execute state machine loop (routing, handlers, guardrails)
-          3. Build response object via _build_response()
-          4. Record run in output history
-          5. Return response
+          3. Auto-progress through non-blocking states (waits_for_input=False)
+          4. Build response object via _build_response()
+          5. Record run in output history
+          6. Return response
 
         Args:
             entity_id: The entity identifier (document_id, invoice_id, etc.)
@@ -399,6 +426,7 @@ class StateMachineWorkflow(Workflow):
         self._ensure_initialized()
         self.session_state.update(self._new_session_state(entity_id))
         self.run(input=entity_id)
+        self._auto_progress()
         response = self._build_response(entity_id)
         self.session_state.setdefault("output", []).append({
             "entity_id": entity_id,
@@ -421,8 +449,9 @@ class StateMachineWorkflow(Workflow):
           2. Escape for LLM (prompt injection safety)
           3. Prepare turn metadata (turn_input, turn_number, router_timeout)
           4. Execute state machine loop (routing, handlers, guardrails)
-          5. Trim conversation history to max_history_turns
-          6. Return response with state, entities, intents, confidence
+          5. Auto-progress through non-blocking states (waits_for_input=False)
+          6. Trim conversation history to max_history_turns
+          7. Return response with state, entities, intents, confidence
 
         Args:
             user_id: Caller identity (for audit trail)
@@ -449,6 +478,7 @@ class StateMachineWorkflow(Workflow):
 
             self._prepare_turn_metadata(escaped, timeout_sec)
             self.run(session_id=session_id, user_id=user_id)
+            self._auto_progress()
             self._trim_history()
 
             return self._build_turn_response()
