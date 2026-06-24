@@ -2,7 +2,6 @@
 Tests for engine/handler_registry.py — @handler decorator and metadata.
 """
 
-import pytest
 
 
 class TestHandlerMetadata:

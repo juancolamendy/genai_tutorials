@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -109,7 +109,7 @@ class DefaultSemanticRouter(BaseSemanticRouter):
 
         self.router_agent = make_agent(
             name=self.__class__.__name__,
-            description=f"Routes workflow based on user intent and context.",
+            description="Routes workflow based on user intent and context.",
             output_schema=self.output_schema,
             instructions=self.get_instructions(),
         )

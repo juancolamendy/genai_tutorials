@@ -17,7 +17,7 @@ in workflow/pipeline_state.py, which inherits from EngineState.
 
 from __future__ import annotations
 
-from typing import Any, Optional, TypedDict
+from typing import Optional, TypedDict
 
 
 class EngineState(TypedDict, total=False):

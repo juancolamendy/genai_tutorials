@@ -2,8 +2,7 @@
 Tests for engine/pipeline_state.py — EngineState control plane.
 """
 
-import pytest
-from engine.pipeline_state import EngineState, init_engine_state, audit
+from engine.pipeline_state import init_engine_state, audit
 
 
 class TestEngineStateInitialization:

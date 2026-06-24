@@ -16,11 +16,10 @@ Tests semantic routing, entity extraction, intent detection, pause/resume.
 from __future__ import annotations
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 from src.workflow.workflow import DocPipelineWorkflow
-from src.workflow.pipeline_state import PipelineState, new_pipeline
-from src.engine.engine_state import EngineState
+from src.workflow.pipeline_state import PipelineState
 
 
 class TestMultiTurnBasicFlow:
@@ -143,7 +142,6 @@ class TestMultiTurnBasicFlow:
 
             # Mock handler to raise exception
             with patch.dict(wf.HANDLER_MAP):
-                from src.workflow.handlers import handle_fetch
 
                 def failing_fetch(p: PipelineState) -> PipelineState:
                     raise RuntimeError("Simulated fetch error")
@@ -314,6 +312,9 @@ class TestBackwardCompatibility:
 
         result = wf.process(document_id="DOC-001")
 
+        # Should return a valid PipelineState
+        assert result is not None
+        assert "current_state" in result
         # Should have output field with run record
         assert "output" in wf.session_state or "pipeline_runs" in wf.session_state
 

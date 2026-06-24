@@ -12,7 +12,7 @@ Inherits EngineState (control plane) and adds business-specific fields:
 Also exports helpers for common mutations.
 """
 
-from typing import Any, Optional, TypedDict
+from typing import Any, Optional
 
 from engine.engine_state import EngineState, init_engine_state
 from .state_machine import State, TERMINAL_STATES
