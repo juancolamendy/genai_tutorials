@@ -178,7 +178,63 @@ class StateMachineWorkflow(Workflow):
 
         return state_dict, Result()
 
-    # ── Step: Router ──────────────────────────────────────────────────────────
+    # ── Step: Router (Pure Code or Semantic) ──────────────────────────────────
+
+    def _semantic_router_step(self, step_input: StepInput) -> StepOutput:
+        """
+        LLM-powered router: reads current_state + turn_input → proposes next state.
+
+        Used for multi-turn workflows. Requires self.router to be initialized.
+        Falls back to _router_step if router not available.
+        """
+        if not hasattr(self, 'router') or self.router is None:
+            log.warning("Semantic router not initialized; using pure code routing")
+            return self._router_step(step_input)
+
+        current = self._get_current_state(self.session_state)
+        turn_input = self.session_state.get("turn_input", "")
+        history = self.session_state.get("conversation_history", [])
+
+        # Get allowed next states from routing table
+        routing_table = self._build_routing_table()
+        routing_entry = routing_table.get(current)
+        if routing_entry is None:
+            raise ValueError(f"Current state {current} not in routing table")
+
+        # Extract allowed states (handle both single state and dict of paths)
+        if isinstance(routing_entry, dict):
+            allowed = list(routing_entry.keys())
+        else:
+            allowed = [routing_entry]
+
+        # Convert to string values
+        allowed_str = [s.value if hasattr(s, 'value') else str(s) for s in allowed]
+
+        # Call semantic router
+        timeout_sec = self.session_state.get("router_timeout_sec", 10.0)
+        decision = self.router.route(
+            current_state=current.value if hasattr(current, 'value') else str(current),
+            turn_input=turn_input,
+            history=history,
+            allowed_states=allowed_str,
+            timeout_sec=timeout_sec
+        )
+
+        # Store decision in session_state
+        self.session_state["proposed_next"] = decision.proposed_next
+        self.session_state["semantic_context"] = {
+            "entities": decision.semantic_entities,
+            "intents": decision.semantic_intents,
+        }
+        self.session_state["router_confidence"] = decision.confidence
+
+        log.info(
+            "[SemanticRouter] %s + '%s...' → %s (confidence: %.2f)",
+            current, turn_input[:30] if turn_input else "(empty)",
+            decision.proposed_next, decision.confidence
+        )
+
+        return StepOutput(content={"proposed_next": decision.proposed_next})
 
     def _router_step(self, step_input: StepInput) -> StepOutput:
         """Pure code router: reads current_state → proposes next state."""

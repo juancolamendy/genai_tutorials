@@ -23,6 +23,7 @@ from engine.statemachine_workflow import StateMachineWorkflow
 from .handlers import HANDLER_MAP
 from .guardrails import run_guardrail
 from .pipeline_state import PipelineState, new_pipeline, pretty_audit
+from .router import DocPipelineRouter
 from .session import init_session_defaults
 from .state_machine import State, TERMINAL_STATES
 
@@ -72,6 +73,12 @@ class DocPipelineWorkflow(StateMachineWorkflow):
     _STATE_ENUM = State
     _TERMINAL_STATES = TERMINAL_STATES
     HANDLER_MAP = HANDLER_MAP
+
+    def __post_init__(self) -> None:
+        """Initialize base class and semantic router for multi-turn support."""
+        super().__post_init__()
+        # Initialize semantic router for LLM-powered state classification
+        self.router = DocPipelineRouter()
 
     def _init_session_defaults(self) -> None:
         """Initialize session with pipeline-specific defaults."""
