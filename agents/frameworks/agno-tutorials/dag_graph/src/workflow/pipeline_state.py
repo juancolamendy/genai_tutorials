@@ -28,6 +28,7 @@ class PipelineState(EngineState):
     document_id: str
     raw_data: Optional[dict[str, Any]]       # set by FETCH
     validated_data: Optional[dict[str, Any]]  # set by VALIDATE / HUMAN_REVIEW
+    support_docs: Optional[list[dict[str, Any]]]  # set by UPLOAD_SUPPORT_DOCS
     enriched_data: Optional[dict[str, Any]]   # set by ENRICH
 
 
@@ -42,6 +43,7 @@ def new_pipeline(document_id: str) -> PipelineState:
         "document_id": document_id,
         "raw_data": None,
         "validated_data": None,
+        "support_docs": None,
         "enriched_data": None,
     }
 

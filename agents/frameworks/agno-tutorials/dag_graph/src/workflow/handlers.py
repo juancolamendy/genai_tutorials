@@ -91,6 +91,36 @@ def handle_validate(p: PipelineState) -> PipelineState:
                      f"validate EXCEPTION: {exc}")
 
 
+# ── UPLOAD_SUPPORT_DOCS ───────────────────────────────────────────────────────
+@handler(state="upload_support_docs", waits_for_input=True, description="Wait for user to upload supporting documents")
+def handle_upload_support_docs(p: PipelineState) -> PipelineState:
+    """
+    Pause workflow and wait for user to upload supporting documents.
+
+    In multi-turn flow: workflow auto-progresses to this state, then pauses
+    for user input (waits_for_input=True). User provides documents in next turn.
+    """
+    log.info("[UPLOAD_DOCS] 📎  doc_id=%s  waiting for user to upload supporting docs", p["document_id"])
+
+    try:
+        # In production: collect uploaded files from turn_input
+        # For now, just mark that we're waiting for support docs
+        support_docs = p.get("support_docs", [])
+        if support_docs:
+            log.info("[UPLOAD_DOCS] ✅  received %d supporting document(s)", len(support_docs))
+            return audit({**p, "current_state": State.UPLOAD_SUPPORT_DOCS.value, "support_docs": support_docs},
+                         f"upload_support_docs: {len(support_docs)} docs received")
+        else:
+            log.info("[UPLOAD_DOCS] ⏳  waiting for user to provide supporting documents")
+            return audit({**p, "current_state": State.UPLOAD_SUPPORT_DOCS.value},
+                         "upload_support_docs: awaiting user input")
+
+    except Exception as exc:
+        log.error("[UPLOAD_DOCS] exception: %s", exc)
+        return audit({**p, "current_state": State.ERROR.value, "error_message": str(exc)},
+                     f"upload_support_docs EXCEPTION: {exc}")
+
+
 # ── ENRICH ────────────────────────────────────────────────────────────────────
 @handler(state="enrich", waits_for_input=False, description="Enrich document with tags and summary")
 def handle_enrich(p: PipelineState) -> PipelineState:
@@ -211,12 +241,13 @@ def handle_error(p: PipelineState) -> PipelineState:
 # Key   = State enum value
 # Value = handler function (PipelineState → PipelineState)
 HANDLER_MAP: dict[State, Any] = {
-    State.FETCH:        handle_fetch,
-    State.VALIDATE:     handle_validate,
-    State.ENRICH:       handle_enrich,
-    State.STORE:        handle_store,
-    State.COMPLETE:     handle_complete,
-    State.RETRY:        handle_retry,
-    State.HUMAN_REVIEW: handle_human_review,
-    State.ERROR:        handle_error,
+    State.FETCH:                handle_fetch,
+    State.VALIDATE:             handle_validate,
+    State.UPLOAD_SUPPORT_DOCS:  handle_upload_support_docs,
+    State.ENRICH:               handle_enrich,
+    State.STORE:                handle_store,
+    State.COMPLETE:             handle_complete,
+    State.RETRY:                handle_retry,
+    State.HUMAN_REVIEW:         handle_human_review,
+    State.ERROR:                handle_error,
 }

@@ -110,6 +110,8 @@ class StateMachineWorkflow(Workflow):
 
     def _init_steps(self) -> None:
         """Initialize the workflow steps (called from __post_init__ and when needed)."""
+        from engine.handler_registry import does_state_wait_for_input
+
         # Build handler Steps bound to `self` so they can access session_state.
         handler_steps: dict[Any, Step] = {
             state: Step(
@@ -122,7 +124,14 @@ class StateMachineWorkflow(Workflow):
         # end_condition closes over self — no need for CEL expressions.
         def _is_terminal(outputs: list) -> bool:
             current = self._get_current_state(self.session_state)
-            return current in self._TERMINAL_STATES
+            # Stop if terminal state
+            if current in self._TERMINAL_STATES:
+                return True
+            # Stop if state waits for user input (multi-turn pause point)
+            current_val = current.value if hasattr(current, 'value') else current
+            if does_state_wait_for_input(current_val):
+                return True
+            return False
 
         self.steps = [
             Loop(
@@ -477,6 +486,12 @@ class StateMachineWorkflow(Workflow):
             validate_turn_input(turn_input)
             escaped = escape_for_llm(turn_input)
             self._ensure_initialized()
+
+            # Initialize session state on first turn (turn_number == 0)
+            if self.session_state.get("turn_number", 0) == 0:
+                # First turn: initialize fresh session state
+                entity_id = session_id  # Use session_id as entity identifier for multi-turn
+                self.session_state.update(self._new_session_state(entity_id))
 
             self._prepare_turn_metadata(escaped, timeout_sec)
             self.run(session_id=session_id, user_id=user_id)

@@ -34,19 +34,20 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
 # Happy-path routing table: default transitions when no guardrail redirects.
 # Guardrails can override this to route to RETRY, HUMAN_REVIEW, or ERROR.
 _HAPPY_PATH: dict[State, State] = {
-    State.INIT:         State.FETCH,
-    State.FETCH:        State.VALIDATE,
-    State.VALIDATE:     State.ENRICH,
-    State.ENRICH:       State.STORE,
-    State.STORE:        State.COMPLETE,
-    State.RETRY:        State.FETCH,
-    State.HUMAN_REVIEW: State.ENRICH,
+    State.INIT:                State.FETCH,
+    State.FETCH:               State.VALIDATE,
+    State.VALIDATE:            State.UPLOAD_SUPPORT_DOCS,
+    State.UPLOAD_SUPPORT_DOCS: State.ENRICH,
+    State.ENRICH:              State.STORE,
+    State.STORE:               State.COMPLETE,
+    State.RETRY:               State.FETCH,
+    State.HUMAN_REVIEW:        State.ENRICH,
 }
 
 _PIPELINE_KEYS = (
     "current_state", "proposed_next", "guardrail_ok",
     "retry_count", "error_message", "audit_trail",
-    "document_id", "raw_data", "validated_data", "enriched_data",
+    "document_id", "raw_data", "validated_data", "support_docs", "enriched_data",
 )
 
 
@@ -115,6 +116,7 @@ class DocPipelineWorkflow(StateMachineWorkflow):
             document_id=self.session_state["document_id"],
             raw_data=self.session_state.get("raw_data"),
             validated_data=self.session_state.get("validated_data"),
+            support_docs=self.session_state.get("support_docs"),
             enriched_data=self.session_state.get("enriched_data"),
         )
         print(pretty_audit(final))
