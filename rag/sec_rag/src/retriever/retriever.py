@@ -74,8 +74,8 @@ logging.basicConfig(
 
 # How many candidates each ranker fetches before fusion.
 # Wider pools improve recall at the cost of two slightly larger DB round-trips.
-RETRIEVER_TOP_K = 125
-RETRIEVER_TOP_N = 15
+RETRIEVER_TOP_K = 150
+RETRIEVER_TOP_N = 20
 
 
 # --------------------------------------------------------------------------- #
