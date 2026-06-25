@@ -98,7 +98,7 @@ def embed_batch(client: OpenAI, texts: list[str]) -> list[list[float]]:
 # --------------------------------------------------------------------------- #
 _UPSERT_DOCUMENT = """
 INSERT INTO documents (id, cik, ticker, company, form_type, filing_date, fiscal_period, url)
-VALUES (%(doc_id)s, %(cik)s, %(ticker)s, %(company)s,
+VALUES (%(id)s, %(cik)s, %(ticker)s, %(company)s,
         %(form_type)s, %(filing_date)s, %(fiscal_period)s, %(url)s)
 ON CONFLICT (id) DO UPDATE SET
     cik           = EXCLUDED.cik,
@@ -112,7 +112,7 @@ ON CONFLICT (id) DO UPDATE SET
 
 _UPSERT_CHUNK = """
 INSERT INTO chunks (id, document_id, section, chunk_index, content, embedding)
-VALUES (%(chunk_id)s, %(doc_id)s, %(section)s, %(chunk_index)s,
+VALUES (%(id)s, %(document_id)s, %(section)s, %(chunk_index)s,
         %(content)s, %(embedding)s)
 ON CONFLICT (id) DO UPDATE SET
     document_id = EXCLUDED.document_id,
@@ -125,17 +125,17 @@ ON CONFLICT (id) DO UPDATE SET
 
 
 def upsert_documents(conn: psycopg.Connection, docs: list[dict]) -> None:
-    """Upsert all document records. Maps doc_id -> id, source_file -> url."""
+    """Upsert all document records."""
     rows = [
         {
-            "doc_id":        uuid.UUID(d["doc_id"]),
+            "id":            uuid.UUID(d["id"]),
             "cik":           d.get("cik"),
             "ticker":        d.get("ticker"),
             "company":       d.get("company"),
             "form_type":     d.get("form_type"),
             "filing_date":   d.get("filing_date"),
             "fiscal_period": d.get("fiscal_period"),
-            "url":           d.get("url") or d["source_file"],  # fall back to path
+            "url":           d["url"],  # guaranteed by converter.py metadata
         }
         for d in docs
     ]
@@ -153,14 +153,14 @@ def upsert_chunks_batch(
     """Upsert a batch of chunks together with their embeddings."""
     rows = [
         {
-            "chunk_id":    uuid.UUID(c["chunk_id"]),
-            "doc_id":      uuid.UUID(c["doc_id"]),
-            "section":     c.get("section"),
-            "chunk_index": c["chunk_index"],
-            "content":     c["content"],
+            "id":            uuid.UUID(c["id"]),
+            "document_id":   uuid.UUID(c["document_id"]),
+            "section":       c.get("section"),
+            "chunk_index":   c["chunk_index"],
+            "content":       c["content"],
             # HalfVector converts the list[float] to the halfvec wire format
             # that psycopg + pgvector sends as a native halfvec(3072) value.
-            "embedding":   HalfVector(v),
+            "embedding":     HalfVector(v),
         }
         for c, v in zip(chunks, vectors)
     ]
@@ -235,11 +235,11 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     p.add_argument(
-        "--documents", type=Path, default=Path("data/documents.jsonl"),
+        "--documents", type=Path, default=Path("data/chunks/documents.jsonl"),
         help="Path to documents.jsonl from chunker.py.",
     )
     p.add_argument(
-        "--chunks", type=Path, default=Path("data/chunks.jsonl"),
+        "--chunks", type=Path, default=Path("data/chunks/chunks.jsonl"),
         help="Path to chunks.jsonl from chunker.py.",
     )
     p.add_argument(
