@@ -49,17 +49,21 @@ import textwrap
 import time
 
 import psycopg
-from openai import OpenAI
 from pgvector.psycopg import register_vector
 
 try:
     # Running as module
     from .fusion import RankedResult, reciprocal_rank_fusion
     from .queries import keyword_search, vector_search
+    from embeddings import EmbeddingProvider
 except ImportError:
     # Running as script directly
     from fusion import RankedResult, reciprocal_rank_fusion  # type: ignore
     from queries import keyword_search, vector_search  # type: ignore
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from embeddings import EmbeddingProvider  # type: ignore
 
 log = logging.getLogger("retriever")
 logging.basicConfig(
@@ -68,15 +72,9 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 
-EMBED_MODEL = "text-embedding-3-large"
-
 # How many candidates each ranker fetches before fusion.
 # Wider pools improve recall at the cost of two slightly larger DB round-trips.
 RETRIEVER_TOP_K = 40
-
-# Embedding API retry policy
-MAX_EMBED_RETRIES = 3
-EMBED_RETRY_BACKOFF_BASE = 2  # exponential backoff: 2s, 4s, 8s
 
 
 # --------------------------------------------------------------------------- #
@@ -85,9 +83,9 @@ EMBED_RETRY_BACKOFF_BASE = 2  # exponential backoff: 2s, 4s, 8s
 class Retriever:
     """Hybrid retriever: vector search + full-text search fused with RRF."""
 
-    def __init__(self, conn: psycopg.Connection, openai_client: OpenAI) -> None:
+    def __init__(self, conn: psycopg.Connection, embedding_provider: EmbeddingProvider) -> None:
         self._conn = conn
-        self._openai = openai_client
+        self._embedding_provider = embedding_provider
         self._embedding_cache: dict[str, list[float]] = {}  # query → embedding
 
     # ------------------------------------------------------------------
@@ -95,23 +93,27 @@ class Retriever:
     # ------------------------------------------------------------------
     @classmethod
     def from_env(cls) -> "Retriever":
-        """Construct from DATABASE_URL and OPENAI_API_KEY environment variables."""
+        """Construct from DATABASE_URL environment variable.
+
+        Embedding provider is determined by EmbeddingProvider.from_env(),
+        which checks EMBEDDING_PROVIDER and related env vars.
+        """
         database_url = os.environ.get("DATABASE_URL", "")
-        openai_api_key = os.environ.get("OPENAI_API_KEY", "")
         if not database_url:
             raise RuntimeError("DATABASE_URL is not set.")
-        if not openai_api_key:
-            raise RuntimeError("OPENAI_API_KEY is not set.")
-        return cls.from_credentials(database_url, openai_api_key)
+        return cls.from_credentials(database_url)
 
     @classmethod
-    def from_credentials(
-        cls, database_url: str, openai_api_key: str
-    ) -> "Retriever":
+    def from_credentials(cls, database_url: str) -> "Retriever":
+        """Create retriever from database URL.
+
+        Embedding provider is auto-detected via EmbeddingProvider.from_env().
+        """
         conn = psycopg.connect(database_url)
         register_vector(conn)   # register halfvec ↔ Python adapter
-        client = OpenAI(api_key=openai_api_key)
-        return cls(conn, client)
+        embedding_provider = EmbeddingProvider.from_env()
+        log.info(f"Using embedding provider: {embedding_provider.__class__.__name__}")
+        return cls(conn, embedding_provider)
 
     def close(self) -> None:
         self._conn.close()
@@ -126,38 +128,21 @@ class Retriever:
     # Embedding
     # ------------------------------------------------------------------
     def _embed(self, text: str) -> list[float]:
-        """Embed a single query string using text-embedding-3-large.
+        """Embed a single query string.
 
+        Uses the configured embedding provider (Ollama, HuggingFace, or OpenAI).
         Results are cached in memory to avoid re-embedding identical queries.
-        Retries transient API failures with exponential backoff.
         """
         # Check cache first
         if text in self._embedding_cache:
             log.debug("Embedding cache hit: %r", text[:50])
             return self._embedding_cache[text]
 
-        # Retry logic for transient errors
-        for attempt in range(MAX_EMBED_RETRIES):
-            try:
-                response = self._openai.embeddings.create(
-                    model=EMBED_MODEL,
-                    input=[text],
-                    encoding_format="float",
-                )
-                embedding = response.data[0].embedding
-                self._embedding_cache[text] = embedding
-                return embedding
-            except Exception as exc:  # noqa: BLE001
-                if attempt < MAX_EMBED_RETRIES - 1:
-                    backoff = EMBED_RETRY_BACKOFF_BASE ** attempt
-                    log.warning(
-                        "Embedding error (attempt %d/%d, will retry in %ds): %s",
-                        attempt + 1, MAX_EMBED_RETRIES, backoff, exc
-                    )
-                    time.sleep(backoff)
-                else:
-                    log.error("Embedding failed after %d attempts", MAX_EMBED_RETRIES)
-                    raise
+        # Embed using the provider
+        log.debug("Embedding query: %r", text[:50])
+        embedding = self._embedding_provider.embed(text)
+        self._embedding_cache[text] = embedding
+        return embedding
 
     # ------------------------------------------------------------------
     # Individual retrievers

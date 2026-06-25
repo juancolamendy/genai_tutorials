@@ -5,7 +5,7 @@ Reads:
   data/documents.jsonl  — produced by chunker.py
   data/chunks.jsonl     — produced by chunker.py
 
-For each chunk, calls the OpenAI embeddings API (text-embedding-3-large)
+For each chunk, calls the configured embedding provider (Ollama, HuggingFace, or OpenAI)
 and upserts into the two Postgres tables defined in schema.sql:
 
   documents (id, cik, ticker, company, form_type, filing_date, fiscal_period, url)
@@ -14,21 +14,22 @@ and upserts into the two Postgres tables defined in schema.sql:
 The ``tsv`` column is GENERATED ALWAYS in schema.sql, so we never write to it
 — Postgres recomputes it automatically on every upsert.
 
-Embedding calls are batched (default: 128 chunks per API call) to stay well
-inside the 300 k-token-per-minute rate limit for text-embedding-3-large.
+Embedding calls are batched (default: 128 chunks per batch) to stay within rate limits.
 The script is idempotent: both upserts use ON CONFLICT DO UPDATE, so re-running
 after adding new filings is safe.
 
 Environment variables
 ---------------------
-OPENAI_API_KEY   — required
-DATABASE_URL     — required  e.g. postgresql://user:pass@localhost:5432/mydb
+DATABASE_URL             — required  e.g. postgresql://user:pass@localhost:5432/mydb
+EMBEDDING_PROVIDER       — default: ollama (or: huggingface, openai)
+OLLAMA_EMBED_URL         — default: http://localhost:11434
+OPENAI_API_KEY           — required if using OpenAI provider
 
 Usage
 -----
-    uv add openai psycopg[binary] pgvector
-    uv run python embed_loader.py
-    uv run python embed_loader.py --batch-size 64 --documents data/documents.jsonl
+    uv run python src/ingest/embed_loader.py
+    uv run python src/ingest/embed_loader.py --batch-size 64 --documents data/documents.jsonl
+    uv run python src/ingest/embed_loader.py --embedding-provider huggingface
 """
 
 from __future__ import annotations
@@ -44,9 +45,11 @@ from pathlib import Path
 import uuid
 
 import psycopg
-from openai import OpenAI
 from pgvector.psycopg import register_vector
-from pgvector import HalfVector
+
+# Add src/ to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from embeddings import EmbeddingProvider
 
 logging.basicConfig(
     level=logging.INFO,
@@ -54,9 +57,6 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 log = logging.getLogger("embed_loader")
-
-EMBED_MODEL = "text-embedding-3-large"
-EMBED_DIM   = 3072
 
 
 # --------------------------------------------------------------------------- #
@@ -70,21 +70,15 @@ def read_jsonl(path: Path) -> list[dict]:
 # --------------------------------------------------------------------------- #
 # Embedding
 # --------------------------------------------------------------------------- #
-def embed_batch(client: OpenAI, texts: list[str]) -> list[list[float]]:
-    """Call the OpenAI embeddings endpoint for a list of texts.
+def embed_batch(provider: EmbeddingProvider, texts: list[str]) -> list[list[float]]:
+    """Call the embedding provider for a list of texts.
 
     Returns a list of float vectors in the same order as the input.
     Retries once on transient errors with a short back-off.
     """
     for attempt in range(2):
         try:
-            response = client.embeddings.create(
-                model=EMBED_MODEL,
-                input=texts,
-                encoding_format="float",
-            )
-            # The API guarantees the same order as the input.
-            return [item.embedding for item in sorted(response.data, key=lambda x: x.index)]
+            return provider.embed_batch(texts)
         except Exception as exc:  # noqa: BLE001
             if attempt == 0:
                 log.warning("Embedding error (will retry in 5 s): %s", exc)
@@ -97,11 +91,10 @@ def embed_batch(client: OpenAI, texts: list[str]) -> list[list[float]]:
 # DB upserts
 # --------------------------------------------------------------------------- #
 _UPSERT_DOCUMENT = """
-INSERT INTO documents (id, cik, ticker, company, form_type, filing_date, fiscal_period, url)
-VALUES (%(id)s, %(cik)s, %(ticker)s, %(company)s,
+INSERT INTO documents (id, ticker, company, form_type, filing_date, fiscal_period, url)
+VALUES (%(id)s, %(ticker)s, %(company)s,
         %(form_type)s, %(filing_date)s, %(fiscal_period)s, %(url)s)
 ON CONFLICT (id) DO UPDATE SET
-    cik           = EXCLUDED.cik,
     ticker        = EXCLUDED.ticker,
     company       = EXCLUDED.company,
     form_type     = EXCLUDED.form_type,
@@ -128,8 +121,7 @@ def upsert_documents(conn: psycopg.Connection, docs: list[dict]) -> None:
     """Upsert all document records."""
     rows = [
         {
-            "id":            uuid.UUID(d["id"]),
-            "cik":           d.get("cik"),
+            "id":            uuid.UUID(d["id"]),  # Convert string to UUID
             "ticker":        d.get("ticker"),
             "company":       d.get("company"),
             "form_type":     d.get("form_type"),
@@ -153,14 +145,13 @@ def upsert_chunks_batch(
     """Upsert a batch of chunks together with their embeddings."""
     rows = [
         {
-            "id":            uuid.UUID(c["id"]),
-            "document_id":   uuid.UUID(c["document_id"]),
+            "id":            uuid.UUID(c["id"]),  # Convert string to UUID
+            "document_id":   uuid.UUID(c["document_id"]),  # Convert string to UUID
             "section":       c.get("section"),
             "chunk_index":   c["chunk_index"],
             "content":       c["content"],
-            # HalfVector converts the list[float] to the halfvec wire format
-            # that psycopg + pgvector sends as a native halfvec(3072) value.
-            "embedding":     HalfVector(v),
+            # vector is sent as a native vector type by psycopg + pgvector
+            "embedding":     v,
         }
         for c, v in zip(chunks, vectors)
     ]
@@ -172,12 +163,13 @@ def upsert_chunks_batch(
 # --------------------------------------------------------------------------- #
 # Main pipeline
 # --------------------------------------------------------------------------- #
+
 def run(
     documents_path: Path,
     chunks_path: Path,
     batch_size: int,
     database_url: str,
-    openai_api_key: str,
+    embedding_provider: EmbeddingProvider,
 ) -> int:
     # --- load JSONL ----------------------------------------------------------
     if not documents_path.is_file():
@@ -191,7 +183,7 @@ def run(
     chunks = read_jsonl(chunks_path)
     log.info("Loaded %d documents, %d chunks.", len(docs), len(chunks))
 
-    # --- connect + register halfvec type -------------------------------------
+    # --- connect + register vector type + apply schema -----
     conn = psycopg.connect(database_url)
     register_vector(conn)   # teaches psycopg how to send/receive vector types
     log.info("Connected to Postgres.")
@@ -200,7 +192,9 @@ def run(
     upsert_documents(conn, docs)
 
     # --- embed + upsert chunks in batches ------------------------------------
-    client = OpenAI(api_key=openai_api_key)
+    log.info("Using embedding provider: %s (dimension: %d)",
+             embedding_provider.__class__.__name__, embedding_provider.dimension)
+
     total  = len(chunks)
     done   = 0
     started = time.perf_counter()
@@ -215,7 +209,7 @@ def run(
             "Embedding batch %d/%d (%d chunks)…",
             batch_num, n_batches, len(texts),
         )
-        vectors = embed_batch(client, texts)
+        vectors = embed_batch(embedding_provider, texts)
         upsert_chunks_batch(conn, batch, vectors)
         done += len(batch)
         log.info("  → %d/%d chunks loaded.", done, total)
@@ -244,15 +238,15 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     )
     p.add_argument(
         "--batch-size", type=int, default=128,
-        help="Chunks per OpenAI embeddings API call.",
+        help="Chunks per embedding batch.",
     )
     p.add_argument(
         "--database-url", default=os.environ.get("DATABASE_URL", ""),
         help="Postgres connection string (default: $DATABASE_URL).",
     )
     p.add_argument(
-        "--openai-api-key", default=os.environ.get("OPENAI_API_KEY", ""),
-        help="OpenAI API key (default: $OPENAI_API_KEY).",
+        "--embedding-provider", default=os.environ.get("EMBEDDING_PROVIDER", "ollama"),
+        help="Embedding provider: ollama, huggingface, or openai (default: $EMBEDDING_PROVIDER or ollama).",
     )
     return p.parse_args(argv)
 
@@ -263,16 +257,36 @@ def main(argv: list[str] | None = None) -> int:
     if not args.database_url:
         log.error("DATABASE_URL is not set. Use --database-url or set the env var.")
         return 1
-    if not args.openai_api_key:
-        log.error("OPENAI_API_KEY is not set. Use --openai-api-key or set the env var.")
+
+    # Create embedding provider
+    log.info(f"Creating embedding provider: {args.embedding_provider}")
+    try:
+        if args.embedding_provider == "ollama":
+            from embeddings import OllamaEmbeddings
+            embedding_provider = OllamaEmbeddings()
+        elif args.embedding_provider == "huggingface":
+            from embeddings import HuggingFaceEmbeddings
+            embedding_provider = HuggingFaceEmbeddings()
+        elif args.embedding_provider == "openai":
+            from embeddings import OpenAIEmbeddings
+            api_key = os.environ.get("OPENAI_API_KEY")
+            if not api_key:
+                log.error("OPENAI_API_KEY not set but provider=openai")
+                return 1
+            embedding_provider = OpenAIEmbeddings(api_key=api_key)
+        else:
+            log.error(f"Unknown embedding provider: {args.embedding_provider}")
+            return 1
+    except Exception as e:
+        log.error(f"Failed to create embedding provider: {e}")
         return 1
 
     return run(
-        documents_path  = args.documents,
-        chunks_path     = args.chunks,
-        batch_size      = args.batch_size,
-        database_url    = args.database_url,
-        openai_api_key  = args.openai_api_key,
+        documents_path      = args.documents,
+        chunks_path         = args.chunks,
+        batch_size          = args.batch_size,
+        database_url        = args.database_url,
+        embedding_provider  = embedding_provider,
     )
 
 

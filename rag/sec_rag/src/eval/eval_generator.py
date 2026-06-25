@@ -276,7 +276,7 @@ def main(argv: list[str] | None = None) -> int:
         generator = Generator.from_credentials(
             args.openai_api_key, model=args.gen_model
         )
-        with Retriever.from_credentials(args.database_url, args.openai_api_key) as r:
+        with Retriever.from_credentials(args.database_url) as r:
             samples = build_samples(dataset, r, generator, args.top_k, args.top_n)
 
     if not samples:

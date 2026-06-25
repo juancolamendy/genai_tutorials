@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import psycopg
 from retriever import Retriever
 from retriever.queries import vector_search, keyword_search
+from embeddings import EmbeddingProvider
 
 logging.basicConfig(
     level=logging.INFO,
@@ -195,7 +196,7 @@ def main(argv: list[str] | None = None) -> int:
     filters = item.get("filters", {})
     filters = {k: v for k, v in filters.items() if v}  # Remove None values
 
-    with Retriever.from_credentials(args.database_url, args.openai_api_key) as r:
+    with Retriever.from_credentials(args.database_url) as r:
         # Embed once
         log.info("Embedding query…")
         vec_embedding = r._embed(item["question"])
