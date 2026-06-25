@@ -1,33 +1,6 @@
 [
   {
-    "question": "What specific financial metrics does Apple Inc. disclose?",
-    "reference": "Securities and Exchange Commission within 120 days after the end of the fiscal year to which this report relates.",
-    "filters": {
-      "ticker": "AAPL",
-      "form_type": "10-K",
-      "fiscal_period": "FY2023"
-    }
-  },
-  {
-    "question": "What are Apple Inc.'s main risk factors according to the 10-K?",
-    "reference": "Item 16.,  = \nThis Annual Report on Form 10-K (\"Form 10-K\") contains forward-looking statements, within the meaning of the Private Securities Litigation Reform Act of 1995, that involve risks and uncertainties. For example, statements in this Form 10-K regarding the potential future impact of macroeconomic conditions on the Company's business and results of operations are forward-looking statements. Factors that might cause such differences include, but are not limited to, those discussed in Part I, Item 1A of this Form 10-K under the heading \"Risk Factors.\" The Company assumes no obligation to revise or update any forward-looking statements for any reason, except as required by law.",
-    "filters": {
-      "ticker": "AAPL",
-      "form_type": "10-K",
-      "fiscal_period": "FY2023"
-    }
-  },
-  {
-    "question": "What specific financial metrics does Apple Inc. disclose?",
-    "reference": "Item 16.,  = \nThis Annual Report on Form 10-K (\"Form 10-K\") contains forward-looking statements, within the meaning of the Private Securities Litigation Reform Act of 1995, that involve risks and uncertainties. For example, statements in this Form 10-K regarding the potential future impact of macroeconomic conditions on the Company's business and results of operations are forward-looking statements. Factors that might cause such differences include, but are not limited to, those discussed in Part I, Item 1A of this Form 10-K under the heading \"Risk Factors.\" The Company assumes no obligation to revise or update any forward-looking statements for any reason, except as required by law.",
-    "filters": {
-      "ticker": "AAPL",
-      "form_type": "10-K",
-      "fiscal_period": "FY2023"
-    }
-  },
-  {
-    "question": "What are Apple Inc.'s primary product segments?",
+    "question": "What Apple Inc.'s products and services does the 10-K describe?",
     "reference": "The Company's line of smartwatches, based on its watchOS \u00ae operating system, includes Apple Watch Ultra\u2122 2, Apple Watch \u00ae Series 9 and Apple Watch SE \u00ae . The Company's line of wireless headphones includes AirPods \u00ae , AirPods Pro \u00ae , AirPods Max\u2122 and Beats \u00ae products. | 2023 Form 10-K | 1\nServices\nAdvertising\nThe Company's advertising services include third-party licensing arrangements and the Company's own advertising platforms.",
     "filters": {
       "ticker": "AAPL",
@@ -36,8 +9,8 @@
     }
   },
   {
-    "question": "What specific financial metrics does Apple Inc. disclose?",
-    "reference": "The Company's line of smartwatches, based on its watchOS \u00ae operating system, includes Apple Watch Ultra\u2122 2, Apple Watch \u00ae Series 9 and Apple Watch SE \u00ae . The Company's line of wireless headphones includes AirPods \u00ae , AirPods Pro \u00ae , AirPods Max\u2122 and Beats \u00ae products. | 2023 Form 10-K | 1\nServices\nAdvertising\nThe Company's advertising services include third-party licensing arrangements and the Company's own advertising platforms.",
+    "question": "What drove Apple Inc.'s financial performance?",
+    "reference": "These and other impacts can materially adversely affect the Company's business, results of operations, financial condition and stock price. The Company's business can be impacted by political events, trade and other international disputes, war, terrorism, natural disasters, public health issues, industrial accidents and other business interruptions. | 2023 Form 10-K | 5\nThe Company has a large, global business with sales outside the U.S.",
     "filters": {
       "ticker": "AAPL",
       "form_type": "10-K",
@@ -45,8 +18,8 @@
     }
   },
   {
-    "question": "What are Apple Inc.'s primary product segments?",
-    "reference": "The Company's ability to compete successfully depends heavily on ensuring the continuing and timely introduction of innovative new products, services and technologies to the marketplace. The Company designs and develops nearly the entire solution for its products, including the hardware, operating system, numerous software applications and related services. The Company is focused on expanding its market opportunities related to smartphones, personal computers, tablets, wearables and accessories, and services.",
+    "question": "What are Apple Inc.'s key business drivers?",
+    "reference": "Many of the Company's operations and facilities, as well as critical business operations of the Company's suppliers and contract manufacturers, are in locations that are prone to earthquakes and other natural disasters. Following an interruption to its business, the Company can require substantial recovery time, experience significant expenditures to resume operations, and lose significant sales. Because the Company relies on single or limited sources for the supply and manufacture of many critical components, a business interruption affecting such sources would exacerbate any negative consequences to the Company.",
     "filters": {
       "ticker": "AAPL",
       "form_type": "10-K",
@@ -55,7 +28,7 @@
   },
   {
     "question": "How does Apple Inc. describe its competitive position?",
-    "reference": "The Company's ability to compete successfully depends heavily on ensuring the continuing and timely introduction of innovative new products, services and technologies to the marketplace. The Company designs and develops nearly the entire solution for its products, including the hardware, operating system, numerous software applications and related services. The Company is focused on expanding its market opportunities related to smartphones, personal computers, tablets, wearables and accessories, and services.",
+    "reference": "In contrast, many of the Company's competitors seek to compete primarily through aggressive pricing and very low cost structures, and by imitating the Company's products and infringing on its intellectual property. If the Company is unable to continue to develop and sell innovative new products with attractive margins or if competitors infringe on the Company's intellectual property, the Company's ability to maintain a competitive advantage could be materially adversely affected. The Company has a minority market share in the global smartphone, personal computer and tablet markets.",
     "filters": {
       "ticker": "AAPL",
       "form_type": "10-K",
@@ -63,8 +36,8 @@
     }
   },
   {
-    "question": "What are Apple Inc.'s primary product segments?",
-    "reference": "The Company regularly files patent, design, copyright and trademark applications to protect innovations arising from its research, development, design and marketing, and is currently pursuing thousands of applications around the world. No single intellectual property right is solely responsible for protecting the Company's products and services. The Company believes the duration of its intellectual property rights is adequate relative to the expected lives of its products and services.",
+    "question": "What Apple Inc.'s products and services does the 10-K describe?",
+    "reference": "Changes or additions to the Company's supply chain require considerable time and resources and involve significant risks and uncertainties. While these arrangements can lower operating costs, they also reduce the Company's direct control over production and distribution. Such diminished control has from time to time and may in the future have an adverse effect on the quality or quantity of products manufactured or services provided, or adversely affect the Company's flexibility to respond to changing conditions.",
     "filters": {
       "ticker": "AAPL",
       "form_type": "10-K",
@@ -72,46 +45,28 @@
     }
   },
   {
-    "question": "What specific financial metrics does Amazon.com, Inc. disclose?",
-    "reference": "Item 12.,  = Security Ownership of Certain Beneficial Owners and Management and Related Shareholder Matters. Item 13.,  = Certain Relationships and Related Transactions, and Director Independence. Item 1.,  = Business\nThis Annual Report on Form 10-K and the documents incorporated herein by reference contain forward-looking statements based on expectations, estimates, and projections as of the date of this filing.",
+    "question": "What Apple Inc.'s products and services does the 10-K describe?",
+    "reference": "The Company offers complex hardware and software products and services that can be affected by design and manufacturing defects. Sophisticated operating system software and applications, such as those offered by the Company, often have issues that can unexpectedly interfere with the intended operation of hardware or software products and services. Defects can also exist in components and products the Company purchases from third parties.",
     "filters": {
-      "ticker": "AMZN",
+      "ticker": "AAPL",
       "form_type": "10-K",
       "fiscal_period": "FY2023"
     }
   },
   {
-    "question": "What drove Amazon.com, Inc.'s financial performance?",
-    "reference": "We have organized our operations into three segments: North America, International, and Amazon Web Services (\"AWS\"). These segments reflect the way the Company evaluates its business performance and manages its operations. Information on our net sales is contained in Item 8 of Part II, \"Financial Statements and Supplementary Data - Note 10 - Segment Information.\"\nConsumers\nWe serve consumers through our online and physical stores and focus on selection, price, and convenience.",
+    "question": "What Apple Inc.'s products and services does the 10-K describe?",
+    "reference": "The Company's products and services are designed to include intellectual property owned by third parties, which requires licenses from those third parties. The Company believes decisions by customers to purchase its hardware products depend in part on the availability of third-party software applications and services. There can be no assurance third-party developers will continue to develop and maintain software applications and services for the Company's products.",
     "filters": {
-      "ticker": "AMZN",
+      "ticker": "AAPL",
       "form_type": "10-K",
       "fiscal_period": "FY2023"
     }
   },
   {
-    "question": "What are Amazon.com, Inc.'s primary product segments?",
-    "reference": "We have organized our operations into three segments: North America, International, and Amazon Web Services (\"AWS\"). These segments reflect the way the Company evaluates its business performance and manages its operations. Information on our net sales is contained in Item 8 of Part II, \"Financial Statements and Supplementary Data - Note 10 - Segment Information.\"\nConsumers\nWe serve consumers through our online and physical stores and focus on selection, price, and convenience.",
+    "question": "What Apple Inc.'s products and services does the 10-K describe?",
+    "reference": "The Company distributes third-party applications for its products through the App Store. For the vast majority of applications, developers keep all of the revenue they generate on the App Store. The Company retains a commission from sales of applications and sales of digital services or goods initiated within an application.",
     "filters": {
-      "ticker": "AMZN",
-      "form_type": "10-K",
-      "fiscal_period": "FY2023"
-    }
-  },
-  {
-    "question": "What specific financial metrics does Amazon.com, Inc. disclose?",
-    "reference": "We have organized our operations into three segments: North America, International, and Amazon Web Services (\"AWS\"). These segments reflect the way the Company evaluates its business performance and manages its operations. Information on our net sales is contained in Item 8 of Part II, \"Financial Statements and Supplementary Data - Note 10 - Segment Information.\"\nConsumers\nWe serve consumers through our online and physical stores and focus on selection, price, and convenience.",
-    "filters": {
-      "ticker": "AMZN",
-      "form_type": "10-K",
-      "fiscal_period": "FY2023"
-    }
-  },
-  {
-    "question": "What are Amazon.com, Inc.'s primary product segments?",
-    "reference": "Our businesses encompass a large variety of product types, service offerings, and delivery channels. The worldwide marketplace in which we compete is evolving rapidly and intensely competitive, and we face a broad array of competitors from many different industry sectors around the world. We believe that the principal competitive factors in our retail businesses include selection, price, and convenience, including fast and reliable fulfillment.",
-    "filters": {
-      "ticker": "AMZN",
+      "ticker": "AAPL",
       "form_type": "10-K",
       "fiscal_period": "FY2023"
     }
@@ -126,8 +81,8 @@
     }
   },
   {
-    "question": "What specific financial metrics does Amazon.com, Inc. disclose?",
-    "reference": "Over 175,000 Amazon employees around the world have participated in Career Choice. We promptly make available on this website, free of charge, the reports that we file or furnish with the Securities and Exchange Commission (\"SEC\"), corporate governance information (including our Code of Business Conduct and Ethics), and select press releases. Executive Officers and Directors\nThe following tables set forth certain information regarding our Executive Officers and Directors as of January 24, 2024:\nInformation About Our Executive Officers",
+    "question": "What are Amazon.com, Inc.'s main risk factors according to the 10-K?",
+    "reference": "Item 1A.,  = Risk Factors\nPlease carefully consider the following discussion of significant factors, events, and uncertainties that make an investment in our securities risky. These risk factors do not identify all risks that we face; our operations could also be affected by factors, events, or uncertainties that are not presently known to us or that we currently do not consider to present significant risks to our operations. Many of the risks discussed below also impact our customers, including third-party sellers, which could indirectly have a material adverse effect on us.",
     "filters": {
       "ticker": "AMZN",
       "form_type": "10-K",
@@ -135,8 +90,8 @@
     }
   },
   {
-    "question": "What are Amazon.com, Inc.'s primary product segments?",
-    "reference": "He has served as Chair of the Board since 1994 and served as Chief Executive Officer from May 1996 until July 2021, and as President from 1994 until June 1999 and again from October 2000 to July 2021. Jassy has served as President and Chief Executive Officer since July 2021, CEO Amazon Web Services from April 2016 until July 2021, and Senior Vice President, Amazon Web Services, from April 2006 until April 2016. Herrington has served as CEO Worldwide Amazon Stores since July 2022, Senior Vice President, North America Consumer from January 2015 to July 2022, Senior Vice President, Consumables from May 2014 to December 2014, and Vice President, Consumables from May 2005 to April 2014.",
+    "question": "What Amazon.com, Inc.'s products and services does the 10-K describe?",
+    "reference": "Some of our current and potential competitors have greater resources, longer histories, more customers, and/or greater brand recognition, particularly with our newly-launched products and services and in our newer geographic regions. They may secure better terms from vendors, adopt more aggressive pricing, and devote more resources to technology, infrastructure, fulfillment, and marketing. In addition, new and enhanced technologies, including search, web and infrastructure computing services, practical applications of artificial intelligence and machine learning, digital content, and electronic devices continue to increase our competition.",
     "filters": {
       "ticker": "AMZN",
       "form_type": "10-K",
@@ -144,34 +99,52 @@
     }
   },
   {
-    "question": "How does Alphabet Inc. describe its competitive position?",
-    "reference": "For purposes of calculating the aggregate market value of shares held by non-affiliates, we have assumed that all outstanding shares are held by non-affiliates, except for shares held by each of our executive officers, directors, and 5% or greater stockholders. These assumptions should not be deemed to constitute an admission that all executive officers, directors, and 5% or greater stockholders are, in fact, affiliates of our company, or that there are not other persons who may be deemed to be affiliates of our company. Further information concerning shareholdings of our officers, directors, and principal stockholders is included or incorporated by reference in Part III, Item 12 of this Annual Report on Form 10-K.",
+    "question": "What Amazon.com, Inc.'s products and services does the 10-K describe?",
+    "reference": "Effective intellectual property protection is not available in every country in which our products and services are made available. We also may not be able to acquire or maintain appropriate domain names in all countries in which we do business. We may be\n8\n[Table of Contents](#i9b49001f922340eeba23291553f14c70_7)\nunable to prevent third parties from acquiring domain names that are similar to, infringe upon, or diminish the value of our trademarks and other proprietary rights.",
     "filters": {
-      "ticker": "GOOGL",
+      "ticker": "AMZN",
       "form_type": "10-K",
       "fiscal_period": "FY2023"
     }
   },
   {
-    "question": "What specific financial metrics does Alphabet Inc. disclose?",
-    "reference": "For purposes of calculating the aggregate market value of shares held by non-affiliates, we have assumed that all outstanding shares are held by non-affiliates, except for shares held by each of our executive officers, directors, and 5% or greater stockholders. These assumptions should not be deemed to constitute an admission that all executive officers, directors, and 5% or greater stockholders are, in fact, affiliates of our company, or that there are not other persons who may be deemed to be affiliates of our company. Further information concerning shareholdings of our officers, directors, and principal stockholders is included or incorporated by reference in Part III, Item 12 of this Annual Report on Form 10-K.",
+    "question": "What are Amazon.com, Inc.'s key business drivers?",
+    "reference": "We Experience Significant Fluctuations in Our Operating Results and Growth Rate\nWe are not always able to accurately forecast our growth rate. Our revenue growth may not be sustainable, and our percentage growth rates may decrease. Our revenue and operating profit growth depends on the continued growth of demand for the products and services offered by us or our sellers, and our business is affected by, among other things, general economic, business, and geopolitical conditions worldwide.",
     "filters": {
-      "ticker": "GOOGL",
+      "ticker": "AMZN",
       "form_type": "10-K",
       "fiscal_period": "FY2023"
     }
   },
   {
-    "question": "What specific financial metrics does Alphabet Inc. disclose?",
-    "reference": "Item 12.,  = Security Ownership of Certain Beneficial Owners and Management and Related Stockholder Matters. Item 13.,  = Certain Relationships and Related Transactions, and Director Independence. Note About Forward-Looking Statements\nThis Annual Report on Form 10-K contains forward-looking statements within the meaning of the Private Securities Litigation Reform Act of 1995.",
+    "question": "What Amazon.com, Inc.'s products and services does the 10-K describe?",
+    "reference": "We Experience Significant Fluctuations in Our Operating Results and Growth Rate\nWe are not always able to accurately forecast our growth rate. Our revenue growth may not be sustainable, and our percentage growth rates may decrease. Our revenue and operating profit growth depends on the continued growth of demand for the products and services offered by us or our sellers, and our business is affected by, among other things, general economic, business, and geopolitical conditions worldwide.",
     "filters": {
-      "ticker": "GOOGL",
+      "ticker": "AMZN",
       "form_type": "10-K",
       "fiscal_period": "FY2023"
     }
   },
   {
-    "question": "What are Alphabet Inc.'s main risk factors according to the 10-K?",
+    "question": "What are Amazon.com, Inc.'s key business drivers?",
+    "reference": "Some of our systems have experienced past security breaches, and, although they did not have a material adverse effect on our operating results, there can be no assurance that future incidents will not have material adverse effects on our operations or financial results. Any of these events could cause system interruption, delays, and loss of critical data, and could prevent us from accepting and fulfilling customer orders and providing services, which could make our product and service offerings less attractive and subject us to liability. The Loss of Key Senior Management Personnel or the Failure to Hire and Retain Highly Skilled and Other Personnel Could Negatively Affect Our Business\nWe depend on our senior management and other key personnel, including our President and CEO.",
+    "filters": {
+      "ticker": "AMZN",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What Amazon.com, Inc.'s products and services does the 10-K describe?",
+    "reference": "We provide physical, e-commerce, and omnichannel retail, cloud services, and other services to businesses through commercial agreements, strategic alliances, and business relationships. Under these agreements, we provide web services, technology, fulfillment, computing, digital storage, and other services, as well as enable sellers to offer products or services through our stores. These arrangements are complex and require substantial infrastructure capacity, personnel, and other resource commitments, which may limit the amount of business we can service.",
+    "filters": {
+      "ticker": "AMZN",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What are Alphabet Inc.'s key business drivers?",
     "reference": "as well as other statements regarding our future operations, financial condition and prospects, and business strategies. These forward-looking statements are based on current expectations and assumptions that are subject to risks and uncertainties, which could cause our actual results to differ materially from those reflected in the forward-looking statements. Given these risks and uncertainties, readers are cautioned not to place undue reliance on such forward-looking statements.",
     "filters": {
       "ticker": "GOOGL",
@@ -180,8 +153,8 @@
     }
   },
   {
-    "question": "What drove Alphabet Inc.'s financial performance?",
-    "reference": "We are focused on building an even more helpful Google for everyone, and we aspire to give everyone the tools they need to increase their knowledge, health, happiness, and success. Google Cloud helps customers solve today's business challenges, improve productivity, reduce costs, and unlock new growth engines. We are continually innovating and building new products and features that will help our users, partners, customers, and communities and have invested more than $150 billion in research and development in the last five years in support of these efforts.",
+    "question": "What Alphabet Inc.'s products and services does the 10-K describe?",
+    "reference": "This potential is reflected in our latest generation of devices, such as the new Pixel 8 and Pixel 8 Pro, and the Pixel Watch 2. Creating products and services that people rely on every day is a journey that we are investing in for the long-term. How We Make Money\nWe have built world-class advertising technologies for advertisers, agencies, and publishers to power their digital marketing businesses.",
     "filters": {
       "ticker": "GOOGL",
       "form_type": "10-K",
@@ -189,8 +162,8 @@
     }
   },
   {
-    "question": "What are Alphabet Inc.'s primary product segments?",
-    "reference": "We are focused on building an even more helpful Google for everyone, and we aspire to give everyone the tools they need to increase their knowledge, health, happiness, and success. Google Cloud helps customers solve today's business challenges, improve productivity, reduce costs, and unlock new growth engines. We are continually innovating and building new products and features that will help our users, partners, customers, and communities and have invested more than $150 billion in research and development in the last five years in support of these efforts.",
+    "question": "What are Alphabet Inc.'s main risk factors according to the 10-K?",
+    "reference": "For additional information about competition, see Item 1A Risk Factors of this Annual Report on Form 10-K. Ongoing Commitment to Sustainability\nWe believe that every business has the opportunity and obligation to protect our planet. We have been a leader on sustainability and climate change since Google's founding more than 25 years ago.",
     "filters": {
       "ticker": "GOOGL",
       "form_type": "10-K",
@@ -198,8 +171,8 @@
     }
   },
   {
-    "question": "What specific financial metrics does Alphabet Inc. disclose?",
-    "reference": "We are focused on building an even more helpful Google for everyone, and we aspire to give everyone the tools they need to increase their knowledge, health, happiness, and success. Google Cloud helps customers solve today's business challenges, improve productivity, reduce costs, and unlock new growth engines. We are continually innovating and building new products and features that will help our users, partners, customers, and communities and have invested more than $150 billion in research and development in the last five years in support of these efforts.",
+    "question": "What are Alphabet Inc.'s main risk factors according to the 10-K?",
+    "reference": "The contents of our sustainability reports are not incorporated by reference into this Annual Report on Form 10-K or in any other report or document we file with the SEC. For additional information about risks and uncertainties applicable to our commitments to attain certain sustainability goals, see Item 1A Risk Factors of this Annual Report on Form 10-K. We embrace collaboration and creativity, and encourage the iteration of ideas to address complex challenges in technology and society.",
     "filters": {
       "ticker": "GOOGL",
       "form_type": "10-K",
@@ -207,8 +180,8 @@
     }
   },
   {
-    "question": "What are Alphabet Inc.'s primary product segments?",
-    "reference": "Our teams across Alphabet will leverage Gemini, as well as other AI models we have previously developed and announced, across our business to deliver the best product and service experiences for our users, advertisers, partners, customers, and developers. That means developing AI in a way that maximizes the positive benefits to society while addressing the challenges, guided by our AI Principles. We published these in 2018, as one of the first companies to articulate principles that put beneficial use, users, safety, and avoidance of harms above business considerations.",
+    "question": "What Alphabet Inc.'s products and services does the 10-K describe?",
+    "reference": "This includes generative AI and continuing to integrate AI capabilities into our products and services. AI technology and services are highly competitive, rapidly evolving, and require significant investment, including development and operational costs, to meet the changing needs and expectations of our existing users and attract new users. Our ability to deploy certain AI technologies critical for our products and services and for our business strategy may depend on the availability and pricing of third-party equipment and technical infrastructure.",
     "filters": {
       "ticker": "GOOGL",
       "form_type": "10-K",
@@ -216,16 +189,34 @@
     }
   },
   {
-    "question": "What specific financial metrics does Meta Platforms, Inc. disclose?",
-    "reference": "Item 12.,  = Security Ownership of Certain Beneficial Owners and Management and Related Stockholder Matters. Item 13.,  = Certain Relationships and Related Transactions, and Director Independence. Signatures,  = \n2\n[Table of Contents](#i20db9d0a42f0408c9f8cc4709c09099f_7)\nNOTE ABOUT FORWARD-LOOKING STATEMENTS",
+    "question": "What Alphabet Inc.'s products and services does the 10-K describe?",
+    "reference": "Our intellectual property rights are valuable, and any inability to protect them could reduce the value of our products, services, and brands as well as affect our ability to compete. Various events outside of our control pose a threat to our intellectual property rights, as well as to our products, services, and technologies. For example, effective intellectual property protection may not be available in every country in which our products and services are distributed or made available through the Internet.",
     "filters": {
-      "ticker": "META",
+      "ticker": "GOOGL",
       "form_type": "10-K",
-      "fiscal_period": "FY2024"
+      "fiscal_period": "FY2023"
     }
   },
   {
-    "question": "What are Meta Platforms, Inc.'s primary product segments?",
+    "question": "What Alphabet Inc.'s products and services does the 10-K describe?",
+    "reference": "The availability of our products and services and fulfillment of our customer contracts depend on the continuing operation of our information technology and communications systems. Some of our data centers are located in areas with a high risk of major earthquakes or other natural disasters. The occurrence of a natural disaster or pandemic, closure of a facility, or other unanticipated problems affecting our data centers could result in lengthy interruptions in our service.",
+    "filters": {
+      "ticker": "GOOGL",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What are Alphabet Inc.'s key business drivers?",
+    "reference": "Any of the foregoing developments may negatively affect user trust and engagement, harm our reputation and brands, require us to change our business practices in ways that harm our business operations, and adversely affect our business and financial results. Increased use of AI in our offerings and internal systems may create new avenues of abuse for bad actors.",
+    "filters": {
+      "ticker": "GOOGL",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What Meta Platforms, Inc.'s products and services does the 10-K describe?",
     "reference": "While these numbers are based on what we believe to be reasonable estimates of our user base for the applicable period of measurement, there are inherent challenges in measuring usage of our products across large online and mobile populations around the world. In addition, our Family metrics estimates will differ from estimates published by third parties due to differences in methodology or other factors such as data limitations or other challenges in measuring large online and mobile populations. Many people in our community have user accounts on more than one of our products, and some people have multiple user accounts within an individual product.",
     "filters": {
       "ticker": "META",
@@ -234,33 +225,6 @@
     }
   },
   {
-    "question": "What are Meta Platforms, Inc.'s main risk factors according to the 10-K?",
-    "reference": "For example, to match user accounts within individual products and across multiple products, we use data signals such as similar device information, IP addresses, and user names. We also calibrate our models against data from periodic user surveys of varying sizes and frequency across our products, which survey questions are based on monthly usage, and which are inherently subject to error. In addition, our data limitations may affect our understanding of certain details of our business and increase the risk of error for our Family metrics estimates.",
-    "filters": {
-      "ticker": "META",
-      "form_type": "10-K",
-      "fiscal_period": "FY2024"
-    }
-  },
-  {
-    "question": "What are Meta Platforms, Inc.'s key business drivers?",
-    "reference": "For example, to match user accounts within individual products and across multiple products, we use data signals such as similar device information, IP addresses, and user names. We also calibrate our models against data from periodic user surveys of varying sizes and frequency across our products, which survey questions are based on monthly usage, and which are inherently subject to error. In addition, our data limitations may affect our understanding of certain details of our business and increase the risk of error for our Family metrics estimates.",
-    "filters": {
-      "ticker": "META",
-      "form_type": "10-K",
-      "fiscal_period": "FY2024"
-    }
-  },
-  {
-    "question": "What are Meta Platforms, Inc.'s primary product segments?",
-    "reference": "For example, to match user accounts within individual products and across multiple products, we use data signals such as similar device information, IP addresses, and user names. We also calibrate our models against data from periodic user surveys of varying sizes and frequency across our products, which survey questions are based on monthly usage, and which are inherently subject to error. In addition, our data limitations may affect our understanding of certain details of our business and increase the risk of error for our Family metrics estimates.",
-    "filters": {
-      "ticker": "META",
-      "form_type": "10-K",
-      "fiscal_period": "FY2024"
-    }
-  },
-  {
     "question": "What are Meta Platforms, Inc.'s key business drivers?",
     "reference": "Our estimates for revenue by user location, as well as year-over-year percentage changes in ad impressions delivered and the average price per ad by user location, are also affected by data limitations and other challenges in measuring user geography. For example, a user may appear to be accessing our products from the location of the proxy server that the user connects to rather than from the user's actual location. Business\nOverview\nOur mission is to build the future of human connection and the technology that makes it possible.",
     "filters": {
@@ -270,8 +234,8 @@
     }
   },
   {
-    "question": "What are Meta Platforms, Inc.'s primary product segments?",
-    "reference": "Our estimates for revenue by user location, as well as year-over-year percentage changes in ad impressions delivered and the average price per ad by user location, are also affected by data limitations and other challenges in measuring user geography. For example, a user may appear to be accessing our products from the location of the proxy server that the user connects to rather than from the user's actual location. Business\nOverview\nOur mission is to build the future of human connection and the technology that makes it possible.",
+    "question": "What Meta Platforms, Inc.'s products and services does the 10-K describe?",
+    "reference": "Our product development philosophy centers on continuous innovation in creating and improving products that are social by design, which means that our products are designed to place people and their social interactions at the core of the product experience. As our user base grows, as engagement with products like video, VR, and MR increases, and as we deepen our investment in new technologies, our computing needs continue to expand. Our ability to provide and continue to innovate our products and services depends on the continued availability of components, power, and network capacity.",
     "filters": {
       "ticker": "META",
       "form_type": "10-K",
@@ -279,8 +243,8 @@
     }
   },
   {
-    "question": "What are Meta Platforms, Inc.'s primary product segments?",
-    "reference": "In 2024, 79% of our total costs and expenses were recognized in FoA and 21% were recognized in RL. Our FoA investments were $75.25 billion in 2024 and include expenses relating to headcount, data centers and technical infrastructure as part of our efforts to develop our apps and our advertising services. Our total RL investments were $19.88 billion in 2024 and include expenses relating to headcount and technology development across these efforts.",
+    "question": "What are Meta Platforms, Inc.'s key business drivers?",
+    "reference": "Risks Related to Our Product Offerings\nIf we fail to retain existing users or add new users, or if our users decrease their level of engagement with our products, our revenue, financial results, and business may be significantly harmed. The size of our active user base and our users' level of engagement across our products are critical to our success. Our financial performance has been and will continue to be significantly determined by our success in adding, retaining, and engaging active users of our products that deliver ad impressions, particularly for Facebook and Instagram.",
     "filters": {
       "ticker": "META",
       "form_type": "10-K",
@@ -288,12 +252,39 @@
     }
   },
   {
-    "question": "What are Microsoft Corporation's primary product segments?",
-    "reference": "Our products include operating systems, cross-device productivity and collaboration applications, server applications, business solution applications, desktop and server management tools, software development tools, and video games. The Ambitions That Drive Us\nTo achieve our vision, our research and development efforts focus on three interconnected ambitions:\n\u2022 Reinvent productivity and business processes. Reinvent Productivity and Business Processes\nAt Microsoft, we provide technology and resources to help our customers create a secure, productive work environment.",
+    "question": "What Meta Platforms, Inc.'s products and services does the 10-K describe?",
+    "reference": "We have made and are continuing to make investments to enable developers to build, grow, and monetize applications that integrate with our products. Additionally, developers may choose to build on other platforms, including platforms controlled by third parties, rather than building products that integrate with our products. In addition, as part of our efforts related to privacy, safety, and security, we conduct investigations and audits of platform applications from time to time, and we also have announced several product changes that restrict developer access to certain user data.",
     "filters": {
-      "ticker": "MSFT",
+      "ticker": "META",
       "form_type": "10-K",
-      "fiscal_period": "FY2023"
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "What Meta Platforms, Inc.'s products and services does the 10-K describe?",
+    "reference": "Our reputation and ability to attract, retain, and serve our users is dependent upon the reliable performance of our products and services and our underlying technical infrastructure. We have experienced, and may in the future experience, interruptions in the availability or performance of our products and services from time to time. Our systems may not be adequately designed or may not operate with the reliability and redundancy necessary to avoid performance delays or outages that could be harmful to our business.",
+    "filters": {
+      "ticker": "META",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "What Meta Platforms, Inc.'s products and services does the 10-K describe?",
+    "reference": "We could also face fines, orders restricting or blocking our services in particular geographies, or other judicial or government-imposed remedies as a result of content hosted on our services. For example, we have been subject to fines and may in the future be subject to other penalties in connection with social media legislation in Turkey, and we have been subject to fines and service blocking and prohibition in Russia. Content-related legislation also has required us, and may require us in the future, to change our products or business practices, increase our costs, or otherwise impact our operations or our ability to provide services in certain geographies.",
+    "filters": {
+      "ticker": "META",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "What Meta Platforms, Inc.'s products and services does the 10-K describe?",
+    "reference": "Our industry is prone to cyber-attacks by parties seeking unauthorized access to our data or users' data or to disrupt our ability to provide service or otherwise harm us. Our products and services involve the collection, storage, processing, and transmission of a large amount of data. Our efforts to address undesirable activity on our platform also increase the risk of retaliatory attacks.",
+    "filters": {
+      "ticker": "META",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
     }
   },
   {
@@ -306,15 +297,6 @@
     }
   },
   {
-    "question": "What are Microsoft Corporation's primary product segments?",
-    "reference": "We have also increased our investments in the development and deployment of specialized supercomputing systems to accelerate OpenAI's research. Nuance, a leader in conversational AI and ambient intelligence across industries including healthcare, financial services, retail, and telecommunications, joined Microsoft in 2022. Microsoft and Nuance enable organizations to accelerate their business goals with security-focused, cloud-based solutions infused with AI.",
-    "filters": {
-      "ticker": "MSFT",
-      "form_type": "10-K",
-      "fiscal_period": "FY2023"
-    }
-  },
-  {
     "question": "What specific financial metrics does Microsoft Corporation disclose?",
     "reference": "We have also increased our investments in the development and deployment of specialized supercomputing systems to accelerate OpenAI's research. Nuance, a leader in conversational AI and ambient intelligence across industries including healthcare, financial services, retail, and telecommunications, joined Microsoft in 2022. Microsoft and Nuance enable organizations to accelerate their business goals with security-focused, cloud-based solutions infused with AI.",
     "filters": {
@@ -324,8 +306,8 @@
     }
   },
   {
-    "question": "What are Microsoft Corporation's primary product segments?",
-    "reference": "We have broadened our approach to how we think about gaming end-to-end, from the way games are created and distributed to how they are played, including subscription services like Xbox Game Pass and new devices from third-party manufacturers so players can engage across PC, console, and mobile. In January 2022, we announced plans to acquire Activision Blizzard, Inc., a leader in game development and an interactive entertainment content publisher. We continue to develop complete, intelligent solutions for our customers that empower people to be productive and collaborate, while safeguarding businesses and simplifying IT management.",
+    "question": "How does Microsoft Corporation describe its competitive position?",
+    "reference": "GitHub provides a collaboration platform and code hosting service for developers. Azure's competitive advantage includes enabling a hybrid cloud, allowing deployment of existing datacenters with our public cloud into a single, cohesive infrastructure, and the ability to run at a scale that meets the needs of businesses of all sizes and complexities. Our AI offerings compete with AI products from hyperscalers such as Amazon Bedrock, Amazon CodeWhisperer, and Google AI, as well as products from other emerging competitors, many of which are also current or potential partners, including Meta's LLaMA2 and other open source solutions.",
     "filters": {
       "ticker": "MSFT",
       "form_type": "10-K",
@@ -333,8 +315,8 @@
     }
   },
   {
-    "question": "What specific financial metrics does Microsoft Corporation disclose?",
-    "reference": "We have broadened our approach to how we think about gaming end-to-end, from the way games are created and distributed to how they are played, including subscription services like Xbox Game Pass and new devices from third-party manufacturers so players can engage across PC, console, and mobile. In January 2022, we announced plans to acquire Activision Blizzard, Inc., a leader in game development and an interactive entertainment content publisher. We continue to develop complete, intelligent solutions for our customers that empower people to be productive and collaborate, while safeguarding businesses and simplifying IT management.",
+    "question": "What Microsoft Corporation's products and services does the 10-K describe?",
+    "reference": "For the majority of our products, we have the ability to use other manufacturers if a current vendor becomes unavailable or unable to meet our requirements. However, some of our products contain certain components for which there are very few qualified suppliers. 16\nPART I\nItem 1\nRESEARCH AND DEVELOPMENT\nProduct and Service Development, and Intellectual Property\nWe develop most of our products and services internally through the following engineering groups.",
     "filters": {
       "ticker": "MSFT",
       "form_type": "10-K",
@@ -342,8 +324,8 @@
     }
   },
   {
-    "question": "What are Microsoft Corporation's primary product segments?",
-    "reference": "Our Microsoft Cloud for Sustainability, an environmental sustainability management platform that includes Microsoft Sustainability Manager, enables organizations to record, report, and reduce their Scope 1, 2, and 3 emissions. These digital tools can interoperate with business systems and unify data intelligence for organizations. Our Racial Equity Initiative focuses on three multi-year pillars, each containing actions and progress we expect to make or exceed by 2025.",
+    "question": "What Microsoft Corporation's products and services does the 10-K describe?",
+    "reference": "We also sell commercial and consumer products and services directly to customers, such as cloud services, search, and gaming, through our digital marketplaces and online stores. 18\nPART I\nItem 1\nDistributors and Resellers\nOrganizations also license our products and services indirectly, primarily through licensing solution partners (\"LSP\"), distributors, value-added resellers (\"VAR\"), and retailers. Microsoft Cloud Solution Provider is our main partner program for reselling cloud services.",
     "filters": {
       "ticker": "MSFT",
       "form_type": "10-K",
@@ -351,8 +333,8 @@
     }
   },
   {
-    "question": "What specific financial metrics does Microsoft Corporation disclose?",
-    "reference": "Our Microsoft Cloud for Sustainability, an environmental sustainability management platform that includes Microsoft Sustainability Manager, enables organizations to record, report, and reduce their Scope 1, 2, and 3 emissions. These digital tools can interoperate with business systems and unify data intelligence for organizations. Our Racial Equity Initiative focuses on three multi-year pillars, each containing actions and progress we expect to make or exceed by 2025.",
+    "question": "How does Microsoft Corporation describe its competitive position?",
+    "reference": "We also sell commercial and consumer products and services directly to customers, such as cloud services, search, and gaming, through our digital marketplaces and online stores. 18\nPART I\nItem 1\nDistributors and Resellers\nOrganizations also license our products and services indirectly, primarily through licensing solution partners (\"LSP\"), distributors, value-added resellers (\"VAR\"), and retailers. Microsoft Cloud Solution Provider is our main partner program for reselling cloud services.",
     "filters": {
       "ticker": "MSFT",
       "form_type": "10-K",
@@ -360,25 +342,25 @@
     }
   },
   {
-    "question": "What are NVIDIA Corporation's main risk factors according to the 10-K?",
-    "reference": "The information we post through these channels is not a part of this Annual Report on Form 10-K. Forward-Looking Statements\nThis Annual Report on Form 10-K contains forward-looking statements which are based on our management's beliefs and assumptions and on information currently available to our management. We discuss many of these risks, uncertainties, and other factors in this Annual Report on Form 10-K in greater detail under the heading \"Risk Factors.\" Given these risks, uncertainties, and other factors, you should not place undue reliance on these forward-looking statements.",
+    "question": "What Microsoft Corporation's products and services does the 10-K describe?",
+    "reference": "The Microsoft Cloud Solution Provider Program offers customers an easy way to license the cloud services they need in combination with the value-added services offered by their systems integrator, managed services provider, or cloud reseller partner. Partners in this program can easily package their own products and services to directly provision, manage, and support their customer subscriptions. The Microsoft Services Provider License Agreement allows hosting service providers and independent software vendors who want to license eligible Microsoft software products to provide software services and hosted applications to their end customers.",
     "filters": {
-      "ticker": "NVDA",
+      "ticker": "MSFT",
       "form_type": "10-K",
-      "fiscal_period": "FY2024"
+      "fiscal_period": "FY2023"
     }
   },
   {
-    "question": "What specific financial metrics does NVIDIA Corporation disclose?",
-    "reference": "The information we post through these channels is not a part of this Annual Report on Form 10-K. Forward-Looking Statements\nThis Annual Report on Form 10-K contains forward-looking statements which are based on our management's beliefs and assumptions and on information currently available to our management. We discuss many of these risks, uncertainties, and other factors in this Annual Report on Form 10-K in greater detail under the heading \"Risk Factors.\" Given these risks, uncertainties, and other factors, you should not place undue reliance on these forward-looking statements.",
+    "question": "What are Microsoft Corporation's key business drivers?",
+    "reference": "\u2022 Information on our business strategies, financial results, and metrics for investors. \u2022 Announcements of investor conferences, speeches, and events at which our executives talk about our product, service, and competitive strategies. \u2022 Press releases on quarterly earnings, product and service announcements, legal developments, and international news.",
     "filters": {
-      "ticker": "NVDA",
+      "ticker": "MSFT",
       "form_type": "10-K",
-      "fiscal_period": "FY2024"
+      "fiscal_period": "FY2023"
     }
   },
   {
-    "question": "What are NVIDIA Corporation's primary product segments?",
+    "question": "What NVIDIA Corporation's products and services does the 10-K describe?",
     "reference": "Business\nOur Company\nNVIDIA pioneered accelerated computing to help solve the most challenging computational problems. GPU-powered AI solutions are being developed by thousands of enterprises to deliver services and products that would have been immensely difficult or even impossible with traditional coding. NVIDIA has a platform strategy, bringing together hardware, systems, software, algorithms, libraries, and services to create unique value for the markets we serve.",
     "filters": {
       "ticker": "NVDA",
@@ -396,34 +378,7 @@
     }
   },
   {
-    "question": "What drove NVIDIA Corporation's financial performance?",
-    "reference": "We have invested over $45.3 billion in research and development since our inception, yielding inventions that are essential to modern computing. Our invention of the GPU in 1999 sparked the growth of the PC gaming market and redefined computer graphics. With our introduction of the CUDA programming model in 2006, we opened the parallel processing capabilities of our GPU to a broad range of compute-intensive applications, paving the way for the emergence of modern AI.",
-    "filters": {
-      "ticker": "NVDA",
-      "form_type": "10-K",
-      "fiscal_period": "FY2024"
-    }
-  },
-  {
-    "question": "How does NVIDIA Corporation describe its competitive position?",
-    "reference": "We have invested over $45.3 billion in research and development since our inception, yielding inventions that are essential to modern computing. Our invention of the GPU in 1999 sparked the growth of the PC gaming market and redefined computer graphics. With our introduction of the CUDA programming model in 2006, we opened the parallel processing capabilities of our GPU to a broad range of compute-intensive applications, paving the way for the emergence of modern AI.",
-    "filters": {
-      "ticker": "NVDA",
-      "form_type": "10-K",
-      "fiscal_period": "FY2024"
-    }
-  },
-  {
-    "question": "What specific financial metrics does NVIDIA Corporation disclose?",
-    "reference": "We have invested over $45.3 billion in research and development since our inception, yielding inventions that are essential to modern computing. Our invention of the GPU in 1999 sparked the growth of the PC gaming market and redefined computer graphics. With our introduction of the CUDA programming model in 2006, we opened the parallel processing capabilities of our GPU to a broad range of compute-intensive applications, paving the way for the emergence of modern AI.",
-    "filters": {
-      "ticker": "NVDA",
-      "form_type": "10-K",
-      "fiscal_period": "FY2024"
-    }
-  },
-  {
-    "question": "What are NVIDIA Corporation's primary product segments?",
+    "question": "What NVIDIA Corporation's products and services does the 10-K describe?",
     "reference": "Headquartered in Santa Clara, California, NVIDIA was incorporated in California in April 1993 and reincorporated in Delaware in April 1998. Our Markets\nWe specialize in markets where our computing platforms can provide tremendous acceleration for applications. These platforms incorporate processors, interconnects, software, algorithms, systems, and services to deliver unique value.",
     "filters": {
       "ticker": "NVDA",
@@ -432,8 +387,53 @@
     }
   },
   {
-    "question": "How does Apple Inc. describe its competitive position?",
-    "reference": "The Company regularly files patent, design, copyright and trademark applications to protect innovations arising from its research, development, design and marketing, and is currently pursuing thousands of applications around the world. No single intellectual property right is solely responsible for protecting the Company's products and services. The Company believes the duration of its intellectual property rights is adequate relative to the expected lives of its products and services.",
+    "question": "How does NVIDIA Corporation describe its competitive position?",
+    "reference": "Headquartered in Santa Clara, California, NVIDIA was incorporated in California in April 1993 and reincorporated in Delaware in April 1998. Our Markets\nWe specialize in markets where our computing platforms can provide tremendous acceleration for applications. These platforms incorporate processors, interconnects, software, algorithms, systems, and services to deliver unique value.",
+    "filters": {
+      "ticker": "NVDA",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "How does NVIDIA Corporation describe its competitive position?",
+    "reference": "Automotive market is comprised of platform solutions for automated driving and in-vehicle cockpit computing. Leveraging our technology leadership in AI and building on our long-standing automotive relationships, we are delivering a complete end-to-end solution for the AV market under the DRIVE Hyperion brand. Business Strategies\nNVIDIA's key strategies that shape our overall business approach include:\nAdvancing the NVIDIA accelerated computing platform.",
+    "filters": {
+      "ticker": "NVDA",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "What NVIDIA Corporation's products and services does the 10-K describe?",
+    "reference": "In addition, we offer DGX Cloud, an AI-training-as-a-service platform, and NeMo - a complete solution for building enterprise-ready Large Language Models, or LLMs, using open source and proprietary LLMs created by NVIDIA and third parties. There are over 4.7 million developers worldwide using CUDA and our other software tools to help deploy our technology in our target markets. Our computer graphics platforms leverage AI end-to-end, from the developer tools and cloud services to the Tensor Cores included in all RTX-class GPUs.",
+    "filters": {
+      "ticker": "NVDA",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "How does NVIDIA Corporation describe its competitive position?",
+    "reference": "In addition, we offer DGX Cloud, an AI-training-as-a-service platform, and NeMo - a complete solution for building enterprise-ready Large Language Models, or LLMs, using open source and proprietary LLMs created by NVIDIA and third parties. There are over 4.7 million developers worldwide using CUDA and our other software tools to help deploy our technology in our target markets. Our computer graphics platforms leverage AI end-to-end, from the developer tools and cloud services to the Tensor Cores included in all RTX-class GPUs.",
+    "filters": {
+      "ticker": "NVDA",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "What drove NVIDIA Corporation's financial performance?",
+    "reference": "Teter,  = Executive Vice President and General Counsel\nJen-Hsun Huang co-founded NVIDIA in 1993 and has served as our President, Chief Executive Officer, and a member of the Board of Directors since our inception. Huang was employed at LSI Logic Corporation, a computer chip manufacturer, where he held a variety of positions including as Director of Coreware, the business unit responsible for LSI's SOC. Kress joined NVIDIA in 2013 as Executive Vice President and Chief Financial Officer.",
+    "filters": {
+      "ticker": "NVDA",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "What Apple Inc.'s products and services does the 10-K describe?",
+    "reference": "The Company distributes its products and certain of its services through cellular network carriers, wholesalers, retailers and resellers, many of which distribute products and services from competitors. The Company also sells its products and services and resells third-party products in most of its major markets directly to consumers, small and mid-sized businesses, and education, enterprise and government customers through its retail and online stores and its direct sales force. Some carriers providing cellular network service for the Company's products offer financing, installment payment plans or subsidies for users' purchases of the device.",
     "filters": {
       "ticker": "AAPL",
       "form_type": "10-K",
@@ -442,7 +442,7 @@
   },
   {
     "question": "What drove Apple Inc.'s financial performance?",
-    "reference": "These and other impacts can materially adversely affect the Company's business, results of operations, financial condition and stock price. The Company's business can be impacted by political events, trade and other international disputes, war, terrorism, natural disasters, public health issues, industrial accidents and other business interruptions. | 2023 Form 10-K | 5\nThe Company has a large, global business with sales outside the U.S.",
+    "reference": "For example, third parties can fraudulently induce the Company's or its vendors' employees or customers into disclosing usernames, passwords or other sensitive information, which can, in turn, be used for unauthorized access to the Company's or its vendors' systems and services. While the Company maintains insurance coverage that is intended to address certain aspects of data security risks, such insurance coverage may be insufficient to cover all losses or all types of claims that may arise. | 2023 Form 10-K | 11\nInvestment in new business strategies and acquisitions could disrupt the Company's ongoing business, present risks not originally contemplated and materially adversely affect the Company's business, reputation, results of operations and financial condition.",
     "filters": {
       "ticker": "AAPL",
       "form_type": "10-K",

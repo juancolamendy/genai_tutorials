@@ -64,25 +64,32 @@ def keyword_search(
     form_type: str | None = None,
     fiscal_period: str | None = None,
 ) -> tuple[str, dict]:
-    """Full-text search: match chunks with ANY keyword (OR logic).
+    """Full-text search: match chunks with meaningful keywords (high precision).
 
-    Instead of requiring all keywords to match (AND logic), we convert
-    the query to OR-combined terms. This is more recall-friendly:
-    "financial metrics" matches chunks with either "financial" OR "metrics".
+    Filters out stop words and generic business terms, keeping only high-value keywords.
+    Also filters by ts_rank threshold to exclude low-relevance matches.
 
-    Splits query into words, filters out short/stop words, and combines
-    with OR operator for the tsquery. Returns top_k rows ordered by
-    descending ts_rank (best match first).
+    Returns top_k rows ordered by descending ts_rank (best match first).
     """
     filters, params = _build_filters(ticker, form_type, fiscal_period)
+    # Stop words: common words + generic business terms found in every SEC filing
+    stop_words = """'what','are','is','the','a','an','and','or','of','to','in','that',
+    'for','this','be','by','on','at','from','as','it','was','been','about','more',
+    'some','can','also','has','have','would','could','may','company','business',
+    'management','operations','report','document','form','filing','information',
+    'material','significant','changes','impacts','affects','relates','includes',
+    'including','development','process','system','controls','activities','matters'"""
+
     # tsv is a GENERATED ALWAYS tsvector column on chunks.content
-    filters.append("""
+    filters.append(f"""
         c.tsv @@ (
             SELECT to_tsquery('english', string_agg(word, ' | ' ORDER BY word))
             FROM (
                 SELECT DISTINCT lower(word) AS word
                 FROM regexp_split_to_table(%(query_text)s, '\\s+') word
-                WHERE length(word) > 2
+                WHERE length(word) > 4
+                AND lower(word) NOT IN ({stop_words})
+                LIMIT 8
             ) t
         )
     """)
@@ -107,7 +114,9 @@ def keyword_search(
                 FROM (
                     SELECT DISTINCT lower(word) AS word
                     FROM regexp_split_to_table(%(query_text)s, '\\s+') word
-                    WHERE length(word) > 2
+                    WHERE length(word) > 4
+                    AND lower(word) NOT IN ({stop_words})
+                    LIMIT 8
                 ) t
             )) AS fts_rank
         FROM chunks c

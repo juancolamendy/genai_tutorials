@@ -74,7 +74,8 @@ logging.basicConfig(
 
 # How many candidates each ranker fetches before fusion.
 # Wider pools improve recall at the cost of two slightly larger DB round-trips.
-RETRIEVER_TOP_K = 40
+RETRIEVER_TOP_K = 125
+RETRIEVER_TOP_N = 15
 
 
 # --------------------------------------------------------------------------- #
@@ -196,7 +197,7 @@ class Retriever:
         form_type: str | None = None,
         fiscal_period: str | None = None,
         top_k: int = RETRIEVER_TOP_K,
-        top_n: int = 10,
+        top_n: int = RETRIEVER_TOP_N,
     ) -> list[RankedResult]:
         """Run hybrid retrieval and return top-N fused results.
 
@@ -290,7 +291,7 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     p.add_argument("--fiscal-period", default=None, help="Filter by fiscal period, e.g. FY2023.")
     p.add_argument("--top-k",  type=int, default=RETRIEVER_TOP_K,
                    help="Candidate pool per retriever before fusion.")
-    p.add_argument("--top-n",  type=int, default=10,
+    p.add_argument("--top-n",  type=int, default=RETRIEVER_TOP_N,
                    help="Final results to display after fusion.")
     p.add_argument("--database-url",   default=os.environ.get("DATABASE_URL", ""),
                    help="Postgres DSN (default: $DATABASE_URL).")

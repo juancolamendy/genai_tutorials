@@ -115,49 +115,73 @@ def extract_key_sentences(text: str, max_length: int = 300) -> list[str]:
     return good_sentences[:3]
 
 
+def calculate_overlap(question: str, reference: str) -> float:
+    """Calculate word overlap between question and reference."""
+    q_words = set(w.lower() for w in question.split() if len(w) > 3)
+    r_words = set(w.lower() for w in reference.lower().split() if len(w) > 3)
+    if not q_words:
+        return 0.0
+    return len(q_words & r_words) / len(q_words)
+
+
 def generate_questions(chunk: DbChunk, reference: str) -> list[tuple[str, str]]:
-    """Generate Q&A pairs from chunk."""
+    """Generate Q&A pairs from chunk.
+
+    Only generate questions whose key terms are present in the reference.
+    Requires minimum 20% word overlap to ensure semantic alignment.
+    """
     questions = []
     ref_lower = reference.lower()
     company = chunk.company or "the company"
+    candidate_questions = []
 
+    # Risk factors: only if "risk" appears in reference
     if "risk" in ref_lower and len(reference) > 100:
-        questions.append((
-            f"What are {company}'s main risk factors according to the 10-K?",
-            reference
-        ))
+        candidate_questions.append(
+            f"What are {company}'s main risk factors according to the 10-K?"
+        )
 
-    if any(word in ref_lower for word in ["revenue", "sales", "income", "grow", "increase"]):
+    # Financial performance: only if financial keywords in reference
+    if any(word in ref_lower for word in ["revenue", "sales", "income", "earnings", "financial"]):
         if "%" in reference or any(c.isdigit() for c in reference):
-            questions.append((
-                f"What drove {company}'s financial performance?",
-                reference
-            ))
+            candidate_questions.append(
+                f"What drove {company}'s financial performance?"
+            )
         else:
-            questions.append((
-                f"What are {company}'s key business drivers?",
-                reference
-            ))
+            candidate_questions.append(
+                f"What are {company}'s key business drivers?"
+            )
 
-    if any(word in ref_lower for word in ["segment", "product", "service", "cloud", "aws", "azure"]):
-        questions.append((
-            f"What are {company}'s primary product segments?",
-            reference
-        ))
+    # Product/service segments: only if "segment" is in reference
+    if "segment" in ref_lower:
+        candidate_questions.append(
+            f"What are {company}'s primary product segments?"
+        )
+    elif any(word in ref_lower for word in ["product", "service"]):
+        candidate_questions.append(
+            f"What {company}'s products and services does the 10-K describe?"
+        )
 
+    # Competitive position: only if competition-related words in reference
     if any(word in ref_lower for word in ["compet", "market", "advantage", "leadership"]):
-        questions.append((
-            f"How does {company} describe its competitive position?",
-            reference
-        ))
+        candidate_questions.append(
+            f"How does {company} describe its competitive position?"
+        )
 
+    # Financial metrics: only if numbers AND financial context
     if any(c.isdigit() for c in reference) and len(reference) > 80:
-        questions.append((
-            f"What specific financial metrics does {company} disclose?",
-            reference
-        ))
+        if any(word in ref_lower for word in ["financial", "metric", "billion", "million", "revenue", "income"]):
+            candidate_questions.append(
+                f"What specific financial metrics does {company} disclose?"
+            )
 
-    return [q for q in questions if q[0].strip()]
+    # Filter to only questions with sufficient overlap with reference
+    min_overlap = 0.15  # At least 15% of question words in reference
+    for q in candidate_questions:
+        if calculate_overlap(q, reference) >= min_overlap:
+            questions.append((q, reference))
+
+    return questions
 
 
 def main(argv: list[str] | None = None) -> int:
