@@ -2,7 +2,7 @@
 """Answer generator for the SEC RAG pipeline.
 
 Takes a user question and a list of retrieved chunks from retriever.py,
-calls the OpenAI chat completion API with a strict grounded-answer prompt,
+calls the Anthropic Claude API with a strict grounded-answer prompt,
 and returns a structured GeneratorResponse.
 
 This is the generation stage of the pipeline:
@@ -21,7 +21,7 @@ back on parametric knowledge.
 
 Environment variables
 ---------------------
-  OPENAI_API_KEY   required
+  ANTHROPIC_API_KEY   required
   DATABASE_URL     required (for retrieval)
 
 Usage (library)
@@ -53,7 +53,7 @@ import sys
 import textwrap
 from dataclasses import dataclass, field
 
-from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
@@ -73,7 +73,7 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 
-CHAT_MODEL    = "gpt-4o"
+CHAT_MODEL    = "claude-haiku-4-5-20251001"
 DEFAULT_TOP_N = 5
 
 # The system prompt enforces grounding. The LLM must not use knowledge
@@ -120,13 +120,13 @@ class GeneratorResponse:
 def create_chain(model: str = CHAT_MODEL, temperature: float = 0.0):
     """Create a LangChain chain for grounded answer generation.
 
-    Uses ChatOpenAI with built-in retry logic and exponential backoff.
+    Uses ChatAnthropic (Claude) with built-in retry logic and exponential backoff.
     Includes StrOutputParser to extract answer string directly.
 
     Parameters
     ----------
     model:
-        OpenAI model name (default: gpt-4o).
+        Anthropic Claude model name (default: claude-3-5-haiku-20241022).
     temperature:
         Sampling temperature (0 = deterministic, for evaluation).
 
@@ -135,8 +135,8 @@ def create_chain(model: str = CHAT_MODEL, temperature: float = 0.0):
     A LangChain Runnable that takes {"context": str, "question": str}
     and returns the answer string directly.
     """
-    # LangChain's ChatOpenAI handles retries internally
-    llm = ChatOpenAI(
+    # LangChain's ChatAnthropic handles retries internally
+    llm = ChatAnthropic(
         model=model,
         temperature=temperature,
         # max_retries defaults to 2; we can override if needed
@@ -159,7 +159,7 @@ def create_chain(model: str = CHAT_MODEL, temperature: float = 0.0):
 # Generator
 # --------------------------------------------------------------------------- #
 class Generator:
-    """Grounded answer generator backed by LangChain + OpenAI chat completion."""
+    """Grounded answer generator backed by LangChain + Anthropic Claude."""
 
     def __init__(self, chain, model: str = CHAT_MODEL) -> None:
         self._chain = chain
@@ -171,16 +171,16 @@ class Generator:
     # ------------------------------------------------------------------
     @classmethod
     def from_env(cls, model: str = CHAT_MODEL) -> "Generator":
-        """Construct from OPENAI_API_KEY environment variable."""
-        api_key = os.environ.get("OPENAI_API_KEY", "")
+        """Construct from ANTHROPIC_API_KEY environment variable."""
+        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
         if not api_key:
-            raise RuntimeError("OPENAI_API_KEY is not set.")
+            raise RuntimeError("ANTHROPIC_API_KEY is not set.")
         return cls.from_credentials(api_key, model=model)
 
     @classmethod
-    def from_credentials(cls, openai_api_key: str, model: str = CHAT_MODEL) -> "Generator":
-        # LangChain's ChatOpenAI reads OPENAI_API_KEY from environment or explicit init
-        os.environ["OPENAI_API_KEY"] = openai_api_key
+    def from_credentials(cls, anthropic_api_key: str, model: str = CHAT_MODEL) -> "Generator":
+        # LangChain's ChatAnthropic reads ANTHROPIC_API_KEY from environment or explicit init
+        os.environ["ANTHROPIC_API_KEY"] = anthropic_api_key
         chain = create_chain(model=model)
         return cls(chain, model=model)
 
@@ -320,9 +320,9 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     p.add_argument("--top-n",  type=int, default=DEFAULT_TOP_N,
                    help="Number of chunks to retrieve.")
     p.add_argument("--model",  default=CHAT_MODEL,
-                   help="OpenAI chat model.")
+                   help="Anthropic Claude chat model.")
     p.add_argument("--database-url",   default=os.environ.get("DATABASE_URL", ""))
-    p.add_argument("--openai-api-key", default=os.environ.get("OPENAI_API_KEY", ""))
+    p.add_argument("--anthropic-api-key", default=os.environ.get("ANTHROPIC_API_KEY", ""))
     return p.parse_args(argv)
 
 
@@ -332,11 +332,11 @@ def main(argv: list[str] | None = None) -> int:
     if not args.database_url:
         log.error("DATABASE_URL is not set.")
         return 1
-    if not args.openai_api_key:
-        log.error("OPENAI_API_KEY is not set.")
+    if not args.anthropic_api_key:
+        log.error("ANTHROPIC_API_KEY is not set.")
         return 1
 
-    with Retriever.from_credentials(args.database_url, args.openai_api_key) as r:
+    with Retriever.from_credentials(args.database_url) as r:
         results = r.retrieve(
             args.question,
             ticker=args.ticker,
@@ -345,7 +345,7 @@ def main(argv: list[str] | None = None) -> int:
             top_n=args.top_n,
         )
 
-    g = Generator.from_credentials(args.openai_api_key, model=args.model)
+    g = Generator.from_credentials(args.anthropic_api_key, model=args.model)
     resp = g.generate(args.question, results)
 
     width = 72

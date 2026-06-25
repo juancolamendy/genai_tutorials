@@ -68,13 +68,9 @@ class EmbeddingProvider(ABC):
                 raise RuntimeError("OPENAI_API_KEY not set but provider=openai")
             return OpenAIEmbeddings(api_key=api_key)
 
-        # Default: try Ollama, then OpenAI
-        if os.environ.get("OPENAI_API_KEY"):
-            log.info("No EMBEDDING_PROVIDER set, using OpenAI (legacy)")
-            return OpenAIEmbeddings(api_key=os.environ["OPENAI_API_KEY"])
-
-        log.info("No EMBEDDING_PROVIDER set, trying Ollama at localhost:11434")
-        return OllamaEmbeddings(url="http://localhost:11434")
+        # Default: Ollama (not OpenAI, even if OPENAI_API_KEY is set)
+        log.info("No EMBEDDING_PROVIDER set, defaulting to Ollama")
+        return OllamaEmbeddings(url=os.environ.get("OLLAMA_EMBED_URL", "http://localhost:11434"))
 
 
 # --------------------------------------------------------------------------- #
