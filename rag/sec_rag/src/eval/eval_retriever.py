@@ -33,8 +33,9 @@ Dataset
 
 Environment variables
 ---------------------
-  OPENAI_API_KEY   required
-  DATABASE_URL     required
+  ANTHROPIC_API_KEY   required
+  DATABASE_URL        required
+  EMBEDDING_PROVIDER  optional (default: ollama)
 
 Usage
 -----
@@ -53,12 +54,13 @@ import os
 import sys
 from pathlib import Path
 
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_anthropic import ChatAnthropic
 
 # Set up path before importing from parent package
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
+from embeddings import OllamaEmbeddings
 
 # Workaround for Ragas import issue with langchain_community vertexai
 import types
@@ -102,8 +104,7 @@ logging.basicConfig(
 )
 log = logging.getLogger("eval_retriever")
 
-EVAL_LLM    = "gpt-4o"
-EMBED_MODEL = "text-embedding-3-large"
+EVAL_LLM    = "claude-haiku-4-5-20251001"
 DEFAULT_DATASET = Path(__file__).parent / "golden_dataset.json"
 
 
@@ -203,21 +204,21 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     p.add_argument("--top-n", type=int, default=5,
                    help="Number of chunks to retrieve per question.")
     p.add_argument("--eval-model", default=EVAL_LLM,
-                   help="OpenAI model used as the Ragas evaluator LLM.")
+                   help="Claude model used as the Ragas evaluator LLM.")
     p.add_argument("--top-k", type=int, default=40,
                    help="Candidate pool size per retriever before fusion.")
     p.add_argument("--golden-only", action="store_true",
                    help="Dry-run: skip retrieval, no DB needed.")
     p.add_argument("--database-url",   default=os.environ.get("DATABASE_URL", ""))
-    p.add_argument("--openai-api-key", default=os.environ.get("OPENAI_API_KEY", ""))
+    p.add_argument("--anthropic-api-key", default=os.environ.get("ANTHROPIC_API_KEY", ""))
     return p.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
 
-    if not args.openai_api_key:
-        log.error("OPENAI_API_KEY is not set.")
+    if not args.anthropic_api_key:
+        log.error("ANTHROPIC_API_KEY is not set.")
         return 1
     if not args.golden_only and not args.database_url:
         log.error("DATABASE_URL is not set. Use --golden-only to skip the DB.")
@@ -230,10 +231,10 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     evaluator_llm = LangchainLLMWrapper(
-        ChatOpenAI(model=args.eval_model, api_key=args.openai_api_key, temperature=0)
+        ChatAnthropic(model=args.eval_model, api_key=args.anthropic_api_key, temperature=0)
     )
     evaluator_embeddings = LangchainEmbeddingsWrapper(
-        OpenAIEmbeddings(model=EMBED_MODEL, api_key=args.openai_api_key)
+        OllamaEmbeddings()
     )
 
     if args.golden_only:

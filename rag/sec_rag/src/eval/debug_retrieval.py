@@ -151,13 +151,8 @@ def main(argv: list[str] | None = None) -> int:
                    help="Candidate pool size per retriever.")
     p.add_argument("--database-url", default=os.environ.get("DATABASE_URL", ""),
                    help="Database URL (or DATABASE_URL env var).")
-    p.add_argument("--openai-api-key", default=os.environ.get("OPENAI_API_KEY", ""),
-                   help="OpenAI API key (or OPENAI_API_KEY env var).")
     args = p.parse_args(argv)
 
-    if not args.openai_api_key:
-        log.error("OPENAI_API_KEY is not set.")
-        return 1
     if not args.database_url:
         log.error("DATABASE_URL is not set.")
         return 1
