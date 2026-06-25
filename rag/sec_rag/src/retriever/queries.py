@@ -64,17 +64,28 @@ def keyword_search(
     form_type: str | None = None,
     fiscal_period: str | None = None,
 ) -> tuple[str, dict]:
-    """Full-text search using Postgres ``websearch_to_tsquery``.
+    """Full-text search: match chunks with ANY keyword (OR logic).
 
-    ``websearch_to_tsquery`` accepts natural Google-style input:
-    quoted phrases, OR, -, etc.  It gracefully ignores stop words and
-    handles stemming, so "supply chains" matches "supply chain".
+    Instead of requiring all keywords to match (AND logic), we convert
+    the query to OR-combined terms. This is more recall-friendly:
+    "financial metrics" matches chunks with either "financial" OR "metrics".
 
-    Returns top_k rows ordered by descending ts_rank (best match first).
+    Splits query into words, filters out short/stop words, and combines
+    with OR operator for the tsquery. Returns top_k rows ordered by
+    descending ts_rank (best match first).
     """
     filters, params = _build_filters(ticker, form_type, fiscal_period)
     # tsv is a GENERATED ALWAYS tsvector column on chunks.content
-    filters.append("c.tsv @@ websearch_to_tsquery('english', %(query_text)s)")
+    filters.append("""
+        c.tsv @@ (
+            SELECT to_tsquery('english', string_agg(word, ' | ' ORDER BY word))
+            FROM (
+                SELECT DISTINCT lower(word) AS word
+                FROM regexp_split_to_table(%(query_text)s, '\\s+') word
+                WHERE length(word) > 2
+            ) t
+        )
+    """)
     filters.append("c.content IS NOT NULL")  # Exclude malformed chunks
     where = "WHERE " + " AND ".join(filters)
 
@@ -91,7 +102,14 @@ def keyword_search(
             d.fiscal_period,
             d.filing_date,
             d.url,
-            ts_rank(c.tsv, websearch_to_tsquery('english', %(query_text)s)) AS fts_rank
+            ts_rank(c.tsv, (
+                SELECT to_tsquery('english', string_agg(word, ' | ' ORDER BY word))
+                FROM (
+                    SELECT DISTINCT lower(word) AS word
+                    FROM regexp_split_to_table(%(query_text)s, '\\s+') word
+                    WHERE length(word) > 2
+                ) t
+            )) AS fts_rank
         FROM chunks c
         JOIN documents d ON d.id = c.document_id
         {where}

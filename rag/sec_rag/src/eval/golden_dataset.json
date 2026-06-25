@@ -1,0 +1,452 @@
+[
+  {
+    "question": "What specific financial metrics does Apple Inc. disclose?",
+    "reference": "Securities and Exchange Commission within 120 days after the end of the fiscal year to which this report relates.",
+    "filters": {
+      "ticker": "AAPL",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What are Apple Inc.'s primary product segments?",
+    "reference": "The Company's line of smartwatches, based on its watchOS \u00ae operating system, includes Apple Watch Ultra\u2122 2, Apple Watch \u00ae Series 9 and Apple Watch SE \u00ae . The Company's line of wireless headphones includes AirPods \u00ae , AirPods Pro \u00ae , AirPods Max\u2122 and Beats \u00ae products. | 2023 Form 10-K | 1\nServices\nAdvertising\nThe Company's advertising services include third-party licensing arrangements and the Company's own advertising platforms.",
+    "filters": {
+      "ticker": "AAPL",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What specific financial metrics does Apple Inc. disclose?",
+    "reference": "The Company's line of smartwatches, based on its watchOS \u00ae operating system, includes Apple Watch Ultra\u2122 2, Apple Watch \u00ae Series 9 and Apple Watch SE \u00ae . The Company's line of wireless headphones includes AirPods \u00ae , AirPods Pro \u00ae , AirPods Max\u2122 and Beats \u00ae products. | 2023 Form 10-K | 1\nServices\nAdvertising\nThe Company's advertising services include third-party licensing arrangements and the Company's own advertising platforms.",
+    "filters": {
+      "ticker": "AAPL",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What are Apple Inc.'s primary product segments?",
+    "reference": "The Company's ability to compete successfully depends heavily on ensuring the continuing and timely introduction of innovative new products, services and technologies to the marketplace. The Company designs and develops nearly the entire solution for its products, including the hardware, operating system, numerous software applications and related services. The Company is focused on expanding its market opportunities related to smartphones, personal computers, tablets, wearables and accessories, and services.",
+    "filters": {
+      "ticker": "AAPL",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "How does Apple Inc. describe its competitive position?",
+    "reference": "The Company's ability to compete successfully depends heavily on ensuring the continuing and timely introduction of innovative new products, services and technologies to the marketplace. The Company designs and develops nearly the entire solution for its products, including the hardware, operating system, numerous software applications and related services. The Company is focused on expanding its market opportunities related to smartphones, personal computers, tablets, wearables and accessories, and services.",
+    "filters": {
+      "ticker": "AAPL",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What are Apple Inc.'s primary product segments?",
+    "reference": "The Company regularly files patent, design, copyright and trademark applications to protect innovations arising from its research, development, design and marketing, and is currently pursuing thousands of applications around the world. No single intellectual property right is solely responsible for protecting the Company's products and services. The Company believes the duration of its intellectual property rights is adequate relative to the expected lives of its products and services.",
+    "filters": {
+      "ticker": "AAPL",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "How does Apple Inc. describe its competitive position?",
+    "reference": "The Company regularly files patent, design, copyright and trademark applications to protect innovations arising from its research, development, design and marketing, and is currently pursuing thousands of applications around the world. No single intellectual property right is solely responsible for protecting the Company's products and services. The Company believes the duration of its intellectual property rights is adequate relative to the expected lives of its products and services.",
+    "filters": {
+      "ticker": "AAPL",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What drove Apple Inc.'s financial performance?",
+    "reference": "| 2023 Form 10-K | 5\nThe Company has a large, global business with sales outside the U.S. representing a majority of the Company's total net sales, and the Company believes that it generally benefits from growth in international trade. Restrictions on international trade, such as tariffs and other controls on imports or exports of goods, technology or data, can materially adversely affect the Company's operations and supply chain and limit the Company's ability to offer and distribute its products and services to customers.",
+    "filters": {
+      "ticker": "AAPL",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What drove Amazon.com, Inc.'s financial performance?",
+    "reference": "We have organized our operations into three segments: North America, International, and Amazon Web Services (\"AWS\"). These segments reflect the way the Company evaluates its business performance and manages its operations. Information on our net sales is contained in Item 8 of Part II, \"Financial Statements and Supplementary Data - Note 10 - Segment Information.\"\nConsumers\nWe serve consumers through our online and physical stores and focus on selection, price, and convenience.",
+    "filters": {
+      "ticker": "AMZN",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What are Amazon.com, Inc.'s primary product segments?",
+    "reference": "We have organized our operations into three segments: North America, International, and Amazon Web Services (\"AWS\"). These segments reflect the way the Company evaluates its business performance and manages its operations. Information on our net sales is contained in Item 8 of Part II, \"Financial Statements and Supplementary Data - Note 10 - Segment Information.\"\nConsumers\nWe serve consumers through our online and physical stores and focus on selection, price, and convenience.",
+    "filters": {
+      "ticker": "AMZN",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What specific financial metrics does Amazon.com, Inc. disclose?",
+    "reference": "We have organized our operations into three segments: North America, International, and Amazon Web Services (\"AWS\"). These segments reflect the way the Company evaluates its business performance and manages its operations. Information on our net sales is contained in Item 8 of Part II, \"Financial Statements and Supplementary Data - Note 10 - Segment Information.\"\nConsumers\nWe serve consumers through our online and physical stores and focus on selection, price, and convenience.",
+    "filters": {
+      "ticker": "AMZN",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What are Amazon.com, Inc.'s primary product segments?",
+    "reference": "Our businesses encompass a large variety of product types, service offerings, and delivery channels. The worldwide marketplace in which we compete is evolving rapidly and intensely competitive, and we face a broad array of competitors from many different industry sectors around the world. Additional competitive factors for our seller and enterprise services include the quality, speed, and reliability of our services and tools, as well as customers' ability and willingness to change business practices.",
+    "filters": {
+      "ticker": "AMZN",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "How does Amazon.com, Inc. describe its competitive position?",
+    "reference": "Our businesses encompass a large variety of product types, service offerings, and delivery channels. The worldwide marketplace in which we compete is evolving rapidly and intensely competitive, and we face a broad array of competitors from many different industry sectors around the world. Additional competitive factors for our seller and enterprise services include the quality, speed, and reliability of our services and tools, as well as customers' ability and willingness to change business practices.",
+    "filters": {
+      "ticker": "AMZN",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What specific financial metrics does Amazon.com, Inc. disclose?",
+    "reference": "Over 175,000 Amazon employees around the world have participated in Career Choice. Executive Officers and Directors\nThe following tables set forth certain information regarding our Executive Officers and Directors as of January 24, 2024:\nInformation About Our Executive Officers",
+    "filters": {
+      "ticker": "AMZN",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What are Amazon.com, Inc.'s primary product segments?",
+    "reference": "He has served as Chair of the Board since 1994 and served as Chief Executive Officer from May 1996 until July 2021, and as President from 1994 until June 1999 and again from October 2000 to July 2021. Jassy has served as President and Chief Executive Officer since July 2021, CEO Amazon Web Services from April 2016 until July 2021, and Senior Vice President, Amazon Web Services, from April 2006 until April 2016. Herrington has served as CEO Worldwide Amazon Stores since July 2022, Senior Vice President, North America Consumer from January 2015 to July 2022, Senior Vice President, Consumables from May 2014 to December 2014, and Vice President, Consumables from May 2005 to April 2014.",
+    "filters": {
+      "ticker": "AMZN",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What specific financial metrics does Amazon.com, Inc. disclose?",
+    "reference": "He has served as Chair of the Board since 1994 and served as Chief Executive Officer from May 1996 until July 2021, and as President from 1994 until June 1999 and again from October 2000 to July 2021. Jassy has served as President and Chief Executive Officer since July 2021, CEO Amazon Web Services from April 2016 until July 2021, and Senior Vice President, Amazon Web Services, from April 2006 until April 2016. Herrington has served as CEO Worldwide Amazon Stores since July 2022, Senior Vice President, North America Consumer from January 2015 to July 2022, Senior Vice President, Consumables from May 2014 to December 2014, and Vice President, Consumables from May 2005 to April 2014.",
+    "filters": {
+      "ticker": "AMZN",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What drove Alphabet Inc.'s financial performance?",
+    "reference": "We are focused on building an even more helpful Google for everyone, and we aspire to give everyone the tools they need to increase their knowledge, health, happiness, and success. Google Cloud helps customers solve today's business challenges, improve productivity, reduce costs, and unlock new growth engines. We are continually innovating and building new products and features that will help our users, partners, customers, and communities and have invested more than $150 billion in research and development in the last five years in support of these efforts.",
+    "filters": {
+      "ticker": "GOOGL",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What are Alphabet Inc.'s primary product segments?",
+    "reference": "We are focused on building an even more helpful Google for everyone, and we aspire to give everyone the tools they need to increase their knowledge, health, happiness, and success. Google Cloud helps customers solve today's business challenges, improve productivity, reduce costs, and unlock new growth engines. We are continually innovating and building new products and features that will help our users, partners, customers, and communities and have invested more than $150 billion in research and development in the last five years in support of these efforts.",
+    "filters": {
+      "ticker": "GOOGL",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What specific financial metrics does Alphabet Inc. disclose?",
+    "reference": "We are focused on building an even more helpful Google for everyone, and we aspire to give everyone the tools they need to increase their knowledge, health, happiness, and success. Google Cloud helps customers solve today's business challenges, improve productivity, reduce costs, and unlock new growth engines. We are continually innovating and building new products and features that will help our users, partners, customers, and communities and have invested more than $150 billion in research and development in the last five years in support of these efforts.",
+    "filters": {
+      "ticker": "GOOGL",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What are Alphabet Inc.'s primary product segments?",
+    "reference": "Our teams across Alphabet will leverage Gemini, as well as other AI models we have previously developed and announced, across our business to deliver the best product and service experiences for our users, advertisers, partners, customers, and developers. We published these in 2018, as one of the first companies to articulate principles that put beneficial use, users, safety, and avoidance of harms above business considerations. While there is natural tension between being bold and being responsible, we believe it is possible - and in fact critical - to embrace that tension productively.",
+    "filters": {
+      "ticker": "GOOGL",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What specific financial metrics does Alphabet Inc. disclose?",
+    "reference": "Our teams across Alphabet will leverage Gemini, as well as other AI models we have previously developed and announced, across our business to deliver the best product and service experiences for our users, advertisers, partners, customers, and developers. We published these in 2018, as one of the first companies to articulate principles that put beneficial use, users, safety, and avoidance of harms above business considerations. While there is natural tension between being bold and being responsible, we believe it is possible - and in fact critical - to embrace that tension productively.",
+    "filters": {
+      "ticker": "GOOGL",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What are Alphabet Inc.'s main risk factors according to the 10-K?",
+    "reference": "Our early investments in AI started out as moonshots but are now incorporated into our core products and central to future developments. We continue to look toward the future and to invest for the long term, most notably for the application of AI to our products and services, as well as other frontier technologies such as quantum computing. As we said in the original founders' letter, we will not shy away from high-risk, high-reward projects that we believe in, as they are the key to our long-term success.",
+    "filters": {
+      "ticker": "GOOGL",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What are Alphabet Inc.'s primary product segments?",
+    "reference": "Our early investments in AI started out as moonshots but are now incorporated into our core products and central to future developments. We continue to look toward the future and to invest for the long term, most notably for the application of AI to our products and services, as well as other frontier technologies such as quantum computing. As we said in the original founders' letter, we will not shy away from high-risk, high-reward projects that we believe in, as they are the key to our long-term success.",
+    "filters": {
+      "ticker": "GOOGL",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What are Alphabet Inc.'s primary product segments?",
+    "reference": "This potential is reflected in our latest generation of devices, such as the new Pixel 8 and Pixel 8 Pro, and the Pixel Watch 2. Creating products and services that people rely on every day is a journey that we are investing in for the long-term. How We Make Money\nWe have built world-class advertising technologies for advertisers, agencies, and publishers to power their digital marketing businesses.",
+    "filters": {
+      "ticker": "GOOGL",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What are Meta Platforms, Inc.'s primary product segments?",
+    "reference": "While these numbers are based on what we believe to be reasonable estimates of our user base for the applicable period of measurement, there are inherent challenges in measuring usage of our products across large online and mobile populations around the world. Many people in our community have user accounts on more than one of our products, and some people have multiple user accounts within an individual product. Accordingly, for our Family metrics, we do not seek to count the total number of user accounts across our products because we believe that would not reflect the actual size of our community.",
+    "filters": {
+      "ticker": "META",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "What are Meta Platforms, Inc.'s main risk factors according to the 10-K?",
+    "reference": "For example, to match user accounts within individual products and across multiple products, we use data signals such as similar device information, IP addresses, and user names. We also calibrate our models against data from periodic user surveys of varying sizes and frequency across our products, which survey questions are based on monthly usage, and which are inherently subject to error. In addition, our data limitations may affect our understanding of certain details of our business and increase the risk of error for our Family metrics estimates.",
+    "filters": {
+      "ticker": "META",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "What are Meta Platforms, Inc.'s key business drivers?",
+    "reference": "For example, to match user accounts within individual products and across multiple products, we use data signals such as similar device information, IP addresses, and user names. We also calibrate our models against data from periodic user surveys of varying sizes and frequency across our products, which survey questions are based on monthly usage, and which are inherently subject to error. In addition, our data limitations may affect our understanding of certain details of our business and increase the risk of error for our Family metrics estimates.",
+    "filters": {
+      "ticker": "META",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "What are Meta Platforms, Inc.'s primary product segments?",
+    "reference": "For example, to match user accounts within individual products and across multiple products, we use data signals such as similar device information, IP addresses, and user names. We also calibrate our models against data from periodic user surveys of varying sizes and frequency across our products, which survey questions are based on monthly usage, and which are inherently subject to error. In addition, our data limitations may affect our understanding of certain details of our business and increase the risk of error for our Family metrics estimates.",
+    "filters": {
+      "ticker": "META",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "What are Meta Platforms, Inc.'s key business drivers?",
+    "reference": "Our estimates for revenue by user location, as well as year-over-year percentage changes in ad impressions delivered and the average price per ad by user location, are also affected by data limitations and other challenges in measuring user geography. For example, a user may appear to be accessing our products from the location of the proxy server that the user connects to rather than from the user's actual location. Our products enable people to connect and share with friends and family through mobile devices, personal computers, virtual reality (VR) and mixed reality (MR) headsets, augmented reality (AR), and wearables.",
+    "filters": {
+      "ticker": "META",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "What are Meta Platforms, Inc.'s primary product segments?",
+    "reference": "Our estimates for revenue by user location, as well as year-over-year percentage changes in ad impressions delivered and the average price per ad by user location, are also affected by data limitations and other challenges in measuring user geography. For example, a user may appear to be accessing our products from the location of the proxy server that the user connects to rather than from the user's actual location. Our products enable people to connect and share with friends and family through mobile devices, personal computers, virtual reality (VR) and mixed reality (MR) headsets, augmented reality (AR), and wearables.",
+    "filters": {
+      "ticker": "META",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "What are Meta Platforms, Inc.'s primary product segments?",
+    "reference": "In 2024, 79% of our total costs and expenses were recognized in FoA and 21% were recognized in RL. Our FoA investments were $75.25 billion in 2024 and include expenses relating to headcount, data centers and technical infrastructure as part of our efforts to develop our apps and our advertising services. Our total RL investments were $19.88 billion in 2024 and include expenses relating to headcount and technology development across these efforts.",
+    "filters": {
+      "ticker": "META",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "What specific financial metrics does Meta Platforms, Inc. disclose?",
+    "reference": "In 2024, 79% of our total costs and expenses were recognized in FoA and 21% were recognized in RL. Our FoA investments were $75.25 billion in 2024 and include expenses relating to headcount, data centers and technical infrastructure as part of our efforts to develop our apps and our advertising services. Our total RL investments were $19.88 billion in 2024 and include expenses relating to headcount and technology development across these efforts.",
+    "filters": {
+      "ticker": "META",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "What are Microsoft Corporation's primary product segments?",
+    "reference": "Our products include operating systems, cross-device productivity and collaboration applications, server applications, business solution applications, desktop and server management tools, software development tools, and video games. The Ambitions That Drive Us\nTo achieve our vision, our research and development efforts focus on three interconnected ambitions:\n\u2022 Reinvent productivity and business processes. Reinvent Productivity and Business Processes\nAt Microsoft, we provide technology and resources to help our customers create a secure, productive work environment.",
+    "filters": {
+      "ticker": "MSFT",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What drove Microsoft Corporation's financial performance?",
+    "reference": "We have also increased our investments in the development and deployment of specialized supercomputing systems to accelerate OpenAI's research. Nuance, a leader in conversational AI and ambient intelligence across industries including healthcare, financial services, retail, and telecommunications, joined Microsoft in 2022. We are accelerating our development of mixed reality solutions with new Azure services and devices.",
+    "filters": {
+      "ticker": "MSFT",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What are Microsoft Corporation's primary product segments?",
+    "reference": "We have also increased our investments in the development and deployment of specialized supercomputing systems to accelerate OpenAI's research. Nuance, a leader in conversational AI and ambient intelligence across industries including healthcare, financial services, retail, and telecommunications, joined Microsoft in 2022. We are accelerating our development of mixed reality solutions with new Azure services and devices.",
+    "filters": {
+      "ticker": "MSFT",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What specific financial metrics does Microsoft Corporation disclose?",
+    "reference": "We have also increased our investments in the development and deployment of specialized supercomputing systems to accelerate OpenAI's research. Nuance, a leader in conversational AI and ambient intelligence across industries including healthcare, financial services, retail, and telecommunications, joined Microsoft in 2022. We are accelerating our development of mixed reality solutions with new Azure services and devices.",
+    "filters": {
+      "ticker": "MSFT",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What are Microsoft Corporation's primary product segments?",
+    "reference": "We have broadened our approach to how we think about gaming end-to-end, from the way games are created and distributed to how they are played, including subscription services like Xbox Game Pass and new devices from third-party manufacturers so players can engage across PC, console, and mobile. In January 2022, we announced plans to acquire Activision Blizzard, Inc., a leader in game development and an interactive entertainment content publisher. We continue to develop complete, intelligent solutions for our customers that empower people to be productive and collaborate, while safeguarding businesses and simplifying IT management.",
+    "filters": {
+      "ticker": "MSFT",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What specific financial metrics does Microsoft Corporation disclose?",
+    "reference": "We have broadened our approach to how we think about gaming end-to-end, from the way games are created and distributed to how they are played, including subscription services like Xbox Game Pass and new devices from third-party manufacturers so players can engage across PC, console, and mobile. In January 2022, we announced plans to acquire Activision Blizzard, Inc., a leader in game development and an interactive entertainment content publisher. We continue to develop complete, intelligent solutions for our customers that empower people to be productive and collaborate, while safeguarding businesses and simplifying IT management.",
+    "filters": {
+      "ticker": "MSFT",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What are Microsoft Corporation's primary product segments?",
+    "reference": "Our Microsoft Cloud for Sustainability, an environmental sustainability management platform that includes Microsoft Sustainability Manager, enables organizations to record, report, and reduce their Scope 1, 2, and 3 emissions. Our Racial Equity Initiative focuses on three multi-year pillars, each containing actions and progress we expect to make or exceed by 2025. \u2022 Increasing representation and strengthening inclusion: building on our momentum by adding a $150 million investment to strengthen inclusion and double the number of Black, African American, Hispanic, and Latinx leaders in the United States by 2025.",
+    "filters": {
+      "ticker": "MSFT",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What specific financial metrics does Microsoft Corporation disclose?",
+    "reference": "Our Microsoft Cloud for Sustainability, an environmental sustainability management platform that includes Microsoft Sustainability Manager, enables organizations to record, report, and reduce their Scope 1, 2, and 3 emissions. Our Racial Equity Initiative focuses on three multi-year pillars, each containing actions and progress we expect to make or exceed by 2025. \u2022 Increasing representation and strengthening inclusion: building on our momentum by adding a $150 million investment to strengthen inclusion and double the number of Black, African American, Hispanic, and Latinx leaders in the United States by 2025.",
+    "filters": {
+      "ticker": "MSFT",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What drove NVIDIA Corporation's financial performance?",
+    "reference": "We have invested over $45.3 billion in research and development since our inception, yielding inventions that are essential to modern computing. Our invention of the GPU in 1999 sparked the growth of the PC gaming market and redefined computer graphics. With our introduction of the CUDA programming model in 2006, we opened the parallel processing capabilities of our GPU to a broad range of compute-intensive applications, paving the way for the emergence of modern AI.",
+    "filters": {
+      "ticker": "NVDA",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "How does NVIDIA Corporation describe its competitive position?",
+    "reference": "We have invested over $45.3 billion in research and development since our inception, yielding inventions that are essential to modern computing. Our invention of the GPU in 1999 sparked the growth of the PC gaming market and redefined computer graphics. With our introduction of the CUDA programming model in 2006, we opened the parallel processing capabilities of our GPU to a broad range of compute-intensive applications, paving the way for the emergence of modern AI.",
+    "filters": {
+      "ticker": "NVDA",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "What specific financial metrics does NVIDIA Corporation disclose?",
+    "reference": "We have invested over $45.3 billion in research and development since our inception, yielding inventions that are essential to modern computing. Our invention of the GPU in 1999 sparked the growth of the PC gaming market and redefined computer graphics. With our introduction of the CUDA programming model in 2006, we opened the parallel processing capabilities of our GPU to a broad range of compute-intensive applications, paving the way for the emergence of modern AI.",
+    "filters": {
+      "ticker": "NVDA",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "What are NVIDIA Corporation's primary product segments?",
+    "reference": "Headquartered in Santa Clara, California, NVIDIA was incorporated in California in April 1993 and reincorporated in Delaware in April 1998. Our Markets\nWe specialize in markets where our computing platforms can provide tremendous acceleration for applications. These platforms incorporate processors, interconnects, software, algorithms, systems, and services to deliver unique value.",
+    "filters": {
+      "ticker": "NVDA",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "How does NVIDIA Corporation describe its competitive position?",
+    "reference": "Headquartered in Santa Clara, California, NVIDIA was incorporated in California in April 1993 and reincorporated in Delaware in April 1998. Our Markets\nWe specialize in markets where our computing platforms can provide tremendous acceleration for applications. These platforms incorporate processors, interconnects, software, algorithms, systems, and services to deliver unique value.",
+    "filters": {
+      "ticker": "NVDA",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "What specific financial metrics does NVIDIA Corporation disclose?",
+    "reference": "Headquartered in Santa Clara, California, NVIDIA was incorporated in California in April 1993 and reincorporated in Delaware in April 1998. Our Markets\nWe specialize in markets where our computing platforms can provide tremendous acceleration for applications. These platforms incorporate processors, interconnects, software, algorithms, systems, and services to deliver unique value.",
+    "filters": {
+      "ticker": "NVDA",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "What are NVIDIA Corporation's primary product segments?",
+    "reference": "In fiscal year 2024, we launched the NVIDIA DGX Cloud, an AI-training-as-a-service platform which includes cloud-based infrastructure and software for AI, customizable pretrained AI models, and access to NVIDIA experts. We have partnered with leading cloud service providers to host this service in their data centers. Gaming\nGaming is the largest entertainment industry, with PC gaming as the predominant platform.",
+    "filters": {
+      "ticker": "NVDA",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "What specific financial metrics does NVIDIA Corporation disclose?",
+    "reference": "In fiscal year 2024, we launched the NVIDIA DGX Cloud, an AI-training-as-a-service platform which includes cloud-based infrastructure and software for AI, customizable pretrained AI models, and access to NVIDIA experts. We have partnered with leading cloud service providers to host this service in their data centers. Gaming\nGaming is the largest entertainment industry, with PC gaming as the predominant platform.",
+    "filters": {
+      "ticker": "NVDA",
+      "form_type": "10-K",
+      "fiscal_period": "FY2024"
+    }
+  },
+  {
+    "question": "What are Apple Inc.'s primary product segments?",
+    "reference": "| 2023 Form 10-K | 5\nThe Company has a large, global business with sales outside the U.S. representing a majority of the Company's total net sales, and the Company believes that it generally benefits from growth in international trade. Restrictions on international trade, such as tariffs and other controls on imports or exports of goods, technology or data, can materially adversely affect the Company's operations and supply chain and limit the Company's ability to offer and distribute its products and services to customers.",
+    "filters": {
+      "ticker": "AAPL",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  },
+  {
+    "question": "What specific financial metrics does Apple Inc. disclose?",
+    "reference": "| 2023 Form 10-K | 5\nThe Company has a large, global business with sales outside the U.S. representing a majority of the Company's total net sales, and the Company believes that it generally benefits from growth in international trade. Restrictions on international trade, such as tariffs and other controls on imports or exports of goods, technology or data, can materially adversely affect the Company's operations and supply chain and limit the Company's ability to offer and distribute its products and services to customers.",
+    "filters": {
+      "ticker": "AAPL",
+      "form_type": "10-K",
+      "fiscal_period": "FY2023"
+    }
+  }
+]
