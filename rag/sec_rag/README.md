@@ -39,8 +39,8 @@ sec-rag/
 ├── converter.py             Step 2 — HTML → Markdown
 ├── chunker.py               Step 3 — chunk Markdown
 ├── embed_load.py            Step 4 — embed + load into Postgres
-├── fusion.py                RRF helper (used by retriever)
 ├── queries.py               SQL builders (used by retriever)
+├── fusion.py                RRF helper (used by retriever)
 ├── retriever.py             Hybrid retriever (CLI + library)
 ├── eval_rag.py              Ragas evaluation
 ├── start_postgres.sh        Docker helper for local Postgres
