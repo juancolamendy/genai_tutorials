@@ -187,7 +187,7 @@ def scenario_checkpoint_resume(thread_id: str, sessions_dir: str = ".doc_session
     print("  └────────────────────────────────────────────────────────────┘\n")
 
 
-def scenario_multi_turn_example() -> None:
+def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
     """
     Scenario 5: Multi-Turn Conversation
     Demonstrates invoke_turn() for interactive workflows with pause/resume.
@@ -204,39 +204,103 @@ def scenario_multi_turn_example() -> None:
     print("█ Handler metadata controls auto-progression and pause points")
     print(f"{'█' * 80}")
 
+    from src.engine.input_validation import validate_turn_input, escape_for_llm
+    from src.engine.handler_registry import does_state_wait_for_input
+    from src.workflow.pipeline_state import new_pipeline
+
+    user_id = "user-multi-turn-001"
+    session_id = str(uuid4())
+
     print(f"\n{SEP}")
-    print("  MULTI-TURN WORKFLOW EXAMPLE (requires graph implementation)")
+    print("  MULTI-TURN WORKFLOW EXAMPLE")
     print(SEP)
 
+    # Turn 1: Start processing
     print("\n  Turn 1: Start processing")
-    print("  ├─ Input: 'Please process this document'")
-    print("  ├─ Validation: ✓ Valid input, safe from injection")
-    print("  ├─ State progression: INIT → FETCH → VALIDATE (auto)")
-    print("  └─ Waits for input: YES → Pause for user feedback\n")
+    turn_1_input = "Please process this document"
+    print(f"  ├─ Input: '{turn_1_input}'")
 
+    try:
+        validate_turn_input(turn_1_input)
+        escaped_1 = escape_for_llm(turn_1_input)
+        print("  ├─ Validation: ✓ Valid input, safe from injection")
+    except Exception as e:
+        print(f"  ├─ Validation: ✗ Error: {e}")
+        return
+
+    # Create initial state for this session
+    state = new_pipeline(session_id, timeout_seconds=300)
+    state["turn_input"] = escaped_1
+    state["turn_number"] = 1
+    state["user_id"] = user_id
+    state["session_id"] = session_id
+
+    print(f"  ├─ State: {state['current_state']}")
+    print(f"  ├─ Conversation history: {len(state['conversation_history'])} entries")
+    print("  └─ Ready for next turn\n")
+
+    # Add turn 1 to history
+    state["conversation_history"].append({
+        "role": "user",
+        "content": escaped_1,
+        "turn_number": 1,
+    })
+
+    # Turn 2: Continue after user feedback
     print("  Turn 2: Continue after user feedback")
-    print("  ├─ Input: 'Document looks good, proceed'")
-    print("  ├─ Validation: ✓ Valid input")
-    print("  ├─ Semantic context extracted: {entities: {...}, intents: [...]}")
-    print("  ├─ State progression: VALIDATE → ENRICH → STORE (auto)")
-    print("  └─ Waits for input: NO → Continue to COMPLETE\n")
+    turn_2_input = "Document looks good, proceed"
+    print(f"  ├─ Input: '{turn_2_input}'")
 
+    try:
+        validate_turn_input(turn_2_input)
+        escaped_2 = escape_for_llm(turn_2_input)
+        print("  ├─ Validation: ✓ Valid input")
+    except Exception as e:
+        print(f"  ├─ Validation: ✗ Error: {e}")
+        return
+
+    # Update for turn 2
+    state["turn_input"] = escaped_2
+    state["turn_number"] = 2
+
+    # Add turn 2 to history
+    state["conversation_history"].append({
+        "role": "assistant",
+        "content": "Processing...",
+        "turn_number": 2,
+    })
+
+    print(f"  ├─ Semantic context: entities={state.get('semantic_context', {}).get('entities', {})}, intents={state.get('semantic_context', {}).get('intents', [])}")
+    print(f"  ├─ State: {state['current_state']}")
+    print(f"  ├─ Conversation history: {len(state['conversation_history'])} entries")
+    print("  └─ Workflow progresses\n")
+
+    # Turn 3: Resume from checkpoint
     print("  Turn 3: Resume from checkpoint")
-    print("  ├─ Session ID: auto-loaded from checkpointer")
-    print("  ├─ Conversation history: 2 prior turns loaded")
-    print("  ├─ State progression: COMPLETE")
-    print("  └─ Workflow finished\n")
+    checkpointer = SessionCheckpointer(sessions_dir=sessions_dir)
+    config = {"configurable": {"thread_id": f"{user_id}:{session_id}"}}
+    checkpoint_tuple = checkpointer.get_tuple(config)
+
+    if checkpoint_tuple:
+        resumed_state = checkpoint_tuple.checkpoint.get("values", {})
+        print(f"  ├─ Session loaded: {resumed_state.get('document_id', 'N/A')}")
+    else:
+        print(f"  ├─ Session created: {session_id[:8]}…")
+        resumed_state = state
+
+    print(f"  ├─ Turn number: {resumed_state.get('turn_number', 0)}")
+    print(f"  ├─ History length: {len(resumed_state.get('conversation_history', []))} turns")
+    print(f"  └─ Workflow finished\n")
 
     print(f"{SEP}\n")
     print("  Key Features Demonstrated:")
-    print("  ├─ invoke_turn(user_id, session_id, turn_input, timeout_sec)")
-    print("  ├─ Input validation with escape_for_llm()")
-    print("  ├─ Handler metadata: @handler(waits_for_input=True/False)")
-    print("  ├─ Auto-progression through non-blocking states")
-    print("  ├─ Pause at blocking states (human_review, etc.)")
-    print("  ├─ Conversation history tracking and trimming")
-    print("  ├─ Semantic context (entities, intents, confidence)")
-    print("  └─ Checkpoint-based session resumption\n")
+    print("  ├─ validate_turn_input() — length, token, control char validation")
+    print("  ├─ escape_for_llm() — injection pattern removal")
+    print("  ├─ new_pipeline() — state initialization")
+    print("  ├─ Conversation history accumulation")
+    print("  ├─ Semantic context tracking")
+    print("  ├─ SessionCheckpointer — session persistence")
+    print("  └─ Multi-turn state management\n")
 
 
 def main() -> None:
@@ -261,17 +325,22 @@ def main() -> None:
     # Scenario 4: Resume from checkpoint
     scenario_checkpoint_resume(session_3, sessions_dir=sessions_dir)
 
-    # Scenario 5: Multi-turn conversation (invoke_turn example)
-    scenario_multi_turn_example()
+    # Scenario 5: Multi-turn conversation
+    scenario_multi_turn_example(sessions_dir=sessions_dir)
 
     print(f"\n{'▓' * 80}")
     print("▓ DEMO COMPLETE - All scenarios executed successfully")
     print(f"▓ Sessions: {session_1[:8]}… {session_2[:8]}… {session_3[:8]}…")
     print(f"▓")
-    print("▓ To use multi-turn invoke_turn() in your code:")
-    print("▓   from src.workflow.graph import DocumentPipelineGraph")
-    print("▓   graph = DocumentPipelineGraph(db_path='path/to/checkpoint.db')")
-    print("▓   response = graph.invoke_turn(user_id, session_id, turn_input)")
+    print("▓ To use multi-turn with input validation and checkpointing:")
+    print("▓   from src.engine.input_validation import validate_turn_input, escape_for_llm")
+    print("▓   from src.workflow.pipeline_state import new_pipeline")
+    print("▓   from src.engine.session_checkpointer import SessionCheckpointer")
+    print("▓")
+    print("▓   validate_turn_input(user_input)  # Validate input")
+    print("▓   escaped = escape_for_llm(user_input)  # Prevent injection")
+    print("▓   state = new_pipeline(session_id)  # Create/resume state")
+    print("▓   checkpointer = SessionCheckpointer(sessions_dir='.doc_sessions')")
     print(f"{'▓' * 80}\n")
 
 
