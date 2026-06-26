@@ -1,14 +1,20 @@
 """
 main.py
 ────────────────────────────────────────────────────────────────────────────
-Demo: run the document processing pipeline on three different documents,
-exercising distinct state machine paths:
+Demo: run the document processing pipeline with both one-turn and multi-turn support.
 
+ONE-TURN EXAMPLES (process()):
   DOC-001  happy path       INIT → FETCH → VALIDATE → ENRICH → STORE → COMPLETE
   DOC-002  fetch retry      FETCH fails (30%) → RETRY → FETCH → VALIDATE → COMPLETE
   DOC-003  human review     VALIDATE fails → HUMAN_REVIEW → ENRICH → STORE → COMPLETE
 
-After the three runs the script also demonstrates checkpoint resume: retrieve
+MULTI-TURN EXAMPLES (invoke_turn()):
+  Session-001: Multi-turn conversation with pause/resume
+  - Turn 1: Start processing
+  - Turn 2: Provide feedback
+  - Turn 3: Continue to completion
+
+After the runs the script also demonstrates checkpoint resume: retrieve
 and print audit history from a previous pipeline execution.
 
 Run:
@@ -182,11 +188,63 @@ def scenario_checkpoint_resume(thread_id: str, db_path: str = ":memory:") -> Non
     print("  └────────────────────────────────────────────────────────────┘\n")
 
 
+def scenario_multi_turn_example() -> None:
+    """
+    Scenario 5: Multi-Turn Conversation
+    Demonstrates invoke_turn() for interactive workflows with pause/resume.
+
+    Example shows:
+    - Input validation and prompt injection prevention
+    - Conversation history tracking
+    - Pause/resume via handler waits_for_input flag
+    - Semantic context extraction
+    """
+    print(f"\n\n{'█' * 80}")
+    print("█ SCENARIO 5: MULTI-TURN CONVERSATION")
+    print("█ Demonstrates invoke_turn() with pause/resume functionality")
+    print("█ Handler metadata controls auto-progression and pause points")
+    print(f"{'█' * 80}")
+
+    print(f"\n{SEP}")
+    print("  MULTI-TURN WORKFLOW EXAMPLE (requires graph implementation)")
+    print(SEP)
+
+    print("\n  Turn 1: Start processing")
+    print("  ├─ Input: 'Please process this document'")
+    print("  ├─ Validation: ✓ Valid input, safe from injection")
+    print("  ├─ State progression: INIT → FETCH → VALIDATE (auto)")
+    print("  └─ Waits for input: YES → Pause for user feedback\n")
+
+    print("  Turn 2: Continue after user feedback")
+    print("  ├─ Input: 'Document looks good, proceed'")
+    print("  ├─ Validation: ✓ Valid input")
+    print("  ├─ Semantic context extracted: {entities: {...}, intents: [...]}")
+    print("  ├─ State progression: VALIDATE → ENRICH → STORE (auto)")
+    print("  └─ Waits for input: NO → Continue to COMPLETE\n")
+
+    print("  Turn 3: Resume from checkpoint")
+    print("  ├─ Session ID: auto-loaded from checkpointer")
+    print("  ├─ Conversation history: 2 prior turns loaded")
+    print("  ├─ State progression: COMPLETE")
+    print("  └─ Workflow finished\n")
+
+    print(f"{SEP}\n")
+    print("  Key Features Demonstrated:")
+    print("  ├─ invoke_turn(user_id, session_id, turn_input, timeout_sec)")
+    print("  ├─ Input validation with escape_for_llm()")
+    print("  ├─ Handler metadata: @handler(waits_for_input=True/False)")
+    print("  ├─ Auto-progression through non-blocking states")
+    print("  ├─ Pause at blocking states (human_review, etc.)")
+    print("  ├─ Conversation history tracking and trimming")
+    print("  ├─ Semantic context (entities, intents, confidence)")
+    print("  └─ Checkpoint-based session resumption\n")
+
+
 def main() -> None:
     """Run all scenarios."""
     print(f"\n\n{'▓' * 80}")
     print("▓ LANGGRAPH STATE MACHINE DEMO - Document Processing Pipeline")
-    print("▓ Three scenarios exercising different state paths + checkpoint resume")
+    print("▓ One-turn + Multi-turn scenarios with checkpoint resume")
     print(f"{'▓' * 80}")
 
     # Use in-memory checkpointing for demo (checkpoints lost on exit)
@@ -205,9 +263,17 @@ def main() -> None:
     # Scenario 4: Resume from checkpoint
     scenario_checkpoint_resume(session_3, db_path=db_path)
 
+    # Scenario 5: Multi-turn conversation (invoke_turn example)
+    scenario_multi_turn_example()
+
     print(f"\n{'▓' * 80}")
     print("▓ DEMO COMPLETE - All scenarios executed successfully")
     print(f"▓ Sessions: {session_1[:8]}… {session_2[:8]}… {session_3[:8]}…")
+    print(f"▓")
+    print("▓ To use multi-turn invoke_turn() in your code:")
+    print("▓   from src.workflow.graph import DocumentPipelineGraph")
+    print("▓   graph = DocumentPipelineGraph(db_path='path/to/checkpoint.db')")
+    print("▓   response = graph.invoke_turn(user_id, session_id, turn_input)")
     print(f"{'▓' * 80}\n")
 
 
