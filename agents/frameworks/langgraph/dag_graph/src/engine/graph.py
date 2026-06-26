@@ -248,3 +248,297 @@ class StateMachineGraph:
 
         # Compile with optional checkpointer
         return g.compile(checkpointer=checkpointer) if checkpointer else g.compile()
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # MULTI-TURN SUPPORT METHODS (new in Phase 2)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def invoke(
+        self,
+        state: dict[str, Any],
+        config: Optional[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
+        """Invoke compiled graph once.
+
+        Args:
+            state: Current pipeline state
+            config: {"configurable": {"thread_id": ...}} for checkpointing
+
+        Returns:
+            Updated state after one full iteration (router → guardrail → handler)
+        """
+        if config is None:
+            config = {}
+        return self.compiled_graph.invoke(state, config=config)
+
+    def _auto_progress_langgraph(
+        self,
+        state: dict[str, Any],
+        config: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Auto-progress through non-blocking states.
+
+        If current state has waits_for_input=False, continue running state machine
+        until hitting a state with waits_for_input=True or a terminal state.
+
+        Args:
+            state: Current pipeline state
+            config: Graph invocation config (with thread_id for checkpointing)
+
+        Returns:
+            Updated state after auto-progression
+        """
+        from engine.handler_registry import does_state_wait_for_input
+
+        max_auto_iters = 10
+        iters = 0
+
+        while iters < max_auto_iters:
+            current = state.get("current_state", "init")
+
+            # Stop if terminal state
+            if current in self._TERMINAL_STATES:
+                log.debug(f"[auto_progress] Stopped at terminal state {current}")
+                break
+
+            # Stop if state waits for input
+            if does_state_wait_for_input(current):
+                log.debug(f"[auto_progress] Stopped at input-waiting state {current}")
+                break
+
+            # Continue: run state machine one more time
+            log.debug(f"[auto_progress] {current} is non-blocking; continuing...")
+            state = self.compiled_graph.invoke(state, config=config)
+            iters += 1
+
+        if iters >= max_auto_iters:
+            log.warning("[auto_progress] Reached max iterations (%d); stopping", max_auto_iters)
+
+        return state
+
+    def process(
+        self,
+        entity_id: str,
+        timeout_seconds: float = 300.0,
+    ) -> dict[str, Any]:
+        """Execute one complete workflow run for an entity.
+
+        Workflow:
+        1. Create fresh state
+        2. Run state machine loop
+        3. Auto-progress through non-blocking states
+        4. Return response
+
+        Args:
+            entity_id: Document ID, invoice ID, etc.
+            timeout_seconds: Max execution time
+
+        Returns:
+            Response dict with current_state, audit_trail, errors, etc.
+        """
+        try:
+            # Create fresh state
+            state = self.new_pipeline(entity_id, timeout_seconds)
+
+            # Thread ID for checkpointing
+            thread_id = f"process:{entity_id}"
+            config = {"configurable": {"thread_id": thread_id}}
+
+            # Run state machine
+            state = self.compiled_graph.invoke(state, config=config)
+
+            # Auto-progress
+            state = self._auto_progress_langgraph(state, config)
+
+        except Exception as e:
+            log.exception("[process] Error: %s", e)
+            state = self.new_pipeline(entity_id, timeout_seconds)
+            state["current_state"] = "error"
+            state["error_message"] = str(e)
+
+        return self._build_response(entity_id, state)
+
+    def invoke_turn(
+        self,
+        user_id: str,
+        session_id: str,
+        turn_input: str,
+        timeout_sec: float = 10.0,
+    ) -> dict[str, Any]:
+        """Execute one turn of multi-turn conversation.
+
+        Workflow:
+        1. Validate and escape user input
+        2. Get or initialize state for session
+        3. Prepare turn metadata
+        4. Run state machine once
+        5. Auto-progress through non-blocking states
+        6. Trim conversation history
+        7. Append turn to history
+        8. Return turn response
+
+        Args:
+            user_id: Caller identity (for audit)
+            session_id: Multi-turn session ID
+            turn_input: User's input text
+            timeout_sec: LLM router timeout
+
+        Returns:
+            {
+                "current_state": str,
+                "waits_for_input": bool,
+                "turn_number": int,
+                "semantic_context": dict,
+                "router_confidence": float,
+                "error": str or None,
+            }
+        """
+        from engine.input_validation import validate_turn_input, escape_for_llm, InputValidationError
+
+        try:
+            # Validate and escape input
+            validate_turn_input(turn_input)
+            escaped = escape_for_llm(turn_input)
+
+            # Thread ID for checkpointing across turns
+            thread_id = f"{user_id}:{session_id}"
+            config = {"configurable": {"thread_id": thread_id}}
+
+            # Get or initialize state
+            state = self._get_or_init_state(session_id)
+
+            # Prepare turn metadata
+            state["turn_input"] = escaped
+            state["turn_number"] = state.get("turn_number", 0) + 1
+            state["router_timeout_sec"] = timeout_sec
+            state["user_id"] = user_id
+            state["session_id"] = session_id
+
+            # Initialize router if available and needed
+            if hasattr(self, "_init_router"):
+                self._init_router()
+
+            # First invoke: router → guardrail → handler
+            state = self.compiled_graph.invoke(state, config=config)
+
+            # Auto-progress through non-blocking states
+            state = self._auto_progress_langgraph(state, config)
+
+            # Trim history
+            max_turns = state.get("max_history_turns", 10)
+            history = state.get("conversation_history", [])
+            if len(history) > max_turns:
+                dropped = len(history) - max_turns
+                state["conversation_history"] = history[-max_turns:]
+                log.info(f"[invoke_turn] Trimmed {dropped} old turns; keeping {max_turns}")
+
+            # Append turn result to history
+            state["conversation_history"].append({
+                "role": "assistant",
+                "content": f"Transitioned to {state['current_state']}",
+                "semantic_context": {
+                    "entities": state.get("semantic_context", {}).get("entities", {}),
+                    "intents": state.get("semantic_context", {}).get("intents", []),
+                },
+                "state": state["current_state"],
+                "turn_number": state["turn_number"],
+            })
+
+            return self._build_turn_response(state)
+
+        except InputValidationError as e:
+            return {
+                "error": str(e),
+                "current_state": None,
+                "waits_for_input": False,
+                "turn_number": 0,
+                "semantic_context": {},
+                "router_confidence": 0.0,
+            }
+        except Exception as e:
+            log.exception("[invoke_turn] Error: %s", e)
+            return {
+                "error": str(e),
+                "current_state": "error",
+                "waits_for_input": False,
+                "turn_number": 0,
+                "semantic_context": {},
+                "router_confidence": 0.0,
+            }
+
+    def _get_or_init_state(self, session_id: str) -> dict[str, Any]:
+        """Get existing state or create fresh state for session.
+
+        Tries to load from checkpointer first; if not found, creates fresh state.
+
+        Args:
+            session_id: Session identifier
+
+        Returns:
+            PipelineState dict
+        """
+        thread_id = f"invoke_turn:{session_id}"
+
+        # Try to load from checkpointer (if available)
+        try:
+            if hasattr(self, "checkpointer") and self.checkpointer:
+                checkpoint = self.checkpointer.get_tuple(thread_id)
+                if checkpoint and hasattr(checkpoint, "values"):
+                    log.info(f"[invoke_turn] Loaded state from checkpoint {thread_id}")
+                    return checkpoint.values
+        except Exception as e:
+            log.debug(f"[invoke_turn] Checkpoint load failed ({e}); creating fresh state")
+
+        # Create fresh state
+        return self.new_pipeline(session_id)
+
+    def new_pipeline(self, entity_id: str, timeout_seconds: float = 300.0) -> dict[str, Any]:
+        """Create fresh pipeline state. Override in subclass if needed."""
+        raise NotImplementedError
+
+    def _build_response(
+        self,
+        entity_id: str,
+        state: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Build response dict from final state after process().
+
+        Args:
+            entity_id: Entity being processed
+            state: Final state
+
+        Returns:
+            Response dict
+        """
+        return {
+            "current_state": state.get("current_state", "init"),
+            "proposed_next": state.get("proposed_next"),
+            "retry_count": state.get("retry_count", 0),
+            "error_message": state.get("error_message"),
+            "audit_trail": state.get("audit_trail", []),
+            "entity_id": entity_id,
+        }
+
+    def _build_turn_response(
+        self,
+        state: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Build response dict from state after invoke_turn().
+
+        Args:
+            state: PipelineState after turn execution
+
+        Returns:
+            Turn response dict
+        """
+        from engine.handler_registry import does_state_wait_for_input
+
+        current = state.get("current_state", "init")
+        return {
+            "current_state": current,
+            "waits_for_input": does_state_wait_for_input(current),
+            "turn_number": state.get("turn_number", 0),
+            "semantic_context": state.get("semantic_context", {}),
+            "router_confidence": state.get("router_confidence", 0.0),
+            "error": state.get("error_message"),
+        }
