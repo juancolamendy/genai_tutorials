@@ -13,6 +13,8 @@ from __future__ import annotations
 import logging
 import random
 
+from engine.handler_registry import handler
+
 from .pipeline_state import PipelineState
 from .state_machine import State
 
@@ -28,6 +30,7 @@ def _audit(state: PipelineState, msg: str) -> list[str]:
 # HANDLERS
 # ─────────────────────────────────────────────────────────────────────────────
 
+@handler(state="fetch", waits_for_input=False, description="Fetch document from source")
 def handle_fetch(state: PipelineState) -> PipelineState:
     """Fetch document by document_id and populate raw_data.
 
@@ -62,6 +65,7 @@ def handle_fetch(state: PipelineState) -> PipelineState:
     }
 
 
+@handler(state="validate", waits_for_input=False, description="Validate document schema and content")
 def handle_validate(state: PipelineState) -> PipelineState:
     """Validate schema of raw_data and populate validated_data using VALIDATE_CHAIN.
 
@@ -112,6 +116,7 @@ def handle_validate(state: PipelineState) -> PipelineState:
         }
 
 
+@handler(state="enrich", waits_for_input=False, description="Add metadata and tags to document")
 def handle_enrich(state: PipelineState) -> PipelineState:
     """Add metadata and tags to validated_data using ENRICH_CHAIN.
 
@@ -163,6 +168,7 @@ def handle_enrich(state: PipelineState) -> PipelineState:
         }
 
 
+@handler(state="store", waits_for_input=False, description="Persist document to storage")
 def handle_store(state: PipelineState) -> PipelineState:
     """Persist enriched_data to database.
 
@@ -183,6 +189,7 @@ def handle_store(state: PipelineState) -> PipelineState:
     }
 
 
+@handler(state="complete", waits_for_input=False, description="Mark pipeline as complete")
 def handle_complete(state: PipelineState) -> PipelineState:
     """Mark pipeline as complete.
 
@@ -200,6 +207,7 @@ def handle_complete(state: PipelineState) -> PipelineState:
     }
 
 
+@handler(state="retry", waits_for_input=False, description="Retry last operation")
 def handle_retry(state: PipelineState) -> PipelineState:
     """Increment retry counter and clear stale data.
 
@@ -220,6 +228,7 @@ def handle_retry(state: PipelineState) -> PipelineState:
     }
 
 
+@handler(state="human_review", waits_for_input=True, description="Wait for human expert review")
 def handle_human_review(state: PipelineState) -> PipelineState:
     """Route document to human review using REVIEW_CHAIN.
 
@@ -281,6 +290,7 @@ def handle_human_review(state: PipelineState) -> PipelineState:
         }
 
 
+@handler(state="error", waits_for_input=False, description="Handle pipeline error")
 def handle_error(state: PipelineState) -> PipelineState:
     """Handle pipeline error state.
 
@@ -300,3 +310,19 @@ def handle_error(state: PipelineState) -> PipelineState:
         "current_state": State.ERROR.value,
         "audit_trail": _audit(state, f"ERROR: {state.get('error_message', 'unknown')}"),
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HANDLER MAP (exported for use in state machine graph)
+# ─────────────────────────────────────────────────────────────────────────────
+
+HANDLER_MAP = {
+    State.FETCH: handle_fetch,
+    State.VALIDATE: handle_validate,
+    State.ENRICH: handle_enrich,
+    State.STORE: handle_store,
+    State.COMPLETE: handle_complete,
+    State.RETRY: handle_retry,
+    State.HUMAN_REVIEW: handle_human_review,
+    State.ERROR: handle_error,
+}
