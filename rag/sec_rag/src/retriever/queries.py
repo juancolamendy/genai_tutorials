@@ -67,7 +67,8 @@ def keyword_search(
     """Full-text search: match chunks with meaningful keywords (high precision).
 
     Filters out stop words and generic business terms, keeping only high-value keywords.
-    Also filters by ts_rank threshold to exclude low-relevance matches.
+    Uses OR logic to match chunks with any of the meaningful keywords.
+    Filters by ts_rank threshold to exclude low-relevance matches.
 
     Returns top_k rows ordered by descending ts_rank (best match first).
     """
@@ -81,6 +82,7 @@ def keyword_search(
     'including','development','process','system','controls','activities','matters'"""
 
     # tsv is a GENERATED ALWAYS tsvector column on chunks.content
+    # Use OR logic (| operator) to match chunks with any meaningful keyword
     filters.append(f"""
         c.tsv @@ (
             SELECT to_tsquery('english', string_agg(word, ' | ' ORDER BY word))

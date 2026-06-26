@@ -295,8 +295,6 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
                    help="Final results to display after fusion.")
     p.add_argument("--database-url",   default=os.environ.get("DATABASE_URL", ""),
                    help="Postgres DSN (default: $DATABASE_URL).")
-    p.add_argument("--openai-api-key", default=os.environ.get("OPENAI_API_KEY", ""),
-                   help="OpenAI key (default: $OPENAI_API_KEY).")
     return p.parse_args(argv)
 
 
@@ -306,11 +304,8 @@ def main(argv: list[str] | None = None) -> int:
     if not args.database_url:
         log.error("DATABASE_URL not set. Use --database-url or export the env var.")
         return 1
-    if not args.openai_api_key:
-        log.error("OPENAI_API_KEY not set. Use --openai-api-key or export the env var.")
-        return 1
 
-    with Retriever.from_credentials(args.database_url, args.openai_api_key) as r:
+    with Retriever.from_credentials(args.database_url) as r:
         results = r.retrieve(
             args.query,
             ticker=args.ticker,
