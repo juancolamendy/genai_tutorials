@@ -10,8 +10,8 @@ A production-ready state machine workflow implementation using LangGraph with su
 - **Handler Metadata**: Declarative handler configuration via `@handler` decorator
 - **Input Validation**: Prompt injection prevention with automatic escaping
 - **Auto-progression**: Automatic continuation through non-blocking states
-- **Checkpointing**: Full session persistence with SQLite (production-ready)
-- **Comprehensive Testing**: 104+ tests covering all features
+- **Checkpointing**: Full session persistence with JSON files in `.doc_sessions` directory (Agno-compatible)
+- **Comprehensive Testing**: 124+ tests covering all features
 
 ## Installation
 
@@ -40,7 +40,7 @@ result = run_pipeline(
     document_id="doc-001",
     timeout_seconds=300,
     thread_id="session-id",
-    db_path="path/to/checkpoint.db"
+    sessions_dir=".doc_sessions"
 )
 
 print(f"Final state: {result['current_state']}")
@@ -212,26 +212,76 @@ graph.router = MyRouter()
 
 ## Checkpointing
 
-### SQLite Checkpointer
+### Session Checkpointer (Default)
 
-Full session persistence out of the box:
+Sessions stored as JSON files in `.doc_sessions` directory (matching Agno pattern):
 
 ```python
-from engine.checkpointing import SqliteCheckpointer
+from src.workflow.workflow import run_pipeline
 
-checkpointer = SqliteCheckpointer("path/to/checkpoint.db")
-
-# Sessions resume automatically via thread_id
-response = graph.invoke_turn(
-    user_id="user-123",
-    session_id="session-456",
-    turn_input="Continue from where we left off"
+# Sessions automatically stored in .doc_sessions/
+result = run_pipeline(
+    document_id="doc-001",
+    sessions_dir=".doc_sessions"  # Default directory
 )
+```
+
+**Session File Structure:**
+```
+.doc_sessions/
+├── user_123_session_456.json
+├── user_789_session_012.json
+└── ...
+```
+
+**Session File Contents:**
+```json
+{
+  "thread_id": "user-123:session-456",
+  "checkpoints": {
+    "cp-001": {
+      "values": { "current_state": "validate", ... },
+      "metadata": { "checkpoint_id": "cp-001" },
+      "ts_created": "2024-01-01T00:00:00"
+    }
+  },
+  "created_at": "2024-01-01T00:00:00",
+  "updated_at": "2024-01-01T00:00:05",
+  "latest_checkpoint_id": "cp-001"
+}
+```
+
+### Session Resumption
+
+Resume a session from checkpoint:
+
+```python
+from src.engine.session_checkpointer import SessionCheckpointer
+
+checkpointer = SessionCheckpointer(sessions_dir=".doc_sessions")
+
+# Load session
+config = {"configurable": {"thread_id": "user-123:session-456"}}
+checkpoint_tuple = checkpointer.get_tuple(config)
+
+if checkpoint_tuple:
+    state = checkpoint_tuple.checkpoint["values"]
+    print(f"Resumed at state: {state['current_state']}")
 ```
 
 **Thread ID Format:**
 - Single-turn: `process:doc-001`
 - Multi-turn: `user-123:session-456`
+
+### Legacy SQLite Checkpointer
+
+For database-backed sessions:
+
+```python
+from src.engine.checkpointing import SqliteCheckpointer
+
+checkpointer = SqliteCheckpointer("path/to/checkpoint.db")
+```
 
 ## Project Structure
 
@@ -242,7 +292,8 @@ src/
 │   ├── router.py             # BaseSemanticRouter, DefaultSemanticRouter
 │   ├── input_validation.py   # validate_turn_input, escape_for_llm
 │   ├── graph.py              # StateMachineGraph base class
-│   ├── checkpointing.py      # SqliteCheckpointer
+│   ├── session_checkpointer.py  # SessionCheckpointer (.doc_sessions storage)
+│   ├── checkpointing.py      # SqliteCheckpointer (legacy)
 │   ├── chain.py              # LCEL chain factory
 │   ├── guardrail.py          # GuardrailResult, make_guardrail
 │   └── session.py            # Session helpers
@@ -268,16 +319,18 @@ tests/
 ├── test_handler_integration.py # 10 tests
 ├── test_router_integration.py  # 11 tests
 ├── test_integration.py        # 17 tests
+├── test_session_checkpointer.py # 10 tests
 └── test_main_examples.py      # 10 tests
 ```
 
 ## Test Coverage
 
-**104 tests passing (Phase 1-4):**
+**124 tests passing (Phase 1-4 + Session Checkpointer):**
 - **Phase 1** (46 tests): Handler registry, routers, input validation
 - **Phase 2** (26 tests): Multi-turn state, graph methods, auto-progression
 - **Phase 3** (32 tests): Handler integration, router integration, end-to-end flows
 - **Phase 4** (10 tests): Main.py examples and documentation
+- **Session Checkpointer** (10 tests): Directory-based session persistence
 
 Run tests:
 ```bash
@@ -314,7 +367,7 @@ Detailed documentation available in `docs/design/`:
 4. **Input Validation**: Multi-layer defense (length, tokens, control chars, injection patterns)
 5. **Multi-turn via invoke_turn()**: Wraps compiled_graph.invoke() with turn management
 6. **Auto-progression**: Continues through non-blocking states automatically
-7. **Checkpointing**: SQLite for persistence across turns and sessions
+7. **Checkpointing**: JSON-file storage in `.doc_sessions` directory (Agno-compatible, also supports SQLite)
 
 ## Future Enhancements
 
