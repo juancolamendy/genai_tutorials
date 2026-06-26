@@ -11,7 +11,7 @@ import time
 from typing import Optional
 from uuid import uuid4
 
-from src.engine.checkpointing import SqliteCheckpointer
+from src.engine.session_checkpointer import SessionCheckpointer
 
 from .graph import build_graph
 from .pipeline_state import PipelineState
@@ -26,7 +26,7 @@ def run_pipeline(
     document_id: str,
     timeout_seconds: float = 300,
     thread_id: Optional[str] = None,
-    db_path: str = ":memory:",
+    sessions_dir: str = ".doc_sessions",
 ) -> PipelineState:
     """Run the full document processing pipeline with checkpointing.
 
@@ -35,7 +35,7 @@ def run_pipeline(
     Features:
       • Input validation (document ID, content)
       • Timeout protection (default 5 minutes)
-      • Checkpointing via SqliteCheckpointer
+      • Checkpointing via SessionCheckpointer (.doc_sessions directory)
       • Resumable execution from checkpoints
       • Error handling with graceful degradation
 
@@ -43,7 +43,7 @@ def run_pipeline(
         document_id: ID of document to process
         timeout_seconds: Maximum pipeline execution time (default 300s)
         thread_id: Unique thread ID for checkpointing (auto-generated if None)
-        db_path: Path to SQLite checkpoint database (default ":memory:")
+        sessions_dir: Directory to store session checkpoints (default ".doc_sessions")
 
     Returns:
         Final PipelineState after execution
@@ -65,8 +65,8 @@ def run_pipeline(
         log.error(f"Input validation failed: {e}")
         raise
 
-    # Create checkpointer
-    checkpointer = SqliteCheckpointer(db_path)
+    # Create checkpointer (stores sessions in .doc_sessions directory)
+    checkpointer = SessionCheckpointer(sessions_dir=sessions_dir)
 
     # Create initial state
     started_at = time.time()
@@ -97,10 +97,7 @@ def run_pipeline(
             config={"configurable": {"thread_id": thread_id}},
         )
 
-        # Save final state as a complete snapshot for easy retrieval
-        checkpointer.save(thread_id, "final", final_state)
-
-        log.info(f"Pipeline completed: {thread_id}")
+        log.info(f"Pipeline completed: {thread_id} (session stored in {sessions_dir})")
         return final_state
 
     except Exception as e:

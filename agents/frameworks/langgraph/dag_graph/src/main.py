@@ -30,7 +30,7 @@ from uuid import uuid4
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.engine.checkpointing import SqliteCheckpointer
+from src.engine.session_checkpointer import SessionCheckpointer
 from src.workflow import run_pipeline
 
 SEP = "═" * 80
@@ -61,7 +61,7 @@ def print_state_summary(result: dict, doc_id: str, session_id: str) -> None:
     print()
 
 
-def scenario_happy_path(seed: int = 99, db_path: str = ":memory:") -> str:
+def scenario_happy_path(seed: int = 99, sessions_dir: str = ".doc_sessions") -> str:
     """
     Scenario 1: Happy Path
     Expected: INIT → FETCH → VALIDATE → ENRICH → STORE → COMPLETE
@@ -81,14 +81,14 @@ def scenario_happy_path(seed: int = 99, db_path: str = ":memory:") -> str:
         document_id=doc_id,
         timeout_seconds=300,
         thread_id=session_id,
-        db_path=db_path,
+        sessions_dir=sessions_dir,
     )
 
     print_state_summary(result, doc_id, session_id)
     return session_id
 
 
-def scenario_fetch_retry(seed: int = 0, db_path: str = ":memory:") -> str:
+def scenario_fetch_retry(seed: int = 0, sessions_dir: str = ".doc_sessions") -> str:
     """
     Scenario 2: Fetch Retry
     Expected: FETCH fails (30% chance with seed=0) → RETRY → FETCH → VALIDATE → ...
@@ -107,14 +107,14 @@ def scenario_fetch_retry(seed: int = 0, db_path: str = ":memory:") -> str:
         document_id=doc_id,
         timeout_seconds=300,
         thread_id=session_id,
-        db_path=db_path,
+        sessions_dir=sessions_dir,
     )
 
     print_state_summary(result, doc_id, session_id)
     return session_id
 
 
-def scenario_human_review(db_path: str = ":memory:") -> str:
+def scenario_human_review(sessions_dir: str = ".doc_sessions") -> str:
     """
     Scenario 3: Human Review Path
     Expected: VALIDATE fails (schema_version validation) → HUMAN_REVIEW → ENRICH → STORE → COMPLETE
@@ -136,14 +136,14 @@ def scenario_human_review(db_path: str = ":memory:") -> str:
         document_id=doc_id,
         timeout_seconds=300,
         thread_id=session_id,
-        db_path=db_path,
+        sessions_dir=sessions_dir,
     )
 
     print_state_summary(result, doc_id, session_id)
     return session_id
 
 
-def scenario_checkpoint_resume(thread_id: str, db_path: str = ":memory:") -> None:
+def scenario_checkpoint_resume(thread_id: str, sessions_dir: str = ".doc_sessions") -> None:
     """
     Scenario 4: Checkpoint Resume
     Demonstrate loading and printing audit history from checkpoint.
@@ -153,7 +153,7 @@ def scenario_checkpoint_resume(thread_id: str, db_path: str = ":memory:") -> Non
     print(f"█ Load execution history from checkpoint: {thread_id[:8]}…")
     print(f"{'█' * 80}")
 
-    checkpointer = SqliteCheckpointer(db_path)
+    checkpointer = SessionCheckpointer(sessions_dir=sessions_dir)
 
     # Try to load the checkpoint tuple with metadata
     config = {"configurable": {"thread_id": thread_id}}
@@ -163,8 +163,7 @@ def scenario_checkpoint_resume(thread_id: str, db_path: str = ":memory:") -> Non
         print(f"\n  (No checkpoint found for thread: {thread_id})")
         return
 
-    config_out, checkpoint, metadata = checkpoint_tuple
-    resumed_state = checkpoint.get("values", {})
+    resumed_state = checkpoint_tuple.checkpoint.get("values", {})
 
     if not resumed_state:
         print(f"\n  (Checkpoint found but state is empty: {thread_id})")
@@ -247,21 +246,20 @@ def main() -> None:
     print("▓ One-turn + Multi-turn scenarios with checkpoint resume")
     print(f"{'▓' * 80}")
 
-    # Use in-memory checkpointing for demo (checkpoints lost on exit)
-    # For production, use: db_path = str(Path.home() / ".cache" / "langgraph.db")
-    db_path = ":memory:"
+    # Use .doc_sessions directory for checkpointing (matches Agno pattern)
+    sessions_dir = ".doc_sessions"
 
     # Scenario 1: Happy path (seed avoids fetch failure)
-    session_1 = scenario_happy_path(seed=99, db_path=db_path)
+    session_1 = scenario_happy_path(seed=99, sessions_dir=sessions_dir)
 
     # Scenario 2: Fetch retry (seed triggers fetch failure)
-    session_2 = scenario_fetch_retry(seed=0, db_path=db_path)
+    session_2 = scenario_fetch_retry(seed=0, sessions_dir=sessions_dir)
 
     # Scenario 3: Human review (bad schema triggers review path)
-    session_3 = scenario_human_review(db_path=db_path)
+    session_3 = scenario_human_review(sessions_dir=sessions_dir)
 
     # Scenario 4: Resume from checkpoint
-    scenario_checkpoint_resume(session_3, db_path=db_path)
+    scenario_checkpoint_resume(session_3, sessions_dir=sessions_dir)
 
     # Scenario 5: Multi-turn conversation (invoke_turn example)
     scenario_multi_turn_example()
