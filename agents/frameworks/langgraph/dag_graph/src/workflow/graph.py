@@ -70,6 +70,8 @@ class DocumentPipelineGraph(StateMachineGraph):
 
     All generic logic (router, guardrail, graph building) is inherited from
     StateMachineGraph. This class only defines domain-specific configuration.
+
+    Can optionally use semantic routing (LLM-powered) via set_semantic_router().
     """
 
     # Domain-specific configuration
@@ -88,6 +90,14 @@ class DocumentPipelineGraph(StateMachineGraph):
     _TERMINAL_STATES = TERMINAL_STATES
     HANDLER_MAP = HANDLER_MAP
 
+    def __init__(self, semantic_router: Optional[Any] = None):
+        """Initialize graph with optional semantic router.
+
+        Args:
+            semantic_router: Optional semantic router instance (e.g., DocPipelineRouter)
+        """
+        self.semantic_router = semantic_router
+
     def _build_routing_table(self) -> dict[Any, Any]:
         """Return happy path routing table."""
         return HAPPY_PATH
@@ -104,17 +114,30 @@ class DocumentPipelineGraph(StateMachineGraph):
         """Return guardrail registry."""
         return GUARDRAILS
 
+    def set_semantic_router(self, router: Any) -> None:
+        """Set the semantic router for LLM-powered routing.
 
-def build_graph(checkpointer: Optional[Any] = None) -> Any:
+        Args:
+            router: Semantic router instance (e.g., DocPipelineRouter, DefaultSemanticRouter)
+        """
+        self.semantic_router = router
+
+
+def build_graph(
+    checkpointer: Optional[Any] = None,
+    semantic_router: Optional[Any] = None,
+) -> Any:
     """Build and compile the state machine graph.
 
     Args:
         checkpointer: Optional BaseCheckpointSaver for checkpointing
+        semantic_router: Optional semantic router for LLM-powered routing
+                        (e.g., DocPipelineRouter instance)
 
     Returns:
         Compiled StateGraph ready for invocation
     """
-    graph = DocumentPipelineGraph()
+    graph = DocumentPipelineGraph(semantic_router=semantic_router)
     return graph.build_graph(PipelineState, checkpointer=checkpointer)
 
 

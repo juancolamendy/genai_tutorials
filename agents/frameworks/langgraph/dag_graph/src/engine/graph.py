@@ -99,6 +99,9 @@ class StateMachineGraph:
       • _get_current_state(state) → StateEnum
       • _get_proposed_state(state) → StateEnum
       • _get_guardrails() → dict[StateEnum, GuardrailFn]
+
+    Optional:
+      • semantic_router — LLM-powered router (if None, uses routing table)
     """
 
     # Subclasses must override these
@@ -106,6 +109,7 @@ class StateMachineGraph:
     _STATE_ENUM: type = None
     _TERMINAL_STATES: set = set()
     HANDLER_MAP: dict[Any, Callable] = {}
+    semantic_router: Optional[Any] = None
 
     def _build_routing_table(self) -> dict[Any, Any]:
         """Return {current_state: next_state} routing table. Override in subclass."""
@@ -128,7 +132,10 @@ class StateMachineGraph:
     # ─────────────────────────────────────────────────────────────────────────
 
     def _router_node(self, state: dict[str, Any]) -> dict[str, Any]:
-        """Pure code router: current_state → proposed_next via routing table.
+        """Route: current_state → proposed_next via semantic or code router.
+
+        If semantic_router is available, uses LLM routing. Otherwise falls back
+        to pure code routing via routing table.
 
         Args:
             state: State dict with current_state set
@@ -136,21 +143,58 @@ class StateMachineGraph:
         Returns:
             Updated state with proposed_next set
         """
-        routing_table = self._build_routing_table()
         current = self._get_current_state(state)
 
+        # Try semantic router first (if available)
+        if self.semantic_router is not None:
+            try:
+                router_decision = self.semantic_router.route(state)
+                proposal = router_decision.proposed_next
+                proposal_val = proposal.value if hasattr(proposal, "value") else proposal
+
+                log.info(
+                    "[ROUTER] semantic: %s → %s (confidence=%.2f)",
+                    current,
+                    proposal,
+                    router_decision.confidence,
+                )
+
+                # Store semantic context in state
+                semantic_state = {
+                    **state,
+                    "proposed_next": proposal_val,
+                    "semantic_context": {
+                        "entities": router_decision.semantic_entities,
+                        "intents": router_decision.semantic_intents,
+                    },
+                    "router_confidence": router_decision.confidence,
+                    "audit_trail": state.get("audit_trail", [])
+                    + [f"router: semantic {current} → {proposal} (conf={router_decision.confidence:.2f})"],
+                }
+
+                # Add reasoning if available
+                if router_decision.reasoning:
+                    semantic_state["router_reasoning"] = router_decision.reasoning
+
+                return semantic_state
+
+            except Exception as e:
+                log.warning("[ROUTER] semantic routing failed (%s); falling back to code router", e)
+
+        # Fallback: code-based routing via routing table
+        routing_table = self._build_routing_table()
         if current not in routing_table:
             raise ValueError(f"Current state {current} not in routing table")
 
         proposal = routing_table[current]
         proposal_val = proposal.value if hasattr(proposal, "value") else proposal
 
-        log.info("[ROUTER] %s → proposes %s", current, proposal)
+        log.info("[ROUTER] code: %s → proposes %s", current, proposal)
 
         return {
             **state,
             "proposed_next": proposal_val,
-            "audit_trail": state.get("audit_trail", []) + [f"router: {current} → {proposal}"],
+            "audit_trail": state.get("audit_trail", []) + [f"router: code {current} → {proposal}"],
         }
 
     def _guardrail_node(self, state: dict[str, Any]) -> dict[str, Any]:
