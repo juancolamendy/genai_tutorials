@@ -12,6 +12,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from src.engine.graph import StateMachineGraph
+from src.engine.json_checkpointer import JsonCheckpointer
+from src.workflow.router import DocPipelineRouter
 
 if TYPE_CHECKING:
     from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -88,7 +90,7 @@ class DocumentPipelineGraph(StateMachineGraph):
 
 
 def build_graph(
-    checkpointer: Optional[Any] = None,
+    sessions_dir: str = ".doc_sessions",
     semantic_router: Optional[Any] = None,
 ) -> Any:
     """Build and compile the state machine graph.
@@ -101,6 +103,8 @@ def build_graph(
     Returns:
         Compiled StateGraph ready for invocation
     """
+    checkpointer = JsonCheckpointer(sessions_dir=sessions_dir)
+    semantic_router = DocPipelineRouter()
     graph = DocumentPipelineGraph(semantic_router=semantic_router)
     return graph.build_graph(PipelineState, checkpointer=checkpointer)
 
