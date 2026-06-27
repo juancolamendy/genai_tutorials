@@ -313,35 +313,20 @@ def main() -> None:
     # Use .doc_sessions directory for checkpointing (matches Agno pattern)
     sessions_dir = ".doc_sessions"
 
-    # Scenario 1: Happy path (seed avoids fetch failure)
-    session_1 = scenario_happy_path(seed=99, sessions_dir=sessions_dir)
+    # # Scenario 1: Happy path (seed avoids fetch failure)
+    # session_1 = scenario_happy_path(seed=99, sessions_dir=sessions_dir)
 
-    # Scenario 2: Fetch retry (seed triggers fetch failure)
-    session_2 = scenario_fetch_retry(seed=0, sessions_dir=sessions_dir)
+    # # Scenario 2: Fetch retry (seed triggers fetch failure)
+    # session_2 = scenario_fetch_retry(seed=0, sessions_dir=sessions_dir)
 
-    # Scenario 3: Human review (bad schema triggers review path)
-    session_3 = scenario_human_review(sessions_dir=sessions_dir)
+    # # Scenario 3: Human review (bad schema triggers review path)
+    # session_3 = scenario_human_review(sessions_dir=sessions_dir)
 
-    # Scenario 4: Resume from checkpoint
-    scenario_checkpoint_resume(session_3, sessions_dir=sessions_dir)
+    # # Scenario 4: Resume from checkpoint
+    # scenario_checkpoint_resume(session_3, sessions_dir=sessions_dir)
 
     # Scenario 5: Multi-turn conversation
     scenario_multi_turn_example(sessions_dir=sessions_dir)
-
-    print(f"\n{'▓' * 80}")
-    print("▓ DEMO COMPLETE - All scenarios executed successfully")
-    print(f"▓ Sessions: {session_1[:8]}… {session_2[:8]}… {session_3[:8]}…")
-    print("▓")
-    print("▓ To use multi-turn with input validation and checkpointing:")
-    print("▓   from src.engine.input_validation import validate_turn_input, escape_for_llm")
-    print("▓   from src.workflow.pipeline_state import new_pipeline")
-    print("▓   from src.engine.json_checkpointer import JsonCheckpointer")
-    print("▓")
-    print("▓   validate_turn_input(user_input)  # Validate input")
-    print("▓   escaped = escape_for_llm(user_input)  # Prevent injection")
-    print("▓   state = new_pipeline(session_id)  # Create/resume state")
-    print("▓   checkpointer = JsonCheckpointer(sessions_dir='.doc_sessions')")
-    print(f"{'▓' * 80}\n")
 
 
 if __name__ == "__main__":
