@@ -87,6 +87,21 @@ class DocumentPipelineGraph(StateMachineGraph):
         """
         self.semantic_router = router
 
+    def _get_allowed_states(self, current_state: State) -> list[str]:
+        """Get allowed next states for current state from ALLOWED_TRANSITIONS.
+
+        Args:
+            current_state: Current state enum
+
+        Returns:
+            List of allowed state strings
+        """
+        from .state_machine import ALLOWED_TRANSITIONS
+
+        # Get allowed states from the state machine's transition table
+        allowed = ALLOWED_TRANSITIONS.get(current_state, set())
+        return [s.value if hasattr(s, "value") else s for s in allowed]
+
     def new_pipeline(
         self, entity_id: str, timeout_seconds: float = 300.0
     ) -> PipelineState:

@@ -127,6 +127,21 @@ class StateMachineGraph:
         """Return guardrail registry. Override in subclass."""
         return {}
 
+    def _get_allowed_states(self, current_state: Any) -> list[str]:
+        """Get allowed next states for current state.
+
+        Override in subclass to provide state machine's allowed transitions.
+        Default returns all possible states (permissive).
+
+        Args:
+            current_state: Current state enum or string
+
+        Returns:
+            List of allowed state strings
+        """
+        # Default: permissive - allow any state. Subclass should override.
+        return []
+
     # ─────────────────────────────────────────────────────────────────────────
     # GENERIC NODES (used by all subclasses)
     # ─────────────────────────────────────────────────────────────────────────
@@ -148,7 +163,22 @@ class StateMachineGraph:
         # Try semantic router first (if available)
         if self.semantic_router is not None:
             try:
-                router_decision = self.semantic_router.route(state)
+                # Extract arguments for semantic router
+                current_state = state.get("current_state", "init")
+                turn_input = state.get("turn_input", "")
+                history = state.get("conversation_history", [])
+                timeout_sec = state.get("router_timeout_sec", 10.0)
+
+                # Get allowed next states from state machine
+                allowed_states = self._get_allowed_states(current)
+
+                router_decision = self.semantic_router.route(
+                    current_state=current_state,
+                    turn_input=turn_input,
+                    history=history,
+                    allowed_states=allowed_states,
+                    timeout_sec=timeout_sec,
+                )
                 proposal = router_decision.proposed_next
                 proposal_val = proposal.value if hasattr(proposal, "value") else proposal
 
