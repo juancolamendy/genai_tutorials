@@ -30,7 +30,7 @@ from uuid import uuid4
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.engine.session_checkpointer import SessionCheckpointer
+from src.engine.json_checkpointer import JsonCheckpointer
 from src.workflow import run_pipeline
 
 SEP = "═" * 80
@@ -153,7 +153,7 @@ def scenario_checkpoint_resume(thread_id: str, sessions_dir: str = ".doc_session
     print(f"█ Load execution history from checkpoint: {thread_id[:8]}…")
     print(f"{'█' * 80}")
 
-    checkpointer = SessionCheckpointer(sessions_dir=sessions_dir)
+    checkpointer = JsonCheckpointer(sessions_dir=sessions_dir)
 
     # Try to load the checkpoint tuple with metadata
     config = {"configurable": {"thread_id": thread_id}}
@@ -277,7 +277,7 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
 
     # Turn 3: Resume from checkpoint
     print("  Turn 3: Resume from checkpoint")
-    checkpointer = SessionCheckpointer(sessions_dir=sessions_dir)
+    checkpointer = JsonCheckpointer(sessions_dir=sessions_dir)
     config = {"configurable": {"thread_id": f"{user_id}:{session_id}"}}
     checkpoint_tuple = checkpointer.get_tuple(config)
 
@@ -299,7 +299,7 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
     print("  ├─ new_pipeline() — state initialization")
     print("  ├─ Conversation history accumulation")
     print("  ├─ Semantic context tracking")
-    print("  ├─ SessionCheckpointer — session persistence")
+    print("  ├─ JsonCheckpointer — session persistence")
     print("  └─ Multi-turn state management\n")
 
 
@@ -335,12 +335,12 @@ def main() -> None:
     print("▓ To use multi-turn with input validation and checkpointing:")
     print("▓   from src.engine.input_validation import validate_turn_input, escape_for_llm")
     print("▓   from src.workflow.pipeline_state import new_pipeline")
-    print("▓   from src.engine.session_checkpointer import SessionCheckpointer")
+    print("▓   from src.engine.json_checkpointer import JsonCheckpointer")
     print("▓")
     print("▓   validate_turn_input(user_input)  # Validate input")
     print("▓   escaped = escape_for_llm(user_input)  # Prevent injection")
     print("▓   state = new_pipeline(session_id)  # Create/resume state")
-    print("▓   checkpointer = SessionCheckpointer(sessions_dir='.doc_sessions')")
+    print("▓   checkpointer = JsonCheckpointer(sessions_dir='.doc_sessions')")
     print(f"{'▓' * 80}\n")
 
 

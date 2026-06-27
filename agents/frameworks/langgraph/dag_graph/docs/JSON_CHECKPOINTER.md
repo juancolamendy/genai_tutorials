@@ -1,6 +1,6 @@
-# SessionCheckpointer: Directory-Based Session Storage
+# JsonCheckpointer: Directory-Based Session Storage
 
-The `SessionCheckpointer` stores LangGraph sessions as JSON files in the `.doc_sessions` directory, matching Agno's session storage pattern while maintaining full LangGraph `BaseCheckpointSaver` interface compatibility.
+The `JsonCheckpointer` stores LangGraph sessions as JSON files in the `.doc_sessions` directory, matching Agno's session storage pattern while maintaining full LangGraph `BaseCheckpointSaver` interface compatibility.
 
 ## Overview
 
@@ -28,9 +28,9 @@ result = run_pipeline(
 ### Resume a Session
 
 ```python
-from src.engine.session_checkpointer import SessionCheckpointer
+from src.engine.session_checkpointer import JsonCheckpointer
 
-checkpointer = SessionCheckpointer(sessions_dir=".doc_sessions")
+checkpointer = JsonCheckpointer(sessions_dir=".doc_sessions")
 
 # Load latest checkpoint for a session
 config = {"configurable": {"thread_id": "user-123:session-456"}}
@@ -45,7 +45,7 @@ if checkpoint_tuple:
 ### List All Sessions
 
 ```python
-checkpointer = SessionCheckpointer(sessions_dir=".doc_sessions")
+checkpointer = JsonCheckpointer(sessions_dir=".doc_sessions")
 
 sessions = checkpointer.get_sessions()
 for session in sessions:
@@ -112,14 +112,14 @@ project_root/
 
 ## API Reference
 
-### SessionCheckpointer Class
+### JsonCheckpointer Class
 
 #### `__init__(sessions_dir: str = ".doc_sessions")`
 
 Initialize checkpointer with a directory.
 
 ```python
-checkpointer = SessionCheckpointer(sessions_dir=".doc_sessions")
+checkpointer = JsonCheckpointer(sessions_dir=".doc_sessions")
 ```
 
 #### `put(config, checkpoint, metadata) -> RunnableConfig`
@@ -216,7 +216,7 @@ checkpointer.import_session(session_dict)
 
 ```python
 from src.workflow.workflow import run_pipeline
-from src.engine.session_checkpointer import SessionCheckpointer
+from src.engine.session_checkpointer import JsonCheckpointer
 
 user_id = "user-123"
 session_id = "session-456"
@@ -232,7 +232,7 @@ result1 = run_pipeline(
 print(f"State: {result1['current_state']}")
 
 # Inspect session file
-checkpointer = SessionCheckpointer(sessions_dir=sessions_dir)
+checkpointer = JsonCheckpointer(sessions_dir=sessions_dir)
 session = checkpointer.export_session(f"{user_id}:{session_id}")
 print(f"Session saved with {len(session['checkpoints'])} checkpoints")
 
@@ -259,9 +259,9 @@ if checkpoint_tuple:
 ```python
 import json
 from pathlib import Path
-from src.engine.session_checkpointer import SessionCheckpointer
+from src.engine.session_checkpointer import JsonCheckpointer
 
-checkpointer = SessionCheckpointer(sessions_dir=".doc_sessions")
+checkpointer = JsonCheckpointer(sessions_dir=".doc_sessions")
 
 # Backup all sessions
 backup_dir = Path("backups/2024-01-01")
@@ -290,7 +290,7 @@ for backup_file in backup_dir.glob("*.json"):
 Thread IDs can contain special characters that are sanitized for filesystem compatibility:
 
 ```python
-checkpointer = SessionCheckpointer(sessions_dir=".doc_sessions")
+checkpointer = JsonCheckpointer(sessions_dir=".doc_sessions")
 
 # These thread IDs all work:
 thread_ids = [
@@ -320,17 +320,17 @@ for f in files:
 
 ### With LangGraph
 
-The `SessionCheckpointer` implements the `BaseCheckpointSaver` interface from LangGraph, making it fully compatible with LangGraph's state persistence:
+The `JsonCheckpointer` implements the `BaseCheckpointSaver` interface from LangGraph, making it fully compatible with LangGraph's state persistence:
 
 ```python
 from langgraph.graph import StateGraph
-from src.engine.session_checkpointer import SessionCheckpointer
+from src.engine.session_checkpointer import JsonCheckpointer
 
 # Use with StateGraph
 graph = StateGraph(MyState)
 # ... build graph ...
 
-checkpointer = SessionCheckpointer(sessions_dir=".doc_sessions")
+checkpointer = JsonCheckpointer(sessions_dir=".doc_sessions")
 compiled = graph.compile(checkpointer=checkpointer)
 
 # Invoke with thread_id
@@ -401,14 +401,14 @@ To migrate from SQLite to directory-based sessions:
 
 ```python
 from src.engine.checkpointing import SqliteCheckpointer
-from src.engine.session_checkpointer import SessionCheckpointer
+from src.engine.session_checkpointer import JsonCheckpointer
 
 # Export from SQLite
 sqlite_cp = SqliteCheckpointer("old.db")
 threads = ["user-1:session-1", "user-2:session-2"]
 
-# Import into SessionCheckpointer
-dir_cp = SessionCheckpointer(sessions_dir=".doc_sessions")
+# Import into JsonCheckpointer
+dir_cp = JsonCheckpointer(sessions_dir=".doc_sessions")
 
 for thread_id in threads:
     config = {"configurable": {"thread_id": thread_id}}

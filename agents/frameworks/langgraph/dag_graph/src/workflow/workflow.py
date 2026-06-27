@@ -11,7 +11,7 @@ import time
 from typing import Optional
 from uuid import uuid4
 
-from src.engine.session_checkpointer import SessionCheckpointer
+from src.engine.json_checkpointer import JsonCheckpointer
 
 from .graph import build_graph
 from .pipeline_state import PipelineState
@@ -66,7 +66,7 @@ def run_pipeline(
         raise
 
     # Create checkpointer (stores sessions in .doc_sessions directory)
-    checkpointer = SessionCheckpointer(sessions_dir=sessions_dir)
+    checkpointer = JsonCheckpointer(sessions_dir=sessions_dir)
 
     # Create initial state
     started_at = time.time()

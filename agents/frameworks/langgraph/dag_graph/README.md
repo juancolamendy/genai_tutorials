@@ -307,9 +307,9 @@ result = run_pipeline(
 Resume a session from checkpoint:
 
 ```python
-from src.engine.session_checkpointer import SessionCheckpointer
+from src.engine.session_checkpointer import JsonCheckpointer
 
-checkpointer = SessionCheckpointer(sessions_dir=".doc_sessions")
+checkpointer = JsonCheckpointer(sessions_dir=".doc_sessions")
 
 # Load session
 config = {"configurable": {"thread_id": "user-123:session-456"}}
@@ -343,7 +343,7 @@ src/
 │   ├── router.py             # BaseSemanticRouter, DefaultSemanticRouter
 │   ├── input_validation.py   # validate_turn_input, escape_for_llm
 │   ├── graph.py              # StateMachineGraph base class
-│   ├── session_checkpointer.py  # SessionCheckpointer (.doc_sessions storage)
+│   ├── session_checkpointer.py  # JsonCheckpointer (.doc_sessions storage)
 │   ├── checkpointing.py      # SqliteCheckpointer (legacy)
 │   ├── chain.py              # LCEL chain factory
 │   ├── guardrail.py          # GuardrailResult, make_guardrail

@@ -7,11 +7,12 @@ from .chain import (
     make_llm_chain,
     render_as_xml,
 )
-from .checkpointing import (
+from .sqlite_checkpointing import (
     SqliteCheckpointer,
     get_checkpointer,
     init_checkpointer,
 )
+from .json_checkpointer import JsonCheckpointer
 from .graph import (
     END,  # re-export for convenience
     StateMachineGraph,
@@ -46,6 +47,7 @@ __all__ = [
     "END",
     # Checkpointing
     "SqliteCheckpointer",
+    "JsonCheckpointer",
     "init_checkpointer",
     "get_checkpointer",
 ]

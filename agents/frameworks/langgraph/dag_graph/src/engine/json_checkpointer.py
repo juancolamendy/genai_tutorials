@@ -21,7 +21,7 @@ log = logging.getLogger(__name__)
 DEFAULT_SESSIONS_DIR = ".doc_sessions"
 
 
-class SessionCheckpointer(BaseCheckpointSaver):
+class JsonCheckpointer(BaseCheckpointSaver):
     """
     Directory-based checkpointer that stores sessions in .doc_sessions directory.
 
@@ -32,14 +32,14 @@ class SessionCheckpointer(BaseCheckpointSaver):
 
     def __init__(self, sessions_dir: str = DEFAULT_SESSIONS_DIR) -> None:
         """
-        Initialize session checkpointer.
+        Initialize JSON checkpointer.
 
         Args:
             sessions_dir: Directory to store session files (default: .doc_sessions)
         """
         self.sessions_dir = Path(sessions_dir)
         self.sessions_dir.mkdir(parents=True, exist_ok=True)
-        log.info(f"[SessionCheckpointer] Initialized with sessions_dir={self.sessions_dir}")
+        log.info(f"[JsonCheckpointer] Initialized with sessions_dir={self.sessions_dir}")
 
     def _get_session_path(self, thread_id: str) -> Path:
         """Get file path for a given thread_id."""
@@ -123,7 +123,7 @@ class SessionCheckpointer(BaseCheckpointSaver):
         self._save_session_file(path, session_data)
 
         log.info(
-            f"[SessionCheckpointer] Saved checkpoint {checkpoint_id} for thread {thread_id}"
+            f"[JsonCheckpointer] Saved checkpoint {checkpoint_id} for thread {thread_id}"
         )
 
         return {
@@ -244,7 +244,7 @@ class SessionCheckpointer(BaseCheckpointSaver):
         try:
             if path.exists():
                 path.unlink()
-                log.info(f"[SessionCheckpointer] Deleted session for thread {thread_id}")
+                log.info(f"[JsonCheckpointer] Deleted session for thread {thread_id}")
         except OSError as e:
             log.error(f"Error deleting session file {path}: {e}")
 

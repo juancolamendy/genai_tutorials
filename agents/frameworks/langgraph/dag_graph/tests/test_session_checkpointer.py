@@ -6,13 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from src.engine.session_checkpointer import SessionCheckpointer
+from src.engine.json_checkpointer import JsonCheckpointer
 
 
 def test_session_checkpointer_initialization():
     """Test that checkpointer initializes .doc_sessions directory."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        checkpointer = SessionCheckpointer(sessions_dir=tmpdir)
+        checkpointer = JsonCheckpointer(sessions_dir=tmpdir)
         assert Path(tmpdir).exists()
         assert Path(tmpdir).is_dir()
 
@@ -20,7 +20,7 @@ def test_session_checkpointer_initialization():
 def test_session_checkpointer_put_and_get():
     """Test saving and retrieving a checkpoint."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        checkpointer = SessionCheckpointer(sessions_dir=tmpdir)
+        checkpointer = JsonCheckpointer(sessions_dir=tmpdir)
 
         config = {
             "configurable": {
@@ -56,7 +56,7 @@ def test_session_checkpointer_put_and_get():
 def test_session_checkpointer_get_tuple():
     """Test retrieving a checkpoint tuple."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        checkpointer = SessionCheckpointer(sessions_dir=tmpdir)
+        checkpointer = JsonCheckpointer(sessions_dir=tmpdir)
 
         config = {"configurable": {"thread_id": "test-thread-1"}}
         checkpoint = {"values": {"data": "test_value"}}
@@ -74,7 +74,7 @@ def test_session_checkpointer_get_tuple():
 def test_session_checkpointer_list():
     """Test listing all checkpoints for a thread."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        checkpointer = SessionCheckpointer(sessions_dir=tmpdir)
+        checkpointer = JsonCheckpointer(sessions_dir=tmpdir)
 
         config = {"configurable": {"thread_id": "test-thread-2"}}
 
@@ -92,7 +92,7 @@ def test_session_checkpointer_list():
 def test_session_checkpointer_delete_thread():
     """Test deleting a thread's session."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        checkpointer = SessionCheckpointer(sessions_dir=tmpdir)
+        checkpointer = JsonCheckpointer(sessions_dir=tmpdir)
 
         config = {"configurable": {"thread_id": "test-thread-3"}}
         checkpoint = {"values": {"data": "to_delete"}}
@@ -110,7 +110,7 @@ def test_session_checkpointer_delete_thread():
 def test_session_checkpointer_thread_id_sanitization():
     """Test that thread_id with special characters is sanitized."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        checkpointer = SessionCheckpointer(sessions_dir=tmpdir)
+        checkpointer = JsonCheckpointer(sessions_dir=tmpdir)
 
         # Thread ID with colons and special chars
         config = {"configurable": {"thread_id": "user:123/session:456"}}
@@ -133,7 +133,7 @@ def test_session_checkpointer_thread_id_sanitization():
 def test_session_checkpointer_export_import():
     """Test exporting and importing sessions."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        checkpointer = SessionCheckpointer(sessions_dir=tmpdir)
+        checkpointer = JsonCheckpointer(sessions_dir=tmpdir)
 
         config = {"configurable": {"thread_id": "test-thread-4"}}
         checkpoint = {"values": {"important": "data"}}
@@ -147,7 +147,7 @@ def test_session_checkpointer_export_import():
         assert exported["thread_id"] == "test-thread-4"
 
         # Create new checkpointer and import
-        checkpointer2 = SessionCheckpointer(sessions_dir=Path(tmpdir) / "new")
+        checkpointer2 = JsonCheckpointer(sessions_dir=Path(tmpdir) / "new")
         checkpointer2.import_session(exported)
 
         # Verify imported data
@@ -158,7 +158,7 @@ def test_session_checkpointer_export_import():
 def test_session_checkpointer_get_sessions():
     """Test retrieving all sessions."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        checkpointer = SessionCheckpointer(sessions_dir=tmpdir)
+        checkpointer = JsonCheckpointer(sessions_dir=tmpdir)
 
         # Create multiple sessions
         for i in range(3):
@@ -178,14 +178,14 @@ def test_session_checkpointer_persistence():
     """Test that sessions persist across checkpointer instances."""
     with tempfile.TemporaryDirectory() as tmpdir:
         # First instance
-        checkpointer1 = SessionCheckpointer(sessions_dir=tmpdir)
+        checkpointer1 = JsonCheckpointer(sessions_dir=tmpdir)
         config = {"configurable": {"thread_id": "persist-test"}}
         checkpoint = {"values": {"persisted": True}}
         metadata = {"checkpoint_id": "cp-001"}
         checkpointer1.put(config, checkpoint, metadata)
 
         # Second instance
-        checkpointer2 = SessionCheckpointer(sessions_dir=tmpdir)
+        checkpointer2 = JsonCheckpointer(sessions_dir=tmpdir)
         retrieved = checkpointer2.get(config)
 
         # Should retrieve the data saved by first instance
@@ -196,7 +196,7 @@ def test_session_checkpointer_persistence():
 def test_session_checkpointer_json_format():
     """Test that sessions are stored as readable JSON."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        checkpointer = SessionCheckpointer(sessions_dir=tmpdir)
+        checkpointer = JsonCheckpointer(sessions_dir=tmpdir)
 
         config = {"configurable": {"thread_id": "json-test"}}
         checkpoint = {"values": {"key": "value"}}
