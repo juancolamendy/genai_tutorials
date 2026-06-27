@@ -78,7 +78,7 @@ def handle_validate(state: PipelineState) -> PipelineState:
     log.info("[HANDLER] validate")
     from .chains import VALIDATE_CHAIN
 
-    raw = state["raw_data"] or {}
+    raw = state.get("raw_data") or {}
 
     try:
         # Invoke the validation chain
@@ -326,3 +326,15 @@ HANDLER_MAP = {
     State.HUMAN_REVIEW: handle_human_review,
     State.ERROR: handle_error,
 }
+
+__all__ = [
+    "handle_fetch",
+    "handle_validate",
+    "handle_enrich",
+    "handle_store",
+    "handle_complete",
+    "handle_retry",
+    "handle_human_review",
+    "handle_error",
+    "HANDLER_MAP",
+]

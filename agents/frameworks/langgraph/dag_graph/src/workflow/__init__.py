@@ -24,9 +24,6 @@ from src.workflow.graph import (
     TERMINAL_STATES,
     DocumentPipelineGraph,
     build_graph,
-    guardrail_node,
-    guardrail_router,
-    router_node,
 )
 
 # Guardrails (validation checks)
@@ -68,9 +65,6 @@ __all__ = [
     # Graph building
     "DocumentPipelineGraph",
     "build_graph",
-    "router_node",
-    "guardrail_node",
-    "guardrail_router",
     "HAPPY_PATH",
     "HANDLER_MAP",
     "TERMINAL_STATES",

@@ -16,35 +16,11 @@ from src.engine.graph import StateMachineGraph
 if TYPE_CHECKING:
     from langgraph.checkpoint.base import BaseCheckpointSaver
 
-from .guardrails import GUARDRAILS
-from .handlers import (
-    handle_complete,
-    handle_enrich,
-    handle_error,
-    handle_fetch,
-    handle_human_review,
-    handle_retry,
-    handle_store,
-    handle_validate,
-)
 from .pipeline_state import PipelineState
 from .state_machine import State, HAPPY_PATH, TERMINAL_STATES
 
-# ─────────────────────────────────────────────────────────────────────────────
-# DOMAIN-SPECIFIC CONFIGURATION
-# ─────────────────────────────────────────────────────────────────────────────
-
-HANDLER_MAP = {
-    State.FETCH: handle_fetch,
-    State.VALIDATE: handle_validate,
-    State.ENRICH: handle_enrich,
-    State.STORE: handle_store,
-    State.RETRY: handle_retry,
-    State.HUMAN_REVIEW: handle_human_review,
-    State.COMPLETE: handle_complete,
-    State.ERROR: handle_error,
-}
-
+from .guardrails import GUARDRAILS
+from .handlers import HANDLER_MAP
 
 # ─────────────────────────────────────────────────────────────────────────────
 # DOCUMENT PIPELINE GRAPH (inherits from StateMachineGraph)
@@ -127,26 +103,4 @@ def build_graph(
     """
     graph = DocumentPipelineGraph(semantic_router=semantic_router)
     return graph.build_graph(PipelineState, checkpointer=checkpointer)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# CONVENIENCE FUNCTIONS (backward compatibility)
-# ─────────────────────────────────────────────────────────────────────────────
-
-def router_node(state: PipelineState) -> PipelineState:
-    """Convenience function wrapping DocumentPipelineGraph._router_node."""
-    graph = DocumentPipelineGraph()
-    return graph._router_node(state)
-
-
-def guardrail_node(state: PipelineState) -> PipelineState:
-    """Convenience function wrapping DocumentPipelineGraph._guardrail_node."""
-    graph = DocumentPipelineGraph()
-    return graph._guardrail_node(state)
-
-
-def guardrail_router(state: PipelineState) -> str:
-    """Convenience function wrapping DocumentPipelineGraph._guardrail_router."""
-    graph = DocumentPipelineGraph()
-    return graph._guardrail_router(state)
 
