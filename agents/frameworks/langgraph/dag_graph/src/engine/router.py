@@ -207,7 +207,7 @@ Always choose from the ALLOWED NEXT STATES."""
         Returns:
             RouterDecision with validated proposed_next
         """
-        from langchain.schema import HumanMessage, SystemMessage
+        from langchain_core.messages import HumanMessage, SystemMessage
 
         try:
             # Build history text from last 5 turns only

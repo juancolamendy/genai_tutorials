@@ -122,6 +122,7 @@ class DocumentPipelineGraph(StateMachineGraph):
 def build_graph(
     sessions_dir: str = ".doc_sessions",
     semantic_router: Optional[Any] = None,
+    use_semantic_routing: bool = False,
 ) -> DocumentPipelineGraph:
     """Build and compile the state machine graph.
 
@@ -129,12 +130,26 @@ def build_graph(
         sessions_dir: Directory for checkpoint storage
         semantic_router: Optional semantic router for LLM-powered routing
                         (e.g., DocPipelineRouter instance)
+        use_semantic_routing: Enable LLM-powered semantic routing (default: False).
+                             If True and semantic_router is None, uses DocPipelineRouter.
+                             If False, uses code-based routing only (faster, more predictable).
 
     Returns:
         DocumentPipelineGraph with compiled_graph set and ready for invoke_turn()
+
+    Note:
+        Code-based routing is enabled by default. Enable semantic routing for LLM-powered
+        state transitions, but note that this requires API calls and may make different
+        routing decisions than the code router.
     """
     checkpointer = JsonCheckpointer(sessions_dir=sessions_dir)
-    semantic_router = DocPipelineRouter()
+
+    # Only use semantic router if explicitly enabled
+    if use_semantic_routing and semantic_router is None:
+        semantic_router = DocPipelineRouter()
+    elif not use_semantic_routing:
+        semantic_router = None
+
     graph = DocumentPipelineGraph(semantic_router=semantic_router)
     # Set the compiled graph on the wrapper
     graph.compiled_graph = graph.build_graph(PipelineState, checkpointer=checkpointer)
