@@ -562,20 +562,17 @@ class StateMachineGraph:
                 checkpoint_tuple = self.compiled_graph.checkpointer.get_tuple(config)
                 log.info(f"[invoke_turn] Checkpoint result: {checkpoint_tuple is not None}")
                 if checkpoint_tuple:
-                    # CheckpointTuple is (config, checkpoint, metadata)
+                    # CheckpointTuple checkpoint has LangGraph's full structure
                     checkpoint_data = checkpoint_tuple.checkpoint
-                    log.info(f"[invoke_turn] Checkpoint data type: {type(checkpoint_data)}")
-                    log.info(f"[invoke_turn] Checkpoint data keys: {checkpoint_data.keys() if isinstance(checkpoint_data, dict) else 'not a dict'}")
-                    if isinstance(checkpoint_data, dict):
-                        if "values" in checkpoint_data:
-                            log.info(f"[invoke_turn] Loaded state from checkpoint with turn_number={checkpoint_data['values'].get('turn_number', 0)}")
-                            return checkpoint_data["values"]
-                        elif "channel_values" in checkpoint_data:
-                            # LangGraph's full checkpoint format has channel_values instead of values
-                            log.info(f"[invoke_turn] Checkpoint has channel_values; extracting values")
-                            values = checkpoint_data.get("channel_values", {})
-                            if values:
-                                return values
+                    if isinstance(checkpoint_data, dict) and "channel_values" in checkpoint_data:
+                        # Extract state from channel_values (LangGraph's checkpoint format)
+                        state_values = checkpoint_data.get("channel_values", {})
+                        log.info(f"[invoke_turn] Loaded state from checkpoint with turn_number={state_values.get('turn_number', 0)}")
+                        return state_values
+                    elif isinstance(checkpoint_data, dict) and "values" in checkpoint_data:
+                        # Fallback for alternate checkpoint format
+                        log.info(f"[invoke_turn] Loaded state from checkpoint (values format)")
+                        return checkpoint_data["values"]
         except Exception as e:
             log.debug(f"[invoke_turn] Checkpoint load failed ({e}); creating fresh state")
 
