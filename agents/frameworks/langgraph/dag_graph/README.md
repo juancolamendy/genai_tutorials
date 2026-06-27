@@ -11,7 +11,7 @@ A production-ready state machine workflow implementation using LangGraph with su
 - **Input Validation**: Prompt injection prevention with automatic escaping
 - **Auto-progression**: Automatic continuation through non-blocking states
 - **Checkpointing**: Full session persistence with JSON files in `.doc_sessions` directory (Agno-compatible)
-- **Comprehensive Testing**: 124+ tests covering all features
+- **Comprehensive Testing**: 131+ tests covering all features
 
 ## Installation
 
@@ -170,28 +170,59 @@ escaped = escape_for_llm(user_input)
 
 ## Semantic Routing
 
+Semantic routing uses Claude LLM to make intelligent state transitions based on semantic context. It's **optional** — code-based routing is the default.
+
+### Integration (Recommended)
+
+Enable semantic routing by passing a router to the graph:
+
+```python
+from src.workflow.graph import DocumentPipelineGraph
+from src.workflow.router import DocPipelineRouter
+from src.workflow.workflow import run_pipeline
+
+# Create router instance
+semantic_router = DocPipelineRouter(model="claude-haiku-4-5-20251001")
+
+# Option 1: Pass to build_graph
+compiled_graph = build_graph(
+    checkpointer=checkpointer,
+    semantic_router=semantic_router
+)
+
+# Option 2: Set on graph instance
+graph = DocumentPipelineGraph()
+graph.set_semantic_router(semantic_router)
+```
+
+The router automatically:
+- Extracts semantic entities and intents
+- Assigns confidence scores to decisions
+- Stores context in state for audit/debugging
+- Falls back to code routing if it fails
+
 ### Built-in Document Router
 
 ```python
-from workflow.router import DocPipelineRouter
+from src.workflow.router import DocPipelineRouter
 
+# Uses Claude Haiku for fast, cost-effective routing
 router = DocPipelineRouter(model="claude-haiku-4-5-20251001")
 
-decision = router.route(
-    current_state="validate",
-    turn_input="Document approved, proceed",
-    history=[...],
-    allowed_states=["enrich", "human_review", "error"]
-)
-# Returns: RouterDecision with proposed_next, confidence, entities, intents
+# Router decision includes:
+# - proposed_next: next state (FETCH, VALIDATE, ENRICH, etc.)
+# - confidence: 0.0-1.0 confidence score
+# - semantic_entities: extracted domain entities
+# - semantic_intents: extracted user intents
+# - reasoning: LLM explanation
 ```
 
 ### Custom Routers
 
-Create domain-specific routers by extending `DefaultSemanticRouter`:
+Extend `DefaultSemanticRouter` for domain-specific logic:
 
 ```python
-from engine.router import DefaultSemanticRouter
+from src.engine.router import DefaultSemanticRouter
 from pydantic import BaseModel, Field
 
 class MyRouterOutput(BaseModel):
@@ -207,7 +238,27 @@ class MyRouter(DefaultSemanticRouter):
         return "Your domain-specific routing instructions..."
 
 # Use in graph
-graph.router = MyRouter()
+router = MyRouter()
+graph = DocumentPipelineGraph(semantic_router=router)
+```
+
+### Routing Logic
+
+1. **Semantic router (if available)** — LLM makes decision with context
+2. **Fallback to code router** — If semantic router unavailable or fails
+3. **Audit trail** — Records which router was used and why
+
+State after routing includes:
+```python
+{
+    "proposed_next": "enrich",              # Next state
+    "router_confidence": 0.92,              # Confidence (semantic only)
+    "semantic_context": {                   # Semantic only
+        "entities": {"doc_type": "invoice"},
+        "intents": ["approve", "proceed"]
+    },
+    "router_reasoning": "Document approved" # Semantic only
+}
 ```
 
 ## Checkpointing
@@ -310,27 +361,29 @@ src/
 └── main.py                   # Demo scenarios (one-turn + multi-turn)
 
 tests/
-├── test_handler_registry.py   # 9 tests
-├── test_semantic_router.py    # 11 tests
-├── test_input_validation.py   # 19 tests
-├── test_doc_pipeline_router.py # 7 tests
-├── test_multi_turn.py         # 10 tests
-├── test_graph_methods.py      # 16 tests
-├── test_handler_integration.py # 10 tests
-├── test_router_integration.py  # 11 tests
-├── test_integration.py        # 17 tests
-├── test_session_checkpointer.py # 10 tests
-└── test_main_examples.py      # 10 tests
+├── test_handler_registry.py        # 9 tests
+├── test_semantic_router.py         # 11 tests
+├── test_input_validation.py        # 19 tests
+├── test_doc_pipeline_router.py     # 7 tests
+├── test_multi_turn.py              # 10 tests
+├── test_graph_methods.py           # 16 tests
+├── test_handler_integration.py     # 10 tests
+├── test_router_integration.py      # 11 tests
+├── test_integration.py             # 17 tests
+├── test_session_checkpointer.py    # 10 tests
+├── test_semantic_router_integration.py # 7 tests
+└── test_main_examples.py           # 10 tests
 ```
 
 ## Test Coverage
 
-**124 tests passing (Phase 1-4 + Session Checkpointer):**
+**131 tests passing (Phase 1-4 + Session Checkpointer + Semantic Router Integration):**
 - **Phase 1** (46 tests): Handler registry, routers, input validation
 - **Phase 2** (26 tests): Multi-turn state, graph methods, auto-progression
 - **Phase 3** (32 tests): Handler integration, router integration, end-to-end flows
 - **Phase 4** (10 tests): Main.py examples and documentation
 - **Session Checkpointer** (10 tests): Directory-based session persistence
+- **Semantic Router Integration** (7 tests): Graph routing with semantic/code fallback
 
 Run tests:
 ```bash
