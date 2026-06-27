@@ -61,13 +61,14 @@ def test_multiturn_workflow_pause_at_upload_documents() -> None:
     # Create initial state
     state_1 = new_pipeline(doc_id)
 
-    # Invoke turn
-    response_1 = graph.invoke_turn(
-        user_id=user_id,
-        session_id=session_id,
-        turn_input="Please process this document for me",
-        timeout_sec=10.0,
-    )
+    # Invoke turn with mocked fetch to ensure it succeeds
+    with patch("workflow.handlers.random.random", return_value=0.9):  # Mock random to skip failure
+        response_1 = graph.invoke_turn(
+            user_id=user_id,
+            session_id=session_id,
+            turn_input="Please process this document for me",
+            timeout_sec=10.0,
+        )
 
     print(f"\n✅ Turn 1 Complete:")
     print(f"  Current State: {response_1.get('current_state')}")
@@ -121,13 +122,14 @@ def test_multiturn_workflow_pause_at_upload_documents() -> None:
         },
     ]
 
-    # Continue with uploaded documents
-    response_2 = graph.invoke_turn(
-        user_id=user_id,
-        session_id=session_id,
-        turn_input=json.dumps(supporting_docs),
-        timeout_sec=10.0,
-    )
+    # Continue with uploaded documents and mocked handlers
+    with patch("workflow.handlers.random.random", return_value=0.9):  # Skip fetch failure
+        response_2 = graph.invoke_turn(
+            user_id=user_id,
+            session_id=session_id,
+            turn_input=json.dumps(supporting_docs),
+            timeout_sec=10.0,
+        )
 
     print(f"\n✅ Turn 2 Complete:")
     print(f"  Current State: {response_2.get('current_state')}")
@@ -182,6 +184,8 @@ def test_multiturn_auto_progression() -> None:
     Verifies that a turn can progress through multiple non-blocking states
     (INIT → FETCH) and only pause at the first blocking state (UPLOAD_DOCUMENTS).
     """
+    from unittest.mock import patch
+
     sep = "═" * 80
 
     print(f"\n{sep}")
@@ -200,11 +204,12 @@ def test_multiturn_auto_progression() -> None:
     print(f"\n▶ Single turn with auto-progression")
     print(f"  Input: Process this document")
 
-    response = graph.invoke_turn(
-        user_id="user-456",
-        session_id=session_id,
-        turn_input="Process this document",
-    )
+    with patch("workflow.handlers.random.random", return_value=0.9):  # Skip fetch failure
+        response = graph.invoke_turn(
+            user_id="user-456",
+            session_id=session_id,
+            turn_input="Process this document",
+        )
 
     print(f"\n✅ Single turn result:")
     print(f"  Starting state: {State.INIT.value}")
@@ -229,31 +234,38 @@ def test_multiturn_auto_progression() -> None:
 
 def test_turn_semantics() -> None:
     """Test that turn metadata and conversation tracking work correctly."""
+    from unittest.mock import patch
+
     graph = DocumentPipelineGraph()
     graph.compiled_graph = build_graph()
 
     session_id = str(uuid4())
 
-    # Turn 1
-    response_1 = graph.invoke_turn(
-        user_id="user-789",
-        session_id=session_id,
-        turn_input="Start workflow",
-    )
+    # Turn 1 - mock fetch to ensure success
+    with patch("workflow.handlers.random.random", return_value=0.9):
+        response_1 = graph.invoke_turn(
+            user_id="user-789",
+            session_id=session_id,
+            turn_input="Start workflow",
+        )
 
     assert response_1.get("turn_number") == 1
     assert response_1.get("current_state") == "upload_documents"
     assert len(response_1.get("conversation_history", [])) >= 2  # User + assistant entries
 
-    # Turn 2
-    response_2 = graph.invoke_turn(
-        user_id="user-789",
-        session_id=session_id,
-        turn_input="Continue workflow",
-    )
+    # Turn 2 - provide document data to progress from upload_documents
+    import json
+    docs = [{"name": "doc1.pdf", "content": "test"}]
+    with patch("workflow.handlers.random.random", return_value=0.9):
+        response_2 = graph.invoke_turn(
+            user_id="user-789",
+            session_id=session_id,
+            turn_input=json.dumps(docs),
+        )
 
     assert response_2.get("turn_number") == 2
-    assert response_2.get("current_state") == "upload_documents"  # Still at upload_documents since waits_for_input
+    # After uploading docs, should progress to complete
+    assert response_2.get("current_state") == "complete"
     assert len(response_2.get("conversation_history", [])) >= 2  # At least user + assistant for this turn
 
     # Verify turn numbers are properly set in history
