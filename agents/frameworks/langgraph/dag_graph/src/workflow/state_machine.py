@@ -17,6 +17,7 @@ class State(str, Enum):
 
     INIT = "init"
     FETCH = "fetch"
+    UPLOAD_DOCUMENTS = "upload_documents"
     VALIDATE = "validate"
     ENRICH = "enrich"
     STORE = "store"
@@ -32,7 +33,8 @@ class State(str, Enum):
 
 HAPPY_PATH: dict[State, State] = {
     State.INIT: State.FETCH,
-    State.FETCH: State.VALIDATE,
+    State.FETCH: State.UPLOAD_DOCUMENTS,
+    State.UPLOAD_DOCUMENTS: State.VALIDATE,
     State.VALIDATE: State.ENRICH,
     State.ENRICH: State.STORE,
     State.STORE: State.COMPLETE,
@@ -45,7 +47,8 @@ TERMINAL_STATES = set({State.COMPLETE, State.ERROR})
 # Adjacency list: which states can follow each state
 ALLOWED_TRANSITIONS: Dict[State, Set[State]] = {
     State.INIT: {State.FETCH},
-    State.FETCH: {State.VALIDATE, State.RETRY, State.ERROR},
+    State.FETCH: {State.UPLOAD_DOCUMENTS, State.RETRY, State.ERROR},
+    State.UPLOAD_DOCUMENTS: {State.VALIDATE, State.RETRY, State.ERROR},
     State.VALIDATE: {State.ENRICH, State.HUMAN_REVIEW, State.ERROR},
     State.ENRICH: {State.STORE, State.RETRY, State.ERROR},
     State.STORE: {State.COMPLETE, State.RETRY, State.ERROR},

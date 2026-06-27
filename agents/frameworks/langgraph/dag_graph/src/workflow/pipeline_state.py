@@ -35,6 +35,9 @@ class PipelineState(EngineState):
     enriched_data: Optional[Dict[str, Any]]
     """Enriched document with metadata. Set by enrich handler."""
 
+    supporting_docs: Optional[list[Dict[str, Any]]]
+    """Supporting documents uploaded by user. Set by upload_documents handler."""
+
 # functions
 # ── Constructor ───────────────────────────────────────────────────────────────
 def new_pipeline(document_id: str, timeout_seconds: float = 300.0) -> PipelineState:
@@ -75,4 +78,5 @@ def new_pipeline(document_id: str, timeout_seconds: float = 300.0) -> PipelineSt
         raw_data=None,
         validated_data=None,
         enriched_data=None,
+        supporting_docs=None,
     )

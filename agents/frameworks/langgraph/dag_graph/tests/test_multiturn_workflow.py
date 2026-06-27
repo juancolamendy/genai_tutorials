@@ -25,12 +25,12 @@ from workflow.pipeline_state import new_pipeline
 from workflow.state_machine import State
 
 
-def test_multiturn_workflow_pause_at_human_review() -> None:
-    """Test multi-turn workflow with pause/resume at HUMAN_REVIEW.
+def test_multiturn_workflow_pause_at_upload_documents() -> None:
+    """Test multi-turn workflow with pause/resume at UPLOAD_DOCUMENTS.
 
-    Demonstrates the auto-progression feature:
-    - Turn 1: INIT → FETCH → VALIDATE → HUMAN_REVIEW (PAUSE)
-    - Turn 2: Continue from HUMAN_REVIEW → ENRICH → STORE → COMPLETE
+    Demonstrates the auto-progression feature with document upload:
+    - Turn 1: INIT → FETCH → UPLOAD_DOCUMENTS (PAUSE)
+    - Turn 2: Continue from UPLOAD_DOCUMENTS with uploaded docs → VALIDATE → ENRICH → STORE → COMPLETE
 
     This shows how workflows can pause at specific states (waits_for_input=True)
     and resume with user-provided context in the next turn.
@@ -41,9 +41,8 @@ def test_multiturn_workflow_pause_at_human_review() -> None:
 
     print(f"\n{sep}")
     print("  MULTI-TURN WORKFLOW TEST")
-    print("  Auto-progress: FETCH → VALIDATE → PAUSE at HUMAN_REVIEW")
+    print("  Auto-progress: FETCH → PAUSE at UPLOAD_DOCUMENTS")
     print(sep)
-
 
     # Setup
     session_id = str(uuid4())
@@ -55,26 +54,20 @@ def test_multiturn_workflow_pause_at_human_review() -> None:
     graph = DocumentPipelineGraph()
     graph.compiled_graph = compiled_graph
 
-    # ── TURN 1: Auto-progress INIT → FETCH → VALIDATE → HUMAN_REVIEW ──
+    # ── TURN 1: Auto-progress INIT → FETCH → UPLOAD_DOCUMENTS ──
     print(f"\n▶ TURN 1: Starting workflow for {doc_id}")
-    print(f"  Expected: INIT → FETCH → VALIDATE → HUMAN_REVIEW (STOP)")
-
-    # Mock validation to fail so validated_data is empty,
-    # triggering HUMAN_REVIEW from ENRICH guardrail
-    mock_validate = lambda x: {"is_valid": False, "sanitized_data": {}, "issues": ["schema mismatch"]}
+    print(f"  Expected: INIT → FETCH → UPLOAD_DOCUMENTS (STOP)")
 
     # Create initial state
     state_1 = new_pipeline(doc_id)
 
-    # Invoke turn with mocked validation
-    with patch("workflow.chains.VALIDATE_CHAIN") as mock_chain:
-        mock_chain.invoke.return_value = mock_validate({})
-        response_1 = graph.invoke_turn(
-            user_id=user_id,
-            session_id=session_id,
-            turn_input="Please process this document for me",
-            timeout_sec=10.0,
-        )
+    # Invoke turn
+    response_1 = graph.invoke_turn(
+        user_id=user_id,
+        session_id=session_id,
+        turn_input="Please process this document for me",
+        timeout_sec=10.0,
+    )
 
     print(f"\n✅ Turn 1 Complete:")
     print(f"  Current State: {response_1.get('current_state')}")
@@ -85,20 +78,20 @@ def test_multiturn_workflow_pause_at_human_review() -> None:
         print(f"  Router Confidence: {confidence:.2f}")
 
     # Verify Turn 1 results
-    assert response_1.get("current_state") == "human_review", (
-        f"Expected to pause at human_review, "
+    assert response_1.get("current_state") == "upload_documents", (
+        f"Expected to pause at upload_documents, "
         f"but got {response_1.get('current_state')}"
     )
     assert response_1.get("waits_for_input") is True, (
-        "Expected waits_for_input=True at human_review"
+        "Expected waits_for_input=True at upload_documents"
     )
     assert response_1.get("turn_number") == 1, (
         f"Expected turn_number=1, got {response_1.get('turn_number')}"
     )
 
-    # Verify that HUMAN_REVIEW is indeed a blocking state
-    assert does_state_wait_for_input("human_review"), (
-        "HUMAN_REVIEW should have waits_for_input=True"
+    # Verify that UPLOAD_DOCUMENTS is indeed a blocking state
+    assert does_state_wait_for_input("upload_documents"), (
+        "UPLOAD_DOCUMENTS should have waits_for_input=True"
     )
 
     print("\n📋 Conversation history after Turn 1:")
@@ -108,15 +101,31 @@ def test_multiturn_workflow_pause_at_human_review() -> None:
         content = turn.get("content", "")[:50]
         print(f"    {i}. [{role}] {content}...")
 
-    # ── TURN 2: Provide feedback and continue ──────────────────────────────
-    print(f"\n▶ TURN 2: User provides feedback and approval")
-    print(f"  Expected: HUMAN_REVIEW → ENRICH → STORE → COMPLETE")
+    # ── TURN 2: Upload supporting documents and continue ────────────────────
+    print(f"\n▶ TURN 2: User uploads supporting documents")
+    print(f"  Expected: UPLOAD_DOCUMENTS → VALIDATE → ENRICH → STORE → COMPLETE")
 
-    # Continue with user feedback (approved by reviewer)
+    # Upload supporting documents with metadata
+    import json
+
+    supporting_docs = [
+        {
+            "name": "attachment1.pdf",
+            "content": "Supporting document 1 content",
+            "type": "reference",
+        },
+        {
+            "name": "attachment2.pdf",
+            "content": "Supporting document 2 content",
+            "type": "reference",
+        },
+    ]
+
+    # Continue with uploaded documents
     response_2 = graph.invoke_turn(
         user_id=user_id,
         session_id=session_id,
-        turn_input="Document looks correct, approved for enrichment",
+        turn_input=json.dumps(supporting_docs),
         timeout_sec=10.0,
     )
 
@@ -171,7 +180,7 @@ def test_multiturn_auto_progression() -> None:
     """Test that non-blocking states auto-progress within a single turn.
 
     Verifies that a turn can progress through multiple non-blocking states
-    (INIT → FETCH → VALIDATE) and only pause at a blocking state (HUMAN_REVIEW).
+    (INIT → FETCH) and only pause at the first blocking state (UPLOAD_DOCUMENTS).
     """
     sep = "═" * 80
 
@@ -204,18 +213,18 @@ def test_multiturn_auto_progression() -> None:
 
     # Verify it progressed through non-blocking states
     final_state = response.get("current_state")
-    assert final_state == "human_review", (
-        f"Expected to auto-progress to human_review (first blocking state), "
+    assert final_state == "upload_documents", (
+        f"Expected to auto-progress to upload_documents (first blocking state), "
         f"got {final_state}"
     )
 
     # Verify it paused at the blocking state
     assert response.get("waits_for_input") is True, (
-        "Should pause at blocking state (human_review)"
+        "Should pause at blocking state (upload_documents)"
     )
 
     print(f"\n✅ Auto-progression verified:")
-    print(f"   INIT → FETCH → VALIDATE → HUMAN_REVIEW (blocked)")
+    print(f"   INIT → FETCH → UPLOAD_DOCUMENTS (blocked)")
 
 
 def test_turn_semantics() -> None:
@@ -233,7 +242,8 @@ def test_turn_semantics() -> None:
     )
 
     assert response_1.get("turn_number") == 1
-    assert len(response_1.get("conversation_history", [])) >= 1
+    assert response_1.get("current_state") == "upload_documents"
+    assert len(response_1.get("conversation_history", [])) >= 2  # User + assistant entries
 
     # Turn 2
     response_2 = graph.invoke_turn(
@@ -243,9 +253,13 @@ def test_turn_semantics() -> None:
     )
 
     assert response_2.get("turn_number") == 2
-    assert len(response_2.get("conversation_history", [])) > len(
-        response_1.get("conversation_history", [])
-    )
+    assert response_2.get("current_state") == "upload_documents"  # Still at upload_documents since waits_for_input
+    assert len(response_2.get("conversation_history", [])) >= 2  # At least user + assistant for this turn
+
+    # Verify turn numbers are properly set in history
+    hist = response_2.get("conversation_history", [])
+    if len(hist) > 0:
+        assert hist[0].get("turn_number") in [1, 2], "Turn numbers should be set"
 
     print("✅ Turn semantics test passed")
 

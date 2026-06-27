@@ -66,6 +66,53 @@ def handle_fetch(state: PipelineState) -> PipelineState:
 
 
 @handler(
+    state="upload_documents",
+    waits_for_input=True,
+    description="Wait for user to upload supporting documents",
+)
+def handle_upload_documents(state: PipelineState) -> PipelineState:
+    """Wait for user to upload supporting documents.
+
+    Args:
+        state: PipelineState with turn_input containing uploaded document metadata
+
+    Returns:
+        Updated state with supporting_docs populated from turn_input, ready to proceed to validate
+    """
+    log.info("[HANDLER] upload_documents  doc_id=%s", state["document_id"])
+
+    # Parse uploaded documents from turn_input
+    # Expected turn_input format: JSON with list of documents
+    import json
+
+    turn_input = state.get("turn_input", "")
+    supporting_docs = []
+
+    if turn_input:
+        try:
+            # Try to parse as JSON
+            data = json.loads(turn_input) if isinstance(turn_input, str) else turn_input
+            if isinstance(data, list):
+                supporting_docs = data
+            elif isinstance(data, dict) and "documents" in data:
+                supporting_docs = data["documents"]
+        except (json.JSONDecodeError, TypeError):
+            # If not JSON, create a simple document entry from the input text
+            supporting_docs = [{"name": "uploaded_file", "content": turn_input}]
+
+    return {
+        **state,
+        "current_state": State.UPLOAD_DOCUMENTS.value,
+        "proposed_next": State.VALIDATE.value,
+        "supporting_docs": supporting_docs,
+        "audit_trail": _audit(
+            state,
+            f"upload_documents OK – {len(supporting_docs)} documents uploaded",
+        ),
+    }
+
+
+@handler(
     state="validate",
     waits_for_input=False,
     description="Validate document schema and content",
@@ -344,6 +391,7 @@ def handle_error(state: PipelineState) -> PipelineState:
 
 HANDLER_MAP = {
     State.FETCH: handle_fetch,
+    State.UPLOAD_DOCUMENTS: handle_upload_documents,
     State.VALIDATE: handle_validate,
     State.ENRICH: handle_enrich,
     State.STORE: handle_store,
@@ -355,6 +403,7 @@ HANDLER_MAP = {
 
 __all__ = [
     "handle_fetch",
+    "handle_upload_documents",
     "handle_validate",
     "handle_enrich",
     "handle_store",

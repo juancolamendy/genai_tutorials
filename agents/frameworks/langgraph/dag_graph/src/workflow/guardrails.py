@@ -176,6 +176,11 @@ GUARDRAILS: Dict[State, GuardrailFn] = {
         check_retry_budget,
         check_fallback_depth,
     ),
+    State.UPLOAD_DOCUMENTS: make_guardrail(
+        check_transition_allowed,
+        check_pipeline_timeout,
+        check_fallback_depth,
+    ),
     State.VALIDATE: make_guardrail(
         check_transition_allowed,
         check_pipeline_timeout,

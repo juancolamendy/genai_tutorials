@@ -533,10 +533,17 @@ class StateMachineGraph:
 
             if does_state_wait_for_input(state.get("current_state")):
                 # Mark this checkpoint as a pause point for automatic resumption
-                checkpoint_id = config["configurable"].get("checkpoint_id")
-                if checkpoint_id and hasattr(self.compiled_graph, "checkpointer"):
-                    self.compiled_graph.checkpointer.save_pause_point(config, checkpoint_id)
-                    log.info(f"[invoke_turn] Auto-saved pause point at {state['current_state']}")
+                if hasattr(self.compiled_graph, "checkpointer") and self.compiled_graph.checkpointer:
+                    try:
+                        # Get the latest checkpoint ID from the session file
+                        session_data = self.compiled_graph.checkpointer.export_session(thread_id)
+                        if session_data:
+                            checkpoint_id = session_data.get("latest_checkpoint_id")
+                            if checkpoint_id:
+                                self.compiled_graph.checkpointer.save_pause_point(config, checkpoint_id)
+                                log.info(f"[invoke_turn] Auto-saved pause point {checkpoint_id} at {state['current_state']}")
+                    except Exception as e:
+                        log.debug(f"[invoke_turn] Could not auto-save pause point: {e}")
 
             return self._build_turn_response(state)
 
