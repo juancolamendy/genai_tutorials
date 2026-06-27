@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
 from langgraph.graph import END, StateGraph
 
 if TYPE_CHECKING:
-    from langgraph.checkpoint.base import BaseCheckpointSaver
+    pass
 
 log = logging.getLogger(__name__)
 
@@ -169,7 +169,10 @@ class StateMachineGraph:
                     },
                     "router_confidence": router_decision.confidence,
                     "audit_trail": state.get("audit_trail", [])
-                    + [f"router: semantic {current} → {proposal} (conf={router_decision.confidence:.2f})"],
+                    + [
+                        f"router: semantic {current} → {proposal} "
+                        f"(conf={router_decision.confidence:.2f})"
+                    ],
                 }
 
                 # Add reasoning if available
@@ -437,7 +440,11 @@ class StateMachineGraph:
                 "error": str or None,
             }
         """
-        from engine.input_validation import validate_turn_input, escape_for_llm, InputValidationError
+        from engine.input_validation import (
+            InputValidationError,
+            escape_for_llm,
+            validate_turn_input,
+        )
 
         try:
             # Validate and escape input

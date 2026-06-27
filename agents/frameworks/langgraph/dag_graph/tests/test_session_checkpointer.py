@@ -4,8 +4,6 @@ import json
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from src.engine.json_checkpointer import JsonCheckpointer
 
 
@@ -13,8 +11,8 @@ def test_session_checkpointer_initialization():
     """Test that checkpointer initializes .doc_sessions directory."""
     with tempfile.TemporaryDirectory() as tmpdir:
         checkpointer = JsonCheckpointer(sessions_dir=tmpdir)
-        assert Path(tmpdir).exists()
-        assert Path(tmpdir).is_dir()
+        assert checkpointer.sessions_dir.exists()
+        assert checkpointer.sessions_dir.is_dir()
 
 
 def test_session_checkpointer_put_and_get():

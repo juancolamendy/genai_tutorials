@@ -16,13 +16,12 @@ from src.engine.json_checkpointer import JsonCheckpointer
 from src.workflow.router import DocPipelineRouter
 
 if TYPE_CHECKING:
-    from langgraph.checkpoint.base import BaseCheckpointSaver
-
-from .pipeline_state import PipelineState
-from .state_machine import State, HAPPY_PATH, TERMINAL_STATES
+    pass
 
 from .guardrails import GUARDRAILS
 from .handlers import HANDLER_MAP
+from .pipeline_state import PipelineState
+from .state_machine import HAPPY_PATH, TERMINAL_STATES, State
 
 # ─────────────────────────────────────────────────────────────────────────────
 # DOCUMENT PIPELINE GRAPH (inherits from StateMachineGraph)

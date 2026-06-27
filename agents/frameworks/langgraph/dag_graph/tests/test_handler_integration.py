@@ -1,12 +1,11 @@
 """Tests for handler decorator integration with workflow."""
 
-import pytest
 
 from src.engine.handler_registry import (
-    handler,
+    clear_metadata,
     does_state_wait_for_input,
     get_handler_metadata,
-    clear_metadata,
+    handler,
 )
 
 

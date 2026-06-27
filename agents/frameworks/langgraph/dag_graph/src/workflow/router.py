@@ -19,7 +19,10 @@ class DocRouterOutput(BaseModel):
 
     proposed_next: str = Field(
         ...,
-        description="Next state (init, fetch, validate, enrich, store, complete, retry, error, human_review)",
+        description=(
+            "Next state (init, fetch, validate, enrich, store, "
+            "complete, retry, error, human_review)"
+        ),
     )
     confidence: float = Field(
         ...,

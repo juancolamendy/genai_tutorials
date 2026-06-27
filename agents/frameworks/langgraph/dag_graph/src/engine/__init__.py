@@ -8,12 +8,6 @@ from .chain import (
     render_as_xml,
 )
 from .engine_state import EngineState
-from .sqlite_checkpointing import (
-    SqliteCheckpointer,
-    get_checkpointer,
-    init_checkpointer,
-)
-from .json_checkpointer import JsonCheckpointer
 from .graph import (
     END,  # re-export for convenience
     StateMachineGraph,
@@ -21,11 +15,17 @@ from .graph import (
     safe_node,
     serialize_session_state,
 )
+from .json_checkpointer import JsonCheckpointer
 from .session import (
     append_turn,
     build_history_prompt,
     get_execution_context,
     init_session_defaults,
+)
+from .sqlite_checkpointing import (
+    SqliteCheckpointer,
+    get_checkpointer,
+    init_checkpointer,
 )
 
 # Note: Domain-specific state machine, handlers, and guardrails are in src/workflow/

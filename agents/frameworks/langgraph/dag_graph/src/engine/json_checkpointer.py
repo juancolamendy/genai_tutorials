@@ -12,7 +12,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
-from langgraph.checkpoint.base import BaseCheckpointSaver, Checkpoint, CheckpointMetadata, CheckpointTuple
+from langgraph.checkpoint.base import (
+    BaseCheckpointSaver,
+    Checkpoint,
+    CheckpointMetadata,
+    CheckpointTuple,
+)
 from langgraph.types import RunnableConfig
 
 log = logging.getLogger(__name__)

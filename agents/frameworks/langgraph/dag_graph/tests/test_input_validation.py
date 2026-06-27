@@ -3,10 +3,10 @@
 import pytest
 
 from src.engine.input_validation import (
-    validate_turn_input,
-    escape_for_llm,
-    InputValidationError,
     MAX_INPUT_LENGTH,
+    InputValidationError,
+    escape_for_llm,
+    validate_turn_input,
 )
 
 

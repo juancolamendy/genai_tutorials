@@ -1,13 +1,12 @@
 """Tests for handler registry and @handler decorator."""
 
-import pytest
 
 from src.engine.handler_registry import (
-    handler,
-    get_handler_metadata,
-    does_state_wait_for_input,
     HANDLER_MAP_METADATA,
     clear_metadata,
+    does_state_wait_for_input,
+    get_handler_metadata,
+    handler,
 )
 
 

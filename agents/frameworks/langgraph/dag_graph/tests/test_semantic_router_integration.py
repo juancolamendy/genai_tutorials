@@ -1,8 +1,6 @@
 """Tests for semantic router integration in graph."""
 
-import pytest
 
-from src.engine.router import DefaultSemanticRouter
 from src.workflow.graph import DocumentPipelineGraph
 from src.workflow.pipeline_state import new_pipeline
 from src.workflow.state_machine import State

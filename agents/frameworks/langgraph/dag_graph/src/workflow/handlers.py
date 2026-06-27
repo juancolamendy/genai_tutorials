@@ -65,7 +65,11 @@ def handle_fetch(state: PipelineState) -> PipelineState:
     }
 
 
-@handler(state="validate", waits_for_input=False, description="Validate document schema and content")
+@handler(
+    state="validate",
+    waits_for_input=False,
+    description="Validate document schema and content",
+)
 def handle_validate(state: PipelineState) -> PipelineState:
     """Validate schema of raw_data and populate validated_data using VALIDATE_CHAIN.
 
@@ -85,9 +89,19 @@ def handle_validate(state: PipelineState) -> PipelineState:
         result = VALIDATE_CHAIN.invoke({"input": str(raw)})
 
         # Handle dict result from JsonOutputParser
-        is_valid = result.get("is_valid", False) if isinstance(result, dict) else result.is_valid
-        sanitized = result.get("sanitized_data", {}) if isinstance(result, dict) else result.sanitized_data
-        issues = result.get("issues", []) if isinstance(result, dict) else result.issues
+        is_valid = (
+            result.get("is_valid", False)
+            if isinstance(result, dict)
+            else result.is_valid
+        )
+        sanitized = (
+            result.get("sanitized_data", {})
+            if isinstance(result, dict)
+            else result.sanitized_data
+        )
+        issues = (
+            result.get("issues", []) if isinstance(result, dict) else result.issues
+        )
 
         if is_valid:
             validated = {**sanitized, "_validated": True}
@@ -248,9 +262,21 @@ def handle_human_review(state: PipelineState) -> PipelineState:
         result = REVIEW_CHAIN.invoke({"input": str(raw)})
 
         # Handle dict result from JsonOutputParser
-        approved = result.get("approved", False) if isinstance(result, dict) else result.approved
-        fixed_data = result.get("fixed_data", {}) if isinstance(result, dict) else result.fixed_data
-        reviewer_note = result.get("reviewer_note", "") if isinstance(result, dict) else result.reviewer_note
+        approved = (
+            result.get("approved", False)
+            if isinstance(result, dict)
+            else result.approved
+        )
+        fixed_data = (
+            result.get("fixed_data", {})
+            if isinstance(result, dict)
+            else result.fixed_data
+        )
+        reviewer_note = (
+            result.get("reviewer_note", "")
+            if isinstance(result, dict)
+            else result.reviewer_note
+        )
 
         if approved:
             approved_data = {

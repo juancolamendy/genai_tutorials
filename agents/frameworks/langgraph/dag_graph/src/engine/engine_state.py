@@ -6,6 +6,7 @@ inherit from this and add their own business payload fields.
 """
 
 from typing import Any, Dict, Optional
+
 from typing_extensions import TypedDict
 
 

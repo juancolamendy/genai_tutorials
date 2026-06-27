@@ -6,7 +6,7 @@ Defines states, allowed transitions, and state types for the workflow.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Set, Dict
+from typing import Dict, Set
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STATE ENUMERATION

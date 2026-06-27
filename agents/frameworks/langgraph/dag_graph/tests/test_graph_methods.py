@@ -1,10 +1,11 @@
 """Tests for graph methods: invoke_turn, process, _auto_progress_langgraph."""
 
-import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-from src.workflow.pipeline_state import new_pipeline
+import pytest
+
 from src.engine.input_validation import InputValidationError
+from src.workflow.pipeline_state import new_pipeline
 
 
 # Helper to create a mock graph
@@ -74,7 +75,7 @@ def test_auto_progress_stops_at_terminal_state():
 
 def test_auto_progress_stops_at_input_waiting_state():
     """Test that auto-progression stops at states waiting for input."""
-    from src.engine.handler_registry import handler, does_state_wait_for_input
+    from src.engine.handler_registry import does_state_wait_for_input, handler
 
     # Register a handler that waits for input
     @handler(state="human_review", waits_for_input=True)

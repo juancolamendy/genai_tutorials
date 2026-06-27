@@ -1,15 +1,11 @@
 """Tests for semantic router integration with graph routing."""
 
-import pytest
 
-from src.workflow.pipeline_state import new_pipeline
 from src.workflow.router import DocPipelineRouter, DocRouterOutput
 
 
 def test_router_decision_structure():
     """Test that router decision has all required fields."""
-    router = DocPipelineRouter()
-
     # Test the output schema
     output = DocRouterOutput(
         proposed_next="validate",

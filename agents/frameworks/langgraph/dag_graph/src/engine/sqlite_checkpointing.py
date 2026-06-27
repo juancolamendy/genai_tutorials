@@ -5,7 +5,6 @@ Implements BaseCheckpointSaver protocol for seamless integration with LangGraph.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import sqlite3
@@ -13,7 +12,12 @@ import uuid
 from datetime import datetime
 from typing import Any, AsyncIterator, Iterator, Optional, Sequence
 
-from langgraph.checkpoint.base import BaseCheckpointSaver, Checkpoint, CheckpointMetadata, CheckpointTuple
+from langgraph.checkpoint.base import (
+    BaseCheckpointSaver,
+    Checkpoint,
+    CheckpointMetadata,
+    CheckpointTuple,
+)
 from langgraph.types import RunnableConfig
 
 log = logging.getLogger(__name__)
@@ -194,7 +198,10 @@ class SqliteCheckpointer(BaseCheckpointSaver):
 
                 # Load checkpoint
                 cursor = conn.execute(
-                    "SELECT checkpoint_values FROM checkpoints WHERE thread_id = ? AND checkpoint_id = ?",
+                    (
+                        "SELECT checkpoint_values FROM checkpoints "
+                        "WHERE thread_id = ? AND checkpoint_id = ?"
+                    ),
                     (thread_id, checkpoint_id),
                 )
                 row = cursor.fetchone()
@@ -427,7 +434,10 @@ class SqliteCheckpointer(BaseCheckpointSaver):
             conn = self._get_conn()
             try:
                 cursor = conn.execute(
-                    "SELECT checkpoint_values FROM checkpoints WHERE thread_id = ? AND checkpoint_id = ?",
+                    (
+                        "SELECT checkpoint_values FROM checkpoints "
+                        "WHERE thread_id = ? AND checkpoint_id = ?"
+                    ),
                     (thread_id, checkpoint_id),
                 )
                 row = cursor.fetchone()

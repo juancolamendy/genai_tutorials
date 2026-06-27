@@ -4,9 +4,9 @@ import pytest
 from pydantic import BaseModel, Field
 
 from src.engine.router import (
-    RouterDecision,
     BaseSemanticRouter,
     DefaultSemanticRouter,
+    RouterDecision,
 )
 
 

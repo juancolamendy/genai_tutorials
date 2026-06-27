@@ -21,7 +21,6 @@ Run:
     python -m src.main
 """
 
-import json
 import random
 import sys
 from pathlib import Path
@@ -204,8 +203,7 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
     print("█ Handler metadata controls auto-progression and pause points")
     print(f"{'█' * 80}")
 
-    from src.engine.input_validation import validate_turn_input, escape_for_llm
-    from src.engine.handler_registry import does_state_wait_for_input
+    from src.engine.input_validation import escape_for_llm, validate_turn_input
     from src.workflow.pipeline_state import new_pipeline
 
     user_id = "user-multi-turn-001"
@@ -270,7 +268,9 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
         "turn_number": 2,
     })
 
-    print(f"  ├─ Semantic context: entities={state.get('semantic_context', {}).get('entities', {})}, intents={state.get('semantic_context', {}).get('intents', [])}")
+    entities = state.get("semantic_context", {}).get("entities", {})
+    intents = state.get("semantic_context", {}).get("intents", [])
+    print(f"  ├─ Semantic context: entities={entities}, intents={intents}")
     print(f"  ├─ State: {state['current_state']}")
     print(f"  ├─ Conversation history: {len(state['conversation_history'])} entries")
     print("  └─ Workflow progresses\n")
@@ -290,7 +290,7 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
 
     print(f"  ├─ Turn number: {resumed_state.get('turn_number', 0)}")
     print(f"  ├─ History length: {len(resumed_state.get('conversation_history', []))} turns")
-    print(f"  └─ Workflow finished\n")
+    print("  └─ Workflow finished\n")
 
     print(f"{SEP}\n")
     print("  Key Features Demonstrated:")
@@ -331,7 +331,7 @@ def main() -> None:
     print(f"\n{'▓' * 80}")
     print("▓ DEMO COMPLETE - All scenarios executed successfully")
     print(f"▓ Sessions: {session_1[:8]}… {session_2[:8]}… {session_3[:8]}…")
-    print(f"▓")
+    print("▓")
     print("▓ To use multi-turn with input validation and checkpointing:")
     print("▓   from src.engine.input_validation import validate_turn_input, escape_for_llm")
     print("▓   from src.workflow.pipeline_state import new_pipeline")

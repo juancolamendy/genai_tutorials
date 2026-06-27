@@ -2,8 +2,8 @@
 
 import pytest
 
-from src.engine.input_validation import validate_turn_input, escape_for_llm, InputValidationError
-from src.engine.handler_registry import does_state_wait_for_input, handler, clear_metadata
+from src.engine.handler_registry import clear_metadata, does_state_wait_for_input, handler
+from src.engine.input_validation import InputValidationError, escape_for_llm, validate_turn_input
 from src.workflow.pipeline_state import new_pipeline
 
 
