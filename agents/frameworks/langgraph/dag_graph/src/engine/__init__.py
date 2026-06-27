@@ -7,6 +7,7 @@ from .chain import (
     make_llm_chain,
     render_as_xml,
 )
+from .engine_state import EngineState
 from .sqlite_checkpointing import (
     SqliteCheckpointer,
     get_checkpointer,
@@ -32,6 +33,7 @@ from .session import (
 
 __all__ = [
     # Generic engine (reusable across projects)
+    "EngineState",
     "StateMachineGraph",
     "serialize_session_state",
     "deserialize_to_session_state",

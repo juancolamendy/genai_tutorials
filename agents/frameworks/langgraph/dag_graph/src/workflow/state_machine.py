@@ -6,7 +6,7 @@ Defines states, allowed transitions, and state types for the workflow.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Dict, Set
+from typing import Set, Dict
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STATE ENUMERATION
@@ -29,6 +29,18 @@ class State(str, Enum):
 # ─────────────────────────────────────────────────────────────────────────────
 # STATE TRANSITIONS
 # ─────────────────────────────────────────────────────────────────────────────
+
+HAPPY_PATH: dict[State, State] = {
+    State.INIT: State.FETCH,
+    State.FETCH: State.VALIDATE,
+    State.VALIDATE: State.ENRICH,
+    State.ENRICH: State.STORE,
+    State.STORE: State.COMPLETE,
+    State.RETRY: State.FETCH,
+    State.HUMAN_REVIEW: State.ENRICH,
+}
+
+TERMINAL_STATES = set({State.COMPLETE, State.ERROR})
 
 # Adjacency list: which states can follow each state
 ALLOWED_TRANSITIONS: Dict[State, Set[State]] = {
@@ -60,5 +72,7 @@ def is_transition_allowed(current: State, proposed: State) -> bool:
 __all__ = [
     "State",
     "ALLOWED_TRANSITIONS",
+    "HAPPY_PATH",
+    "TERMINAL_STATES",
     "is_transition_allowed",
 ]

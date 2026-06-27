@@ -1,5 +1,6 @@
-from typing import Any, Dict, Optional, TypedDict
+from typing import Any, Dict, Optional
 
+from src.engine.engine_state import EngineState
 from .state_machine import State
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -7,39 +8,31 @@ from .state_machine import State
 # ─────────────────────────────────────────────────────────────────────────────
 
 # structures
-class PipelineState(TypedDict):
-    """Central state dict for pipeline execution.
+class PipelineState(EngineState):
+    """Document processing pipeline state.
 
-    Fields organized into four categories:
-      • Control Plane: routing and error tracking
-      • Business Payload: document data
-      • Multi-turn: conversation history and session tracking
+    Inherits common control plane and multi-turn fields from EngineState.
+    Adds business-specific payload for document processing.
+
+    Business Payload Fields:
+      • document_id: Unique document identifier
+      • raw_data: Raw document content from fetch
+      • validated_data: Validated schema and content
+      • enriched_data: Enriched with metadata, tags, summary
     """
 
-    # ─ Control Plane ─────────────────────────────────────────────────────
-    current_state: str  # mirrors the active graph node
-    proposed_next: str  # router's suggestion
-    retry_count: int
-    error_message: Optional[str]
-    audit_trail: list[str]  # append-only log of every step
-    guardrail_ok: bool
-
-    # ─ Business Payload ──────────────────────────────────────────────────
+    # ─ Business Payload (document-specific) ───────────────────────────────
     document_id: str
-    raw_data: Optional[Dict[str, Any]]
-    validated_data: Optional[Dict[str, Any]]
-    enriched_data: Optional[Dict[str, Any]]
+    """Unique document identifier being processed."""
 
-    # ─ Multi-turn Support ────────────────────────────────────────────────
-    turn_input: Optional[str]  # Current turn's user input (escaped)
-    turn_number: int  # Turn counter (0, 1, 2, ...)
-    conversation_history: list[Dict[str, Any]]  # Turns: {role, content, semantic_context, state}
-    max_history_turns: int  # Max turns to keep (default 10)
-    router_timeout_sec: float  # Timeout for semantic router (default 10.0)
-    user_id: Optional[str]  # Caller identity (for audit)
-    session_id: Optional[str]  # Multi-turn session ID
-    semantic_context: Dict[str, Any]  # {entities, intents} from router
-    router_confidence: float  # [0.0, 1.0]
+    raw_data: Optional[Dict[str, Any]]
+    """Raw document content fetched from source. Set by fetch handler."""
+
+    validated_data: Optional[Dict[str, Any]]
+    """Validated document content. Set by validate handler."""
+
+    enriched_data: Optional[Dict[str, Any]]
+    """Enriched document with metadata. Set by enrich handler."""
 
 # functions
 # ── Constructor ───────────────────────────────────────────────────────────────
@@ -53,20 +46,17 @@ def new_pipeline(document_id: str, timeout_seconds: float = 300.0) -> PipelineSt
     Returns:
         Fresh PipelineState with all fields initialized
     """
+    import time
+
     return PipelineState(
-        # Control Plane
+        # Control Plane (EngineState)
         current_state=State.INIT.value,
         proposed_next=State.FETCH.value,
         retry_count=0,
         error_message=None,
         guardrail_ok=True,
         audit_trail=[f"init  doc_id={document_id}"],
-        # Business Payload
-        document_id=document_id,
-        raw_data=None,
-        validated_data=None,
-        enriched_data=None,
-        # Multi-turn Support
+        # Multi-turn Support (EngineState)
         turn_input=None,
         turn_number=0,
         conversation_history=[],
@@ -76,4 +66,12 @@ def new_pipeline(document_id: str, timeout_seconds: float = 300.0) -> PipelineSt
         session_id=None,
         semantic_context={},
         router_confidence=0.0,
+        # Checkpointing Support (EngineState)
+        started_at=time.time(),
+        timeout_seconds=timeout_seconds,
+        # Business Payload (PipelineState)
+        document_id=document_id,
+        raw_data=None,
+        validated_data=None,
+        enriched_data=None,
     )

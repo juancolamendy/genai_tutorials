@@ -28,23 +28,11 @@ from .handlers import (
     handle_validate,
 )
 from .pipeline_state import PipelineState
-from .state_machine import State
+from .state_machine import State, HAPPY_PATH, TERMINAL_STATES
 
 # ─────────────────────────────────────────────────────────────────────────────
 # DOMAIN-SPECIFIC CONFIGURATION
 # ─────────────────────────────────────────────────────────────────────────────
-
-HAPPY_PATH: dict[State, State] = {
-    State.INIT: State.FETCH,
-    State.FETCH: State.VALIDATE,
-    State.VALIDATE: State.ENRICH,
-    State.ENRICH: State.STORE,
-    State.STORE: State.COMPLETE,
-    State.RETRY: State.FETCH,
-    State.HUMAN_REVIEW: State.ENRICH,
-}
-
-TERMINAL_STATES = {State.COMPLETE, State.ERROR}
 
 HANDLER_MAP = {
     State.FETCH: handle_fetch,
