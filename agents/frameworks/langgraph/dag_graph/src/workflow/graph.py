@@ -107,19 +107,21 @@ class DocumentPipelineGraph(StateMachineGraph):
 def build_graph(
     sessions_dir: str = ".doc_sessions",
     semantic_router: Optional[Any] = None,
-) -> Any:
+) -> DocumentPipelineGraph:
     """Build and compile the state machine graph.
 
     Args:
-        checkpointer: Optional BaseCheckpointSaver for checkpointing
+        sessions_dir: Directory for checkpoint storage
         semantic_router: Optional semantic router for LLM-powered routing
                         (e.g., DocPipelineRouter instance)
 
     Returns:
-        Compiled StateGraph ready for invocation
+        DocumentPipelineGraph with compiled_graph set and ready for invoke_turn()
     """
     checkpointer = JsonCheckpointer(sessions_dir=sessions_dir)
     semantic_router = DocPipelineRouter()
     graph = DocumentPipelineGraph(semantic_router=semantic_router)
-    return graph.build_graph(PipelineState, checkpointer=checkpointer)
+    # Set the compiled graph on the wrapper
+    graph.compiled_graph = graph.build_graph(PipelineState, checkpointer=checkpointer)
+    return graph
 

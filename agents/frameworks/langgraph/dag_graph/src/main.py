@@ -212,9 +212,7 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
     print(f"{'█' * 80}")
 
     # Initialize graph with checkpointer
-    compiled_graph = build_graph(sessions_dir=sessions_dir)
-    graph = DocumentPipelineGraph()
-    graph.compiled_graph = compiled_graph
+    graph = build_graph(sessions_dir=sessions_dir)
 
     session_id = str(uuid4())
     user_id = "user-demo"
