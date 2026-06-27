@@ -473,8 +473,10 @@ class StateMachineGraph:
             thread_id = f"{user_id}:{session_id}"
             config = {"configurable": {"thread_id": thread_id}}
 
-            # Get or initialize state
-            state = self._get_or_init_state(session_id)
+            # Get or initialize state (use thread_id format for consistency)
+            thread_id = f"{user_id}:{session_id}"
+            state = self._get_or_init_state(session_id, user_id=user_id)
+            log.info(f"[invoke_turn] Loaded state with turn_number={state.get('turn_number', 0)}")
 
             # Prepare turn metadata
             state["turn_input"] = escaped
@@ -482,6 +484,7 @@ class StateMachineGraph:
             state["router_timeout_sec"] = timeout_sec
             state["user_id"] = user_id
             state["session_id"] = session_id
+            log.info(f"[invoke_turn] After increment, turn_number={state.get('turn_number', 0)}")
 
             # Initialize router if available and needed
             if hasattr(self, "_init_router"):
@@ -489,6 +492,7 @@ class StateMachineGraph:
 
             # First invoke: router → guardrail → handler
             state = self.compiled_graph.invoke(state, config=config)
+            log.info(f"[invoke_turn] After invoke, turn_number={state.get('turn_number', 0)}")
 
             # Auto-progress through non-blocking states
             state = self._auto_progress_langgraph(state, config)
@@ -535,30 +539,48 @@ class StateMachineGraph:
                 "router_confidence": 0.0,
             }
 
-    def _get_or_init_state(self, session_id: str) -> dict[str, Any]:
+    def _get_or_init_state(self, session_id: str, user_id: str = "") -> dict[str, Any]:
         """Get existing state or create fresh state for session.
 
         Tries to load from checkpointer first; if not found, creates fresh state.
 
         Args:
             session_id: Session identifier
+            user_id: User identifier (used for thread_id in checkpointing)
 
         Returns:
             PipelineState dict
         """
-        thread_id = f"invoke_turn:{session_id}"
+        # Format thread_id to match what's used in invoke()
+        thread_id = f"{user_id}:{session_id}" if user_id else session_id
 
         # Try to load from checkpointer (if available)
         try:
-            if hasattr(self, "checkpointer") and self.checkpointer:
-                checkpoint = self.checkpointer.get_tuple(thread_id)
-                if checkpoint and hasattr(checkpoint, "values"):
-                    log.info(f"[invoke_turn] Loaded state from checkpoint {thread_id}")
-                    return checkpoint.values
+            if hasattr(self.compiled_graph, "checkpointer") and self.compiled_graph.checkpointer:
+                log.info(f"[invoke_turn] Attempting to load checkpoint for thread_id={thread_id}")
+                config = {"configurable": {"thread_id": thread_id}}
+                checkpoint_tuple = self.compiled_graph.checkpointer.get_tuple(config)
+                log.info(f"[invoke_turn] Checkpoint result: {checkpoint_tuple is not None}")
+                if checkpoint_tuple:
+                    # CheckpointTuple is (config, checkpoint, metadata)
+                    checkpoint_data = checkpoint_tuple.checkpoint
+                    log.info(f"[invoke_turn] Checkpoint data type: {type(checkpoint_data)}")
+                    log.info(f"[invoke_turn] Checkpoint data keys: {checkpoint_data.keys() if isinstance(checkpoint_data, dict) else 'not a dict'}")
+                    if isinstance(checkpoint_data, dict):
+                        if "values" in checkpoint_data:
+                            log.info(f"[invoke_turn] Loaded state from checkpoint with turn_number={checkpoint_data['values'].get('turn_number', 0)}")
+                            return checkpoint_data["values"]
+                        elif "channel_values" in checkpoint_data:
+                            # LangGraph's full checkpoint format has channel_values instead of values
+                            log.info(f"[invoke_turn] Checkpoint has channel_values; extracting values")
+                            values = checkpoint_data.get("channel_values", {})
+                            if values:
+                                return values
         except Exception as e:
             log.debug(f"[invoke_turn] Checkpoint load failed ({e}); creating fresh state")
 
         # Create fresh state
+        log.info(f"[invoke_turn] Creating fresh state for session_id={session_id}")
         return self.new_pipeline(session_id)
 
     def new_pipeline(self, entity_id: str, timeout_seconds: float = 300.0) -> dict[str, Any]:
