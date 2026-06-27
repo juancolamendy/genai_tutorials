@@ -319,6 +319,7 @@ class StateMachineGraph:
         self,
         state: dict[str, Any],
         config: dict[str, Any],
+        max_auto_iters: int = 10,
     ) -> dict[str, Any]:
         """Auto-progress through non-blocking states.
 
@@ -334,7 +335,6 @@ class StateMachineGraph:
         """
         from engine.handler_registry import does_state_wait_for_input
 
-        max_auto_iters = 10
         iters = 0
 
         while iters < max_auto_iters:
