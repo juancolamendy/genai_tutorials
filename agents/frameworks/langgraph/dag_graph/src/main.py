@@ -31,6 +31,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.engine.json_checkpointer import JsonCheckpointer
 from src.workflow import run_pipeline
+from src.workflow.graph import DocumentPipelineGraph, build_graph
 
 SEP = "═" * 80
 
@@ -188,120 +189,96 @@ def scenario_checkpoint_resume(thread_id: str, sessions_dir: str = ".doc_session
 
 def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
     """
-    Scenario 5: Multi-Turn Conversation
-    Demonstrates invoke_turn() for interactive workflows with pause/resume.
+    Scenario 5: Multi-turn conversation with pause/resume at upload_documents
 
-    Example shows:
-    - Input validation and prompt injection prevention
-    - Conversation history tracking
-    - Pause/resume via handler waits_for_input flag
-    - Semantic context extraction
+    This scenario demonstrates the key multi-turn workflow feature:
+    - Automatic pause at blocking states (waits_for_input=True)
+    - Automatic checkpoint save/resume between turns
+    - Hidden from user API (same invoke_turn call for both turns)
+
+    Expected flow:
+    - Turn 1: INIT → FETCH → UPLOAD_DOCUMENTS (PAUSE and wait for documents)
+    - Turn 2: Resume from pause point → handler processes documents → continues to completion
     """
+    import json
+    from unittest.mock import patch
+
     print(f"\n\n{'█' * 80}")
-    print("█ SCENARIO 5: MULTI-TURN CONVERSATION")
-    print("█ Demonstrates invoke_turn() with pause/resume functionality")
-    print("█ Handler metadata controls auto-progression and pause points")
+    print("█ SCENARIO 5: MULTI-TURN CONVERSATION WITH PAUSE/RESUME")
+    print("█ Feature: Automatic checkpoint management at blocking states")
+    print("█ User Experience: Same invoke_turn() call for all turns")
+    print(f"█ Expected: INIT → FETCH → UPLOAD_DOCUMENTS (pause)")
+    print(f"█           UPLOAD_DOCUMENTS → VALIDATE → ENRICH → STORE → COMPLETE")
     print(f"{'█' * 80}")
 
-    from src.engine.input_validation import escape_for_llm, validate_turn_input
-    from src.workflow.pipeline_state import new_pipeline
+    # Initialize graph with checkpointer
+    compiled_graph = build_graph(sessions_dir=sessions_dir)
+    graph = DocumentPipelineGraph()
+    graph.compiled_graph = compiled_graph
 
-    user_id = "user-multi-turn-001"
     session_id = str(uuid4())
+    user_id = "user-demo"
 
-    print(f"\n{SEP}")
-    print("  MULTI-TURN WORKFLOW EXAMPLE")
-    print(SEP)
+    # ──────────────────────────────────────────────────────────────
+    # TURN 1: Start processing, pause at upload_documents
+    # ──────────────────────────────────────────────────────────────
+    print(f"\n  ┌─ TURN 1: Start document processing ────────────────────────┐")
 
-    # Turn 1: Start processing
-    print("\n  Turn 1: Start processing")
-    turn_1_input = "Please process this document"
-    print(f"  ├─ Input: '{turn_1_input}'")
+    # Mock random to ensure fetch succeeds (avoid 30% random failure)
+    with patch("workflow.handlers.random.random", return_value=0.9):
+        response_1 = graph.invoke_turn(
+            user_id=user_id,
+            session_id=session_id,
+            turn_input="Please process document",
+            timeout_sec=10.0,
+        )
 
-    try:
-        validate_turn_input(turn_1_input)
-        escaped_1 = escape_for_llm(turn_1_input)
-        print("  ├─ Validation: ✓ Valid input, safe from injection")
-    except Exception as e:
-        print(f"  ├─ Validation: ✗ Error: {e}")
-        return
+    print(f"  │ Turn Number     : {response_1.get('turn_number')}")
+    print(f"  │ Current State   : {response_1.get('current_state').upper()}")
+    print(f"  │ Waits for Input : {response_1.get('waits_for_input')}")
+    print(f"  │ Status          : {'✓ Paused at upload_documents' if response_1.get('waits_for_input') else '✗ Not paused'}")
+    print(f"  │ Note            : Checkpoint automatically saved for resumption")
+    print(f"  └──────────────────────────────────────────────────────────┘")
 
-    # Create initial state for this session
-    state = new_pipeline(session_id, timeout_seconds=300)
-    state["turn_input"] = escaped_1
-    state["turn_number"] = 1
-    state["user_id"] = user_id
-    state["session_id"] = session_id
+    # ──────────────────────────────────────────────────────────────
+    # TURN 2: Upload documents and continue to completion
+    # ──────────────────────────────────────────────────────────────
+    print(f"\n  ┌─ TURN 2: Upload supporting documents and continue ───────┐")
 
-    print(f"  ├─ State: {state['current_state']}")
-    print(f"  ├─ Conversation history: {len(state['conversation_history'])} entries")
-    print("  └─ Ready for next turn\n")
+    supporting_docs = [
+        {"name": "attachment1.pdf", "content": "Supporting document 1"},
+        {"name": "attachment2.pdf", "content": "Supporting document 2"},
+    ]
 
-    # Add turn 1 to history
-    state["conversation_history"].append({
-        "role": "user",
-        "content": escaped_1,
-        "turn_number": 1,
-    })
+    with patch("workflow.handlers.random.random", return_value=0.9):
+        response_2 = graph.invoke_turn(
+            user_id=user_id,
+            session_id=session_id,
+            turn_input=json.dumps(supporting_docs),
+            timeout_sec=10.0,
+        )
 
-    # Turn 2: Continue after user feedback
-    print("  Turn 2: Continue after user feedback")
-    turn_2_input = "Document looks good, proceed"
-    print(f"  ├─ Input: '{turn_2_input}'")
+    print(f"  │ Turn Number     : {response_2.get('turn_number')}")
+    print(f"  │ Current State   : {response_2.get('current_state').upper()}")
+    print(f"  │ Waits for Input : {response_2.get('waits_for_input')}")
+    print(f"  │ Status          : {'✓ Complete' if response_2.get('current_state') == 'complete' else '✗ In progress'}")
+    print(f"  │ Note            : Resumed from checkpoint, documents processed, flow continued")
+    print(f"  └──────────────────────────────────────────────────────────┘")
 
-    try:
-        validate_turn_input(turn_2_input)
-        escaped_2 = escape_for_llm(turn_2_input)
-        print("  ├─ Validation: ✓ Valid input")
-    except Exception as e:
-        print(f"  ├─ Validation: ✗ Error: {e}")
-        return
-
-    # Update for turn 2
-    state["turn_input"] = escaped_2
-    state["turn_number"] = 2
-
-    # Add turn 2 to history
-    state["conversation_history"].append({
-        "role": "assistant",
-        "content": "Processing...",
-        "turn_number": 2,
-    })
-
-    entities = state.get("semantic_context", {}).get("entities", {})
-    intents = state.get("semantic_context", {}).get("intents", [])
-    print(f"  ├─ Semantic context: entities={entities}, intents={intents}")
-    print(f"  ├─ State: {state['current_state']}")
-    print(f"  ├─ Conversation history: {len(state['conversation_history'])} entries")
-    print("  └─ Workflow progresses\n")
-
-    # Turn 3: Resume from checkpoint
-    print("  Turn 3: Resume from checkpoint")
-    checkpointer = JsonCheckpointer(sessions_dir=sessions_dir)
-    config = {"configurable": {"thread_id": f"{user_id}:{session_id}"}}
-    checkpoint_tuple = checkpointer.get_tuple(config)
-
-    if checkpoint_tuple:
-        resumed_state = checkpoint_tuple.checkpoint.get("values", {})
-        print(f"  ├─ Session loaded: {resumed_state.get('document_id', 'N/A')}")
+    # Print conversation history from Turn 2
+    print(f"\n  Conversation History (Turn 2 summary):")
+    history = response_2.get("conversation_history", [])
+    if history:
+        # Show last 2 entries (user input and assistant response from Turn 2)
+        for i, entry in enumerate(history[-2:], 1):
+            role = entry.get("role", "?").upper()
+            content = entry.get("content", "")[:60]
+            turn = entry.get("turn_number", "?")
+            print(f"    {i}. [Turn {turn} - {role}] {content}...")
     else:
-        print(f"  ├─ Session created: {session_id[:8]}…")
-        resumed_state = state
+        print(f"    (No conversation history)")
 
-    print(f"  ├─ Turn number: {resumed_state.get('turn_number', 0)}")
-    print(f"  ├─ History length: {len(resumed_state.get('conversation_history', []))} turns")
-    print("  └─ Workflow finished\n")
-
-    print(f"{SEP}\n")
-    print("  Key Features Demonstrated:")
-    print("  ├─ validate_turn_input() — length, token, control char validation")
-    print("  ├─ escape_for_llm() — injection pattern removal")
-    print("  ├─ new_pipeline() — state initialization")
-    print("  ├─ Conversation history accumulation")
-    print("  ├─ Semantic context tracking")
-    print("  ├─ JsonCheckpointer — session persistence")
-    print("  └─ Multi-turn state management\n")
-
+    print()
 
 def main() -> None:
     """Run all scenarios."""
