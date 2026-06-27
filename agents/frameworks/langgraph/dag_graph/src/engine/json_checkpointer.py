@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -65,13 +66,23 @@ class JsonCheckpointer(BaseCheckpointSaver):
             return None
 
     def _save_session_file(self, path: Path, data: dict[str, Any]) -> None:
-        """Save session to JSON file."""
+        """Save session to JSON file with atomic writes."""
         try:
             # Ensure directory exists
             path.parent.mkdir(parents=True, exist_ok=True)
 
-            with open(path, "w") as f:
-                json.dump(data, f, indent=2, default=str)
+            # Write to temporary file in same directory (ensures atomicity)
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                dir=path.parent,
+                delete=False,
+                suffix=".tmp",
+            ) as tmp:
+                json.dump(data, tmp, indent=2, default=str)
+                tmp_path = tmp.name
+
+            # Atomic rename (works across platforms)
+            Path(tmp_path).replace(path)
         except OSError as e:
             log.error(f"Error saving session to {path}: {e}")
             raise
@@ -81,6 +92,7 @@ class JsonCheckpointer(BaseCheckpointSaver):
         config: RunnableConfig,
         checkpoint: Checkpoint,
         metadata: CheckpointMetadata,
+        new_versions: Any,
     ) -> RunnableConfig:
         """Save a checkpoint.
 
@@ -88,6 +100,7 @@ class JsonCheckpointer(BaseCheckpointSaver):
             config: Config with thread_id
             checkpoint: Checkpoint data to save
             metadata: Checkpoint metadata
+            new_versions: Channel version info (unused for JSON storage)
 
         Returns:
             Config with checkpoint_id set
@@ -109,18 +122,40 @@ class JsonCheckpointer(BaseCheckpointSaver):
             "created_at": datetime.now().isoformat(),
         }
 
-        # Generate checkpoint_id
-        checkpoint_id = metadata.get("checkpoint_id") or str(datetime.now().timestamp())
+        # Handle metadata safely (could be dict or other type)
+        if isinstance(metadata, dict):
+            checkpoint_id = metadata.get("checkpoint_id", str(datetime.now().timestamp()))
+            metadata_to_store = metadata
+        else:
+            checkpoint_id = str(datetime.now().timestamp())
+            metadata_to_store = {"id": str(metadata)} if metadata else {}
 
-        # Store checkpoint
-        session_data["checkpoints"][checkpoint_id] = {
-            "values": checkpoint.get("values", {}),
-            "metadata": metadata,
-            "ts_created": datetime.now().isoformat(),
-        }
+        # Store checkpoint only if it has the complete structure (has "v" field)
+        # Intermediate checkpoints with just "values" are not saved
+        log.debug(f"[JsonCheckpointer.put] Checkpoint keys: {checkpoint.keys() if isinstance(checkpoint, dict) else 'not a dict'}")
+
+        if isinstance(checkpoint, dict) and "v" in checkpoint:
+            # Complete checkpoint - store as-is
+            session_data["checkpoints"][checkpoint_id] = {
+                "checkpoint": checkpoint,
+                "metadata": metadata_to_store,
+                "ts_created": datetime.now().isoformat(),
+            }
+            log.debug(f"[JsonCheckpointer.put] Stored complete checkpoint {checkpoint_id}")
+        elif isinstance(checkpoint, dict) and "values" in checkpoint:
+            # Intermediate checkpoint - skip storing
+            log.debug(f"[JsonCheckpointer.put] Skipping intermediate checkpoint {checkpoint_id}")
+            pass
+        else:
+            # Fallback: store as-is
+            session_data["checkpoints"][checkpoint_id] = {
+                "checkpoint": checkpoint,
+                "metadata": metadata_to_store,
+                "ts_created": datetime.now().isoformat(),
+            }
 
         # Update metadata
-        session_data["metadata"] = metadata
+        session_data["metadata"] = metadata_to_store
         session_data["updated_at"] = datetime.now().isoformat()
         session_data["latest_checkpoint_id"] = checkpoint_id
 
@@ -170,6 +205,10 @@ class JsonCheckpointer(BaseCheckpointSaver):
 
         cp_data = session_data["checkpoints"][checkpoint_id]
 
+        # Return stored checkpoint as-is (includes "v", values, channels, etc.)
+        stored_checkpoint = cp_data.get("checkpoint", {})
+        log.debug(f"[JsonCheckpointer.get_tuple] Loaded checkpoint keys: {stored_checkpoint.keys() if isinstance(stored_checkpoint, dict) else 'not a dict'}")
+
         return CheckpointTuple(
             config={
                 "configurable": {
@@ -177,7 +216,7 @@ class JsonCheckpointer(BaseCheckpointSaver):
                     "checkpoint_id": checkpoint_id,
                 }
             },
-            checkpoint=Checkpoint(values=cp_data.get("values", {})),
+            checkpoint=stored_checkpoint,
             metadata=cp_data.get("metadata", {}),
         )
 
@@ -217,6 +256,7 @@ class JsonCheckpointer(BaseCheckpointSaver):
 
         result = []
         for checkpoint_id, cp_data in session_data["checkpoints"].items():
+            stored_checkpoint = cp_data.get("checkpoint", {})
             result.append(
                 CheckpointTuple(
                     config={
@@ -225,7 +265,7 @@ class JsonCheckpointer(BaseCheckpointSaver):
                             "checkpoint_id": checkpoint_id,
                         }
                     },
-                    checkpoint=Checkpoint(values=cp_data.get("values", {})),
+                    checkpoint=stored_checkpoint,
                     metadata=cp_data.get("metadata", {}),
                 )
             )
@@ -270,6 +310,7 @@ class JsonCheckpointer(BaseCheckpointSaver):
             config,
             Checkpoint(values=checkpoint_values),
             metadata,
+            None,
         )
 
     async def alist(self, config: RunnableConfig):

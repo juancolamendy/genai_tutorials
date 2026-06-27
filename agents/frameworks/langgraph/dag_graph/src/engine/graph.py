@@ -286,12 +286,30 @@ class StateMachineGraph:
             {state.value: state.value for state in self.HANDLER_MAP.keys()},
         )
 
-        # Edges: handlers → router (loop for non-terminal) or END (for terminal)
+        # Edges: handlers → router (loop for non-terminal) or END (for terminal or blocking)
+        def _should_continue(state: dict[str, Any]) -> str:
+            """Route handler output: stop if blocking, loop if non-blocking."""
+            from engine.handler_registry import does_state_wait_for_input
+
+            current = state.get("current_state", "init")
+
+            # Terminal states always end
+            if current in [s.value for s in self._TERMINAL_STATES]:
+                return END
+
+            # Blocking states end (waits for input)
+            if does_state_wait_for_input(current):
+                return END
+
+            # Non-blocking states continue to router
+            return "router"
+
         for state_enum in self.HANDLER_MAP.keys():
-            if state_enum in self._TERMINAL_STATES:
-                g.add_edge(state_enum.value, END)
-            else:
-                g.add_edge(state_enum.value, "router")
+            g.add_conditional_edges(
+                state_enum.value,
+                _should_continue,
+                {END: END, "router": "router"},
+            )
 
         # Compile with optional checkpointer
         return g.compile(checkpointer=checkpointer) if checkpointer else g.compile()

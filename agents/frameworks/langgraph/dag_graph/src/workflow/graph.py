@@ -87,6 +87,22 @@ class DocumentPipelineGraph(StateMachineGraph):
         """
         self.semantic_router = router
 
+    def new_pipeline(
+        self, entity_id: str, timeout_seconds: float = 300.0
+    ) -> PipelineState:
+        """Create a fresh pipeline state for document processing.
+
+        Args:
+            entity_id: Document identifier
+            timeout_seconds: Max execution time (default 300s = 5 min)
+
+        Returns:
+            Fresh PipelineState with all fields initialized
+        """
+        from .pipeline_state import new_pipeline as create_pipeline
+
+        return create_pipeline(entity_id, timeout_seconds)
+
 
 def build_graph(
     sessions_dir: str = ".doc_sessions",
