@@ -476,15 +476,14 @@ class StateMachineGraph:
             # Get or initialize state (use thread_id format for consistency)
             thread_id = f"{user_id}:{session_id}"
             state = self._get_or_init_state(session_id, user_id=user_id)
-            log.info(f"[invoke_turn] Loaded state with turn_number={state.get('turn_number', 0)}")
 
             # Prepare turn metadata
             state["turn_input"] = escaped
-            state["turn_number"] = state.get("turn_number", 0) + 1
+            current_turn_number = state.get("turn_number", 0) + 1
+            state["turn_number"] = current_turn_number
             state["router_timeout_sec"] = timeout_sec
             state["user_id"] = user_id
             state["session_id"] = session_id
-            log.info(f"[invoke_turn] After increment, turn_number={state.get('turn_number', 0)}")
 
             # Initialize router if available and needed
             if hasattr(self, "_init_router"):
@@ -492,10 +491,15 @@ class StateMachineGraph:
 
             # First invoke: router → guardrail → handler
             state = self.compiled_graph.invoke(state, config=config)
-            log.info(f"[invoke_turn] After invoke, turn_number={state.get('turn_number', 0)}")
+
+            # CRITICAL: Restore turn_number after invoke (LangGraph may reset it from checkpoint)
+            state["turn_number"] = current_turn_number
 
             # Auto-progress through non-blocking states
             state = self._auto_progress_langgraph(state, config)
+
+            # CRITICAL: Restore turn_number again after auto-progress (additional invoke calls may reset it)
+            state["turn_number"] = current_turn_number
 
             # Trim history
             max_turns = state.get("max_history_turns", 10)
@@ -504,6 +508,13 @@ class StateMachineGraph:
                 dropped = len(history) - max_turns
                 state["conversation_history"] = history[-max_turns:]
                 log.info(f"[invoke_turn] Trimmed {dropped} old turns; keeping {max_turns}")
+
+            # Append user input to history
+            state["conversation_history"].append({
+                "role": "user",
+                "content": escaped,
+                "turn_number": state["turn_number"],
+            })
 
             # Append turn result to history
             state["conversation_history"].append({
@@ -516,6 +527,16 @@ class StateMachineGraph:
                 "state": state["current_state"],
                 "turn_number": state["turn_number"],
             })
+
+            # AUTO-SAVE PAUSE POINT (hidden from user)
+            from engine.handler_registry import does_state_wait_for_input
+
+            if does_state_wait_for_input(state.get("current_state")):
+                # Mark this checkpoint as a pause point for automatic resumption
+                checkpoint_id = config["configurable"].get("checkpoint_id")
+                if checkpoint_id and hasattr(self.compiled_graph, "checkpointer"):
+                    self.compiled_graph.checkpointer.save_pause_point(config, checkpoint_id)
+                    log.info(f"[invoke_turn] Auto-saved pause point at {state['current_state']}")
 
             return self._build_turn_response(state)
 
@@ -542,7 +563,7 @@ class StateMachineGraph:
     def _get_or_init_state(self, session_id: str, user_id: str = "") -> dict[str, Any]:
         """Get existing state or create fresh state for session.
 
-        Tries to load from checkpointer first; if not found, creates fresh state.
+        Auto-loads from pause point if available, otherwise tries latest checkpoint.
 
         Args:
             session_id: Session identifier
@@ -551,34 +572,57 @@ class StateMachineGraph:
         Returns:
             PipelineState dict
         """
-        # Format thread_id to match what's used in invoke()
         thread_id = f"{user_id}:{session_id}" if user_id else session_id
 
-        # Try to load from checkpointer (if available)
+        # Try to load from pause point first (hidden auto-resumption)
         try:
             if hasattr(self.compiled_graph, "checkpointer") and self.compiled_graph.checkpointer:
-                log.info(f"[invoke_turn] Attempting to load checkpoint for thread_id={thread_id}")
                 config = {"configurable": {"thread_id": thread_id}}
+
+                # Check for pause point first
+                pause_checkpoint_id = self.compiled_graph.checkpointer.get_pause_point(config)
+                if pause_checkpoint_id:
+                    log.info(f"[invoke_turn] Found pause point {pause_checkpoint_id}; resuming from there")
+                    config["configurable"]["checkpoint_id"] = pause_checkpoint_id
+                    checkpoint_tuple = self.compiled_graph.checkpointer.get_tuple(config)
+                    if checkpoint_tuple and self._extract_state_from_checkpoint(checkpoint_tuple) is not None:
+                        return self._extract_state_from_checkpoint(checkpoint_tuple)
+
+                # Fallback to latest checkpoint if no pause point
                 checkpoint_tuple = self.compiled_graph.checkpointer.get_tuple(config)
-                log.info(f"[invoke_turn] Checkpoint result: {checkpoint_tuple is not None}")
                 if checkpoint_tuple:
-                    # CheckpointTuple checkpoint has LangGraph's full structure
-                    checkpoint_data = checkpoint_tuple.checkpoint
-                    if isinstance(checkpoint_data, dict) and "channel_values" in checkpoint_data:
-                        # Extract state from channel_values (LangGraph's checkpoint format)
-                        state_values = checkpoint_data.get("channel_values", {})
-                        log.info(f"[invoke_turn] Loaded state from checkpoint with turn_number={state_values.get('turn_number', 0)}")
-                        return state_values
-                    elif isinstance(checkpoint_data, dict) and "values" in checkpoint_data:
-                        # Fallback for alternate checkpoint format
-                        log.info(f"[invoke_turn] Loaded state from checkpoint (values format)")
-                        return checkpoint_data["values"]
+                    state = self._extract_state_from_checkpoint(checkpoint_tuple)
+                    if state is not None:
+                        log.info(f"[invoke_turn] Loaded state from latest checkpoint with turn_number={state.get('turn_number', 0)}")
+                        return state
         except Exception as e:
             log.debug(f"[invoke_turn] Checkpoint load failed ({e}); creating fresh state")
 
-        # Create fresh state
+        # Create fresh state if no checkpoint found
         log.info(f"[invoke_turn] Creating fresh state for session_id={session_id}")
         return self.new_pipeline(session_id)
+
+    def _extract_state_from_checkpoint(self, checkpoint_tuple: Any) -> Optional[dict[str, Any]]:
+        """Extract state dict from a CheckpointTuple.
+
+        Args:
+            checkpoint_tuple: CheckpointTuple from checkpointer.get_tuple()
+
+        Returns:
+            State dict, or None if extraction fails
+        """
+        try:
+            checkpoint_data = checkpoint_tuple.checkpoint
+            if isinstance(checkpoint_data, dict) and "channel_values" in checkpoint_data:
+                # LangGraph's full checkpoint format has channel_values
+                return checkpoint_data.get("channel_values", {})
+            elif isinstance(checkpoint_data, dict) and "values" in checkpoint_data:
+                # Fallback for alternate checkpoint format
+                return checkpoint_data["values"]
+        except Exception as e:
+            log.debug(f"[invoke_turn] State extraction failed: {e}")
+
+        return None
 
     def new_pipeline(self, entity_id: str, timeout_seconds: float = 300.0) -> dict[str, Any]:
         """Create fresh pipeline state. Override in subclass if needed."""
@@ -629,4 +673,5 @@ class StateMachineGraph:
             "semantic_context": state.get("semantic_context", {}),
             "router_confidence": state.get("router_confidence", 0.0),
             "error": state.get("error_message"),
+            "conversation_history": state.get("conversation_history", []),
         }

@@ -47,6 +47,57 @@ class JsonCheckpointer(BaseCheckpointSaver):
         self.sessions_dir.mkdir(parents=True, exist_ok=True)
         log.info(f"[JsonCheckpointer] Initialized with sessions_dir={self.sessions_dir}")
 
+    def save_pause_point(self, config: RunnableConfig, checkpoint_id: str) -> None:
+        """Mark a checkpoint as a pause point for resumption.
+
+        Args:
+            config: Config with thread_id in configurable
+            checkpoint_id: The checkpoint_id to mark as pause point
+        """
+        if not config or "configurable" not in config:
+            return
+
+        thread_id = config["configurable"].get("thread_id")
+        if not thread_id:
+            return
+
+        path = self._get_session_path(thread_id)
+        session_data = self._load_session_file(path)
+
+        if not session_data:
+            return
+
+        # Store pause point at session level
+        session_data["pause_checkpoint_id"] = checkpoint_id
+        session_data["pause_timestamp"] = datetime.now().isoformat()
+
+        self._save_session_file(path, session_data)
+        log.info(f"[JsonCheckpointer] Saved pause point {checkpoint_id} for thread {thread_id}")
+
+    def get_pause_point(self, config: RunnableConfig) -> Optional[str]:
+        """Get the pause point checkpoint_id for resumption.
+
+        Args:
+            config: Config with thread_id in configurable
+
+        Returns:
+            checkpoint_id of the pause point, or None if not found
+        """
+        if not config or "configurable" not in config:
+            return None
+
+        thread_id = config["configurable"].get("thread_id")
+        if not thread_id:
+            return None
+
+        path = self._get_session_path(thread_id)
+        session_data = self._load_session_file(path)
+
+        if session_data:
+            return session_data.get("pause_checkpoint_id")
+
+        return None
+
     def _get_session_path(self, thread_id: str) -> Path:
         """Get file path for a given thread_id."""
         # Sanitize thread_id for filesystem
