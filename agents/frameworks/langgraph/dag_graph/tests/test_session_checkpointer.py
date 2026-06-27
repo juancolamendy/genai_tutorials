@@ -41,7 +41,7 @@ def test_session_checkpointer_put_and_get():
         }
 
         # Save checkpoint
-        result = checkpointer.put(config, checkpoint, metadata)
+        result = checkpointer.put(config, checkpoint, metadata, None)
         assert result["configurable"]["thread_id"] == "user-123:session-456"
 
         # Retrieve checkpoint
@@ -60,7 +60,7 @@ def test_session_checkpointer_get_tuple():
         checkpoint = {"values": {"data": "test_value"}}
         metadata = {"checkpoint_id": "cp-001"}
 
-        checkpointer.put(config, checkpoint, metadata)
+        checkpointer.put(config, checkpoint, metadata, None)
 
         # Get tuple
         tuple_result = checkpointer.get_tuple(config)
@@ -80,7 +80,7 @@ def test_session_checkpointer_list():
         for i in range(3):
             checkpoint = {"values": {"iteration": i}}
             metadata = {"checkpoint_id": f"cp-{i:03d}"}
-            checkpointer.put(config, checkpoint, metadata)
+            checkpointer.put(config, checkpoint, metadata, None)
 
         # List all
         checkpoints = checkpointer.list(config)
@@ -97,7 +97,7 @@ def test_session_checkpointer_delete_thread():
         metadata = {"checkpoint_id": "cp-001"}
 
         # Save
-        checkpointer.put(config, checkpoint, metadata)
+        checkpointer.put(config, checkpoint, metadata, None)
         assert checkpointer.get(config) is not None
 
         # Delete
@@ -115,7 +115,7 @@ def test_session_checkpointer_thread_id_sanitization():
         checkpoint = {"values": {"test": "value"}}
         metadata = {"checkpoint_id": "cp-001"}
 
-        checkpointer.put(config, checkpoint, metadata)
+        checkpointer.put(config, checkpoint, metadata, None)
 
         # Should be able to retrieve
         retrieved = checkpointer.get(config)
@@ -137,7 +137,7 @@ def test_session_checkpointer_export_import():
         checkpoint = {"values": {"important": "data"}}
         metadata = {"checkpoint_id": "cp-001"}
 
-        checkpointer.put(config, checkpoint, metadata)
+        checkpointer.put(config, checkpoint, metadata, None)
 
         # Export
         exported = checkpointer.export_session("test-thread-4")
@@ -163,7 +163,7 @@ def test_session_checkpointer_get_sessions():
             config = {"configurable": {"thread_id": f"thread-{i}"}}
             checkpoint = {"values": {"index": i}}
             metadata = {"checkpoint_id": "cp-001"}
-            checkpointer.put(config, checkpoint, metadata)
+            checkpointer.put(config, checkpoint, metadata, None)
 
         # Get all sessions
         sessions = checkpointer.get_sessions()
@@ -180,7 +180,7 @@ def test_session_checkpointer_persistence():
         config = {"configurable": {"thread_id": "persist-test"}}
         checkpoint = {"values": {"persisted": True}}
         metadata = {"checkpoint_id": "cp-001"}
-        checkpointer1.put(config, checkpoint, metadata)
+        checkpointer1.put(config, checkpoint, metadata, None)
 
         # Second instance
         checkpointer2 = JsonCheckpointer(sessions_dir=tmpdir)
@@ -200,7 +200,7 @@ def test_session_checkpointer_json_format():
         checkpoint = {"values": {"key": "value"}}
         metadata = {"checkpoint_id": "cp-001"}
 
-        checkpointer.put(config, checkpoint, metadata)
+        checkpointer.put(config, checkpoint, metadata, None)
 
         # Find the JSON file (thread_id gets sanitized)
         files = list(Path(tmpdir).glob("*.json"))
@@ -213,4 +213,5 @@ def test_session_checkpointer_json_format():
         assert "thread_id" in data
         assert "checkpoints" in data
         assert "cp-001" in data["checkpoints"]
-        assert data["checkpoints"]["cp-001"]["values"]["key"] == "value"
+        # Checkpoints are stored with full structure: {"checkpoint": {...}, "metadata": {...}, "ts_created": ...}
+        assert data["checkpoints"]["cp-001"]["checkpoint"]["values"]["key"] == "value"

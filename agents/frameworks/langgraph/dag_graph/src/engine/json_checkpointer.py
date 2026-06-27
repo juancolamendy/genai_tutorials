@@ -77,6 +77,9 @@ class JsonCheckpointer(BaseCheckpointSaver):
     def get_pause_point(self, config: RunnableConfig) -> Optional[str]:
         """Get the pause point checkpoint_id for resumption.
 
+        Returns the pause point if explicitly marked, or the latest COMPLETE checkpoint
+        (one with 'v' field for LangGraph compatibility).
+
         Args:
             config: Config with thread_id in configurable
 
@@ -93,8 +96,24 @@ class JsonCheckpointer(BaseCheckpointSaver):
         path = self._get_session_path(thread_id)
         session_data = self._load_session_file(path)
 
-        if session_data:
-            return session_data.get("pause_checkpoint_id")
+        if not session_data:
+            return None
+
+        # Check for explicitly marked pause point first
+        pause_id = session_data.get("pause_checkpoint_id")
+        if pause_id:
+            return pause_id
+
+        # Fallback: find latest complete checkpoint (has "v" field for LangGraph)
+        checkpoints = session_data.get("checkpoints", {})
+        complete_checkpoints = [
+            (cid, data) for cid, data in checkpoints.items()
+            if isinstance(data.get("checkpoint"), dict) and "v" in data["checkpoint"]
+        ]
+
+        if complete_checkpoints:
+            # Return the latest (by checkpoint_id which is timestamp-based)
+            return sorted(complete_checkpoints, key=lambda x: x[0])[-1][0]
 
         return None
 
@@ -181,29 +200,12 @@ class JsonCheckpointer(BaseCheckpointSaver):
             checkpoint_id = str(datetime.now().timestamp())
             metadata_to_store = {"id": str(metadata)} if metadata else {}
 
-        # Store checkpoint only if it has the complete structure (has "v" field)
-        # Intermediate checkpoints with just "values" are not saved
-        log.debug(f"[JsonCheckpointer.put] Checkpoint keys: {checkpoint.keys() if isinstance(checkpoint, dict) else 'not a dict'}")
-
-        if isinstance(checkpoint, dict) and "v" in checkpoint:
-            # Complete checkpoint - store as-is
-            session_data["checkpoints"][checkpoint_id] = {
-                "checkpoint": checkpoint,
-                "metadata": metadata_to_store,
-                "ts_created": datetime.now().isoformat(),
-            }
-            log.debug(f"[JsonCheckpointer.put] Stored complete checkpoint {checkpoint_id}")
-        elif isinstance(checkpoint, dict) and "values" in checkpoint:
-            # Intermediate checkpoint - skip storing
-            log.debug(f"[JsonCheckpointer.put] Skipping intermediate checkpoint {checkpoint_id}")
-            pass
-        else:
-            # Fallback: store as-is
-            session_data["checkpoints"][checkpoint_id] = {
-                "checkpoint": checkpoint,
-                "metadata": metadata_to_store,
-                "ts_created": datetime.now().isoformat(),
-            }
+        # Store all checkpoints (both complete and intermediate)
+        session_data["checkpoints"][checkpoint_id] = {
+            "checkpoint": checkpoint,
+            "metadata": metadata_to_store,
+            "ts_created": datetime.now().isoformat(),
+        }
 
         # Update metadata
         session_data["metadata"] = metadata_to_store
