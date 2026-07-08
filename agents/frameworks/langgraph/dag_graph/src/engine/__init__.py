@@ -7,10 +7,10 @@ from .chain import (
     make_llm_chain,
     render_as_xml,
 )
-from .engine_state import EngineState
-from .graph import (
+from .engine_session_state import EngineSessionState
+from .engine_graph import (
     END,  # re-export for convenience
-    StateMachineGraph,
+    EngineGraph,
     deserialize_to_session_state,
     safe_node,
     serialize_session_state,
@@ -33,8 +33,8 @@ from .sqlite_checkpointing import (
 
 __all__ = [
     # Generic engine (reusable across projects)
-    "EngineState",
-    "StateMachineGraph",
+    "EngineSessionState",
+    "EngineGraph",
     "serialize_session_state",
     "deserialize_to_session_state",
     "safe_node",

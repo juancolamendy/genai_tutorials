@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from engine.router import DefaultSemanticRouter
+from src.engine.router import DefaultSemanticRouter
 
 
 class DocRouterOutput(BaseModel):

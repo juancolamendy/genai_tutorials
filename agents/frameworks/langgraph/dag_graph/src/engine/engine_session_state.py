@@ -1,16 +1,14 @@
 """Generic state machine state definition for LangGraph.
 
-EngineState defines the common control plane and multi-turn support fields
+EngineSessionState defines the common control plane and multi-turn support fields
 used by all state machine workflows. Domain-specific states (e.g., PipelineState)
 inherit from this and add their own business payload fields.
 """
 
-from typing import Any, Dict, Optional
-
-from typing_extensions import TypedDict
+from typing import Any, Dict, Optional, TypedDict
 
 
-class EngineState(TypedDict, total=False):
+class EngineSessionState(TypedDict, total=False):
     """Generic state machine state with control plane and multi-turn support.
 
     This TypedDict provides the foundation for all state machine workflows.

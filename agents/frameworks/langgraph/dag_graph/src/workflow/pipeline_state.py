@@ -1,6 +1,6 @@
 from typing import Any, Dict, Optional
 
-from src.engine.engine_state import EngineState
+from src.engine.engine_session_state import EngineSessionState
 
 from .state_machine import State
 
@@ -9,10 +9,10 @@ from .state_machine import State
 # ─────────────────────────────────────────────────────────────────────────────
 
 # structures
-class PipelineState(EngineState):
+class PipelineState(EngineSessionState):
     """Document processing pipeline state.
 
-    Inherits common control plane and multi-turn fields from EngineState.
+    Inherits common control plane and multi-turn fields from EngineSessionState.
     Adds business-specific payload for document processing.
 
     Business Payload Fields:
@@ -53,14 +53,14 @@ def new_pipeline(document_id: str, timeout_seconds: float = 300.0) -> PipelineSt
     import time
 
     return PipelineState(
-        # Control Plane (EngineState)
+        # Control Plane (EngineSessionState)
         current_state=State.INIT.value,
         proposed_next=State.FETCH.value,
         retry_count=0,
         error_message=None,
         guardrail_ok=True,
         audit_trail=[f"init  doc_id={document_id}"],
-        # Multi-turn Support (EngineState)
+        # Multi-turn Support (EngineSessionState)
         turn_input=None,
         turn_number=0,
         conversation_history=[],
@@ -70,7 +70,7 @@ def new_pipeline(document_id: str, timeout_seconds: float = 300.0) -> PipelineSt
         session_id=None,
         semantic_context={},
         router_confidence=0.0,
-        # Checkpointing Support (EngineState)
+        # Checkpointing Support (EngineSessionState)
         started_at=time.time(),
         timeout_seconds=timeout_seconds,
         # Business Payload (PipelineState)

@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import random
 
-from engine.handler_registry import handler
+from src.engine.handler_registry import handler
 
 from .pipeline_state import PipelineState
 from .state_machine import State

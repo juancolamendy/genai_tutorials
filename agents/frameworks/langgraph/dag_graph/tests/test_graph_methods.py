@@ -10,7 +10,7 @@ from src.workflow.pipeline_state import new_pipeline
 
 # Helper to create a mock graph
 def create_mock_graph():
-    """Create a mock StateMachineGraph for testing."""
+    """Create a mock EngineGraph for testing."""
     mock_graph = MagicMock()
     mock_graph.TERMINAL_STATES = {"complete", "error"}
     mock_graph.compiled_graph = MagicMock()

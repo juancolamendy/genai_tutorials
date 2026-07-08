@@ -1,7 +1,7 @@
 """Generic state machine graph base class for LangGraph.
 
 Provides:
-  • StateMachineGraph — base class for state machine workflows
+  • EngineGraph — base class for state machine workflows
   • State serialization/deserialization helpers
   • Router, guardrail, and handler dispatch patterns
 """
@@ -10,17 +10,11 @@ from __future__ import annotations
 
 import logging
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
+from typing import Any, Callable, Optional
 
 from langgraph.graph import END, StateGraph
 
-if TYPE_CHECKING:
-    pass
-
 log = logging.getLogger(__name__)
-
-StateT = TypeVar("StateT", bound=dict[str, Any])
-StateEnum = TypeVar("StateEnum")
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -84,17 +78,16 @@ def deserialize_to_session_state(
             session_state[k] = state_dict[k]
 
 
-class StateMachineGraph:
+class EngineGraph:
     """Generic state machine graph base class for LangGraph.
 
     Implements the production pattern:
       Router → Guardrail → Handler → (loop or end)
 
     Subclasses must override:
-      • _STATE_KEYS tuple (keys to persist from state dict)
-      • _STATE_ENUM (enum type for state values)
-      • _TERMINAL_STATES (set of terminal state enum values)
-      • HANDLER_MAP (dict[StateEnum, Callable])
+      • state_enum (enum type for state values)
+      • terminal_states (set of terminal state enum values)
+      • handler_map (dict[StateEnum, Callable])
       • _build_routing_table() → dict[StateEnum, StateEnum]
       • _get_current_state(state) → StateEnum
       • _get_proposed_state(state) → StateEnum
@@ -105,10 +98,9 @@ class StateMachineGraph:
     """
 
     # Subclasses must override these
-    _STATE_KEYS: tuple[str, ...] = ()
-    _STATE_ENUM: type = None
-    _TERMINAL_STATES: set = set()
-    HANDLER_MAP: dict[Any, Callable] = {}
+    state_enum: type = None
+    terminal_states: set = set()
+    handler_map: dict[Any, Callable] = {}
     semantic_router: Optional[Any] = None
 
     def _build_routing_table(self) -> dict[Any, Any]:
@@ -251,7 +243,7 @@ class StateMachineGraph:
                 "audit_trail": state.get("audit_trail", []) + [f"guardrail PASS → {proposed}"],
             }
 
-        fallback_val = (result.fallback or self._STATE_ENUM.ERROR).value
+        fallback_val = (result.fallback or self.state_enum.ERROR).value
         log.warning(
             "[GUARDRAIL] ❌  %s failed (%s) → fallback: %s",
             proposed,
@@ -300,8 +292,8 @@ class StateMachineGraph:
         g.add_node("guardrail", safe_node(self._guardrail_node))
 
         # Add handler nodes with error handling
-        for state_enum, handler_fn in self.HANDLER_MAP.items():
-            g.add_node(state_enum.value, safe_node(handler_fn))
+        for state_val, handler_fn in self.handler_map.items():
+            g.add_node(state_val.value, safe_node(handler_fn))
 
         # Entry point
         g.set_entry_point("router")
@@ -313,18 +305,18 @@ class StateMachineGraph:
         g.add_conditional_edges(
             "guardrail",
             self._guardrail_router,
-            {state.value: state.value for state in self.HANDLER_MAP.keys()},
+            {state.value: state.value for state in self.handler_map.keys()},
         )
 
         # Edges: handlers → router (loop for non-terminal) or END (for terminal or blocking)
         def _should_continue(state: dict[str, Any]) -> str:
             """Route handler output: stop if blocking, loop if non-blocking."""
-            from engine.handler_registry import does_state_wait_for_input
+            from src.engine.handler_registry import does_state_wait_for_input
 
             current = state.get("current_state", "init")
 
             # Terminal states always end
-            if current in [s.value for s in self._TERMINAL_STATES]:
+            if current in [s.value for s in self.terminal_states]:
                 return END
 
             # Blocking states end (waits for input)
@@ -334,9 +326,9 @@ class StateMachineGraph:
             # Non-blocking states continue to router
             return "router"
 
-        for state_enum in self.HANDLER_MAP.keys():
+        for state_val in self.handler_map.keys():
             g.add_conditional_edges(
-                state_enum.value,
+                state_val.value,
                 _should_continue,
                 {END: END, "router": "router"},
             )
@@ -384,7 +376,7 @@ class StateMachineGraph:
         Returns:
             Updated state after auto-progression
         """
-        from engine.handler_registry import does_state_wait_for_input
+        from src.engine.handler_registry import does_state_wait_for_input
 
         iters = 0
 
@@ -392,7 +384,7 @@ class StateMachineGraph:
             current = state.get("current_state", "init")
 
             # Stop if terminal state
-            if current in self._TERMINAL_STATES:
+            if current in self.terminal_states:
                 log.debug(f"[auto_progress] Stopped at terminal state {current}")
                 break
 
@@ -488,7 +480,7 @@ class StateMachineGraph:
                 "error": str or None,
             }
         """
-        from engine.input_validation import (
+        from src.engine.input_validation import (
             InputValidationError,
             escape_for_llm,
             validate_turn_input,
@@ -504,7 +496,6 @@ class StateMachineGraph:
             config = {"configurable": {"thread_id": thread_id}}
 
             # Get or initialize state (use thread_id format for consistency)
-            thread_id = f"{user_id}:{session_id}"
             state = self._get_or_init_state(session_id, user_id=user_id)
 
             # Prepare turn metadata
@@ -559,7 +550,7 @@ class StateMachineGraph:
             })
 
             # AUTO-SAVE PAUSE POINT (hidden from user)
-            from engine.handler_registry import does_state_wait_for_input
+            from src.engine.handler_registry import does_state_wait_for_input
 
             if does_state_wait_for_input(state.get("current_state")):
                 # Mark this checkpoint as a pause point for automatic resumption
@@ -622,8 +613,10 @@ class StateMachineGraph:
                     log.info(f"[invoke_turn] Found pause point {pause_checkpoint_id}; resuming from there")
                     config["configurable"]["checkpoint_id"] = pause_checkpoint_id
                     checkpoint_tuple = self.compiled_graph.checkpointer.get_tuple(config)
-                    if checkpoint_tuple and self._extract_state_from_checkpoint(checkpoint_tuple) is not None:
-                        return self._extract_state_from_checkpoint(checkpoint_tuple)
+                    if checkpoint_tuple:
+                        pause_state = self._extract_state_from_checkpoint(checkpoint_tuple)
+                        if pause_state is not None:
+                            return pause_state
 
                 # Fallback to latest checkpoint if no pause point
                 checkpoint_tuple = self.compiled_graph.checkpointer.get_tuple(config)
@@ -700,7 +693,7 @@ class StateMachineGraph:
         Returns:
             Turn response dict
         """
-        from engine.handler_registry import does_state_wait_for_input
+        from src.engine.handler_registry import does_state_wait_for_input
 
         current = state.get("current_state", "init")
         return {

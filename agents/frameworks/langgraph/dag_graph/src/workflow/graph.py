@@ -1,6 +1,6 @@
 """Domain-specific LangGraph configuration for document processing.
 
-DocumentPipelineGraph inherits from StateMachineGraph and defines:
+DocumentPipelineGraph inherits from EngineGraph and defines:
   • State machine (states + transitions)
   • Routing table (happy path)
   • Guardrails
@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
-from src.engine.graph import StateMachineGraph
+from src.engine.engine_graph import EngineGraph
 from src.engine.json_checkpointer import JsonCheckpointer
 from src.workflow.router import DocPipelineRouter
 
@@ -24,36 +24,25 @@ from .pipeline_state import PipelineState
 from .state_machine import HAPPY_PATH, TERMINAL_STATES, State
 
 # ─────────────────────────────────────────────────────────────────────────────
-# DOCUMENT PIPELINE GRAPH (inherits from StateMachineGraph)
+# DOCUMENT PIPELINE GRAPH (inherits from EngineGraph)
 # ─────────────────────────────────────────────────────────────────────────────
 
-class DocumentPipelineGraph(StateMachineGraph):
-    """Document processing pipeline using generic StateMachineGraph.
+class DocumentPipelineGraph(EngineGraph):
+    """Document processing pipeline using generic EngineGraph.
 
     Implements the production pattern:
       Router → Guardrail → Handler → (loop or end)
 
     All generic logic (router, guardrail, graph building) is inherited from
-    StateMachineGraph. This class only defines domain-specific configuration.
+    EngineGraph. This class only defines domain-specific configuration.
 
     Can optionally use semantic routing (LLM-powered) via set_semantic_router().
     """
 
     # Domain-specific configuration
-    _STATE_KEYS = (
-        "current_state",
-        "proposed_next",
-        "retry_count",
-        "error_message",
-        "audit_trail",
-        "document_id",
-        "raw_data",
-        "validated_data",
-        "enriched_data",
-    )
-    _STATE_ENUM = State
-    _TERMINAL_STATES = TERMINAL_STATES
-    HANDLER_MAP = HANDLER_MAP
+    state_enum = State
+    terminal_states = TERMINAL_STATES
+    handler_map = HANDLER_MAP
 
     def __init__(self, semantic_router: Optional[Any] = None):
         """Initialize graph with optional semantic router.

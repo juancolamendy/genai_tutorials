@@ -342,7 +342,7 @@ src/
 │   ├── handler_registry.py   # @handler decorator + metadata registry
 │   ├── router.py             # BaseSemanticRouter, DefaultSemanticRouter
 │   ├── input_validation.py   # validate_turn_input, escape_for_llm
-│   ├── graph.py              # StateMachineGraph base class
+│   ├── engine_graph.py       # EngineGraph base class
 │   ├── session_checkpointer.py  # JsonCheckpointer (.doc_sessions storage)
 │   ├── checkpointing.py      # SqliteCheckpointer (legacy)
 │   ├── chain.py              # LCEL chain factory
