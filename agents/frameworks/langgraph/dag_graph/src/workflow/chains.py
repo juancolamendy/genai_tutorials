@@ -11,7 +11,7 @@ reuse the same Claude client across the process.
 
 from pydantic import BaseModel
 
-from src.engine.chain import make_chain
+from src.engine.chains import make_chain
 
 # ─────────────────────────────────────────────────────────────────────────────
 # OUTPUT SCHEMAS
@@ -50,7 +50,6 @@ class ReviewDecision(BaseModel):
 
 VALIDATE_CHAIN = make_chain(
     name="ValidateChain",
-    description="Validates document schema and content quality.",
     system_prompt="""You are a document validator. Analyze payloads for validity.
 
 Your job is to:
@@ -74,7 +73,6 @@ Never invent content — only clean what is provided.""",
 
 ENRICH_CHAIN = make_chain(
     name="EnrichChain",
-    description="Enriches a validated document with tags, summary, and metadata.",
     system_prompt="""You are a document enrichment specialist. Add value to validated documents.
 
 Your job is to:
@@ -97,7 +95,6 @@ Respond ONLY with valid JSON matching this structure:
 
 REVIEW_CHAIN = make_chain(
     name="ReviewChain",
-    description="Simulates a human expert reviewing a flagged document.",
     system_prompt="""You are a review expert. Approve or reject documents.
 
 Your job is to:

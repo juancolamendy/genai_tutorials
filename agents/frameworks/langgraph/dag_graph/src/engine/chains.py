@@ -12,7 +12,8 @@ import logging
 from typing import Any, Callable, Optional, Type
 
 from dotenv import load_dotenv
-from langchain_anthropic import ChatAnthropic
+from langchain.chat_models import init_chat_model
+from langchain_core.language_models import BaseChatModel
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
@@ -22,39 +23,40 @@ load_dotenv()
 
 log = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+DEFAULT_MODEL = "anthropic:claude-haiku-4-5-20251001"
 
 # Process-level chain cache — each chain is created once.
 _chain_registry: dict[str, Any] = {}
 
 # Global LLM instance
-_llm: Optional[ChatAnthropic] = None
+_llm: Optional[BaseChatModel] = None
 
 # Types
 # Callable alias so type annotations are concise everywhere.
 PromptBuilder = Callable[[dict[str, Any]], str]
 
 
-def _get_llm(model_id: str = DEFAULT_MODEL) -> ChatAnthropic:
-    """Get or create a cached ChatAnthropic instance."""
-    import os
+def _get_llm(model_id: str = DEFAULT_MODEL) -> BaseChatModel:
+    """Get or create a cached chat model instance (provider-agnostic).
 
+    model_id follows init_chat_model's "provider:model" format
+    (e.g. "anthropic:claude-haiku-4-5-20251001", "openai:gpt-4o-mini").
+    The provider's API key is picked up from environment automatically.
+    """
     global _llm
     if _llm is None:
-        # ChatAnthropic will automatically use ANTHROPIC_API_KEY from environment
-        _llm = ChatAnthropic(model=model_id, api_key=os.getenv("ANTHROPIC_API_KEY"))
+        _llm = init_chat_model(model_id)
     return _llm
 
 
 # ── Chain factory ─────────────────────────────────────────────────────────────
 def make_chain(
     name: str,
-    description: str,
     system_prompt: str,
     output_schema: Optional[Type[BaseModel]] = None,
     model_id: str = DEFAULT_MODEL,
 ) -> Any:
-    """Return a cached LCEL chain using Claude.
+    """Return a cached LCEL chain using the configured chat model.
 
     Calling this twice with the same `name` returns the same instance so no
     duplicate LLM clients are created across the codebase.
@@ -64,7 +66,7 @@ def make_chain(
         description: Chain purpose (for logging)
         system_prompt: System message for the model
         output_schema: Optional Pydantic model for structured output
-        model_id: Claude model ID to use
+        model_id: Chat model ID in "provider:model" format (e.g. "anthropic:claude-haiku-4-5-20251001")
 
     Returns:
         LCEL chain (prompt | llm | parser)
@@ -116,7 +118,7 @@ def make_llm_chain(
         name: Chain identifier
         build_prompt: Callable that builds prompt from state dict
         output_schema: Optional Pydantic model for structured output
-        model_id: Claude model ID to use
+        model_id: Chat model ID in "provider:model" format (e.g. "anthropic:claude-haiku-4-5-20251001")
 
     Returns:
         Chain executor function
