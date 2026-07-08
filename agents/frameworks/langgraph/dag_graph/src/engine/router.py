@@ -103,12 +103,14 @@ class DefaultSemanticRouter(BaseSemanticRouter):
 
     output_schema: type = None  # Subclasses MUST set this to a Pydantic model
 
-    def __init__(self, model: str = "claude-haiku-4-5-20251001"):
+    def __init__(self, model: str = "anthropic:claude-haiku-4-5-20251001"):
         """
-        Initialize router with Claude LLM via LangChain.
+        Initialize router with a chat model via LangChain (provider-agnostic).
 
         Args:
-            model: Claude model ID (default haiku for cost efficiency)
+            model: Chat model ID in "provider:model" format (e.g.
+                "anthropic:claude-haiku-4-5-20251001", "openai:gpt-4o-mini").
+                Defaults to Claude Haiku for cost efficiency.
 
         Raises:
             NotImplementedError: If output_schema not set by subclass
@@ -124,10 +126,10 @@ class DefaultSemanticRouter(BaseSemanticRouter):
     def _get_llm(self):
         """Lazy-load LLM client (singleton per router instance)."""
         if self.llm is None:
-            from langchain_anthropic import ChatAnthropic
+            from langchain.chat_models import init_chat_model
 
-            self.llm = ChatAnthropic(
-                model=self.model,
+            self.llm = init_chat_model(
+                self.model,
                 temperature=0,
                 timeout=15.0,
             )
@@ -141,7 +143,7 @@ class DefaultSemanticRouter(BaseSemanticRouter):
         Default provides generic routing guidance.
         """
         return """You are a state machine router for workflows.
-Given the current state, user input, conversation history, and allowed next states,
+Given the current state, turn input, conversation history, and allowed next states,
 determine which state the workflow should transition to next.
 
 IMPORTANT: Always propose one of the ALLOWED NEXT STATES.
@@ -165,7 +167,7 @@ Provide brief reasoning for your decision."""
 
         Args:
             current_state: Current state (e.g., "validate")
-            turn_input: User's input text
+            turn_input: Turn input text
             history_text: Formatted conversation history
             allowed_states: List of valid next states
 
@@ -173,7 +175,7 @@ Provide brief reasoning for your decision."""
             Prompt string for LLM
         """
         allowed_str = ", ".join(allowed_states)
-        return f"""WORKFLOW STATE MACHINE ROUTING
+        return f"""ENGINE STATE MACHINE ROUTING
 
 Current State: {current_state}
 Allowed Next States: {allowed_str}
@@ -207,6 +209,14 @@ Always choose from the ALLOWED NEXT STATES."""
         Returns:
             RouterDecision with validated proposed_next
         """
+        if not allowed_states:
+            log.warning("[SemanticRouter] No allowed_states provided; routing to 'error'")
+            return RouterDecision(
+                proposed_next="error",
+                confidence=0.0,
+                reasoning="No allowed_states provided to route()",
+            )
+
         from langchain_core.messages import HumanMessage, SystemMessage
 
         try:
