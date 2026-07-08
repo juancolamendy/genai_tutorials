@@ -23,7 +23,7 @@ class HandlerMetadata:
 
 
 # Global registry: populated by @handler decorator
-HANDLER_MAP_METADATA: dict[str, HandlerMetadata] = {}
+handler_metadata_map: dict[str, HandlerMetadata] = {}
 
 
 def handler(
@@ -50,7 +50,7 @@ def handler(
         Decorator function that registers metadata and returns original function
     """
     def decorator(func: Callable) -> Callable:
-        HANDLER_MAP_METADATA[state] = HandlerMetadata(
+        handler_metadata_map[state] = HandlerMetadata(
             state=state,
             waits_for_input=waits_for_input,
             description=description,
@@ -70,7 +70,7 @@ def get_handler_metadata(state: str) -> Optional[HandlerMetadata]:
     Returns:
         HandlerMetadata if registered, None otherwise
     """
-    return HANDLER_MAP_METADATA.get(state)
+    return handler_metadata_map.get(state)
 
 
 def does_state_wait_for_input(state: str) -> bool:
@@ -89,4 +89,4 @@ def does_state_wait_for_input(state: str) -> bool:
 
 def clear_metadata() -> None:
     """Clear registry (useful for testing). Use with caution."""
-    HANDLER_MAP_METADATA.clear()
+    handler_metadata_map.clear()

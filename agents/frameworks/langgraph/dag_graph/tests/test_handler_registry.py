@@ -2,7 +2,7 @@
 
 
 from src.engine.handler_registry import (
-    HANDLER_MAP_METADATA,
+    handler_metadata_map,
     clear_metadata,
     does_state_wait_for_input,
     get_handler_metadata,
@@ -90,7 +90,7 @@ def test_multiple_handlers_registered():
     def handler3(state):
         return state
 
-    assert len(HANDLER_MAP_METADATA) == 3
+    assert len(handler_metadata_map) == 3
     assert does_state_wait_for_input("state1") is False
     assert does_state_wait_for_input("state2") is True
     assert does_state_wait_for_input("state3") is False
@@ -109,11 +109,11 @@ def test_clear_metadata():
     def h2(state):
         return state
 
-    assert len(HANDLER_MAP_METADATA) == 2
+    assert len(handler_metadata_map) == 2
 
     # Clear
     clear_metadata()
-    assert len(HANDLER_MAP_METADATA) == 0
+    assert len(handler_metadata_map) == 0
     assert get_handler_metadata("test1") is None
     assert get_handler_metadata("test2") is None
 
