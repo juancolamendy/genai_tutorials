@@ -15,7 +15,7 @@ The `JsonCheckpointer` stores LangGraph sessions as JSON files in the `.doc_sess
 ### Basic Usage
 
 ```python
-from src.workflow.workflow import run_pipeline
+from src.docprocessing.pipeline import run_pipeline
 
 # Sessions automatically stored in .doc_sessions/
 result = run_pipeline(
@@ -215,7 +215,7 @@ checkpointer.import_session(session_dict)
 ### Multi-Turn Conversation with Resume
 
 ```python
-from src.workflow.workflow import run_pipeline
+from src.docprocessing.pipeline import run_pipeline
 from src.engine.session_checkpointer import JsonCheckpointer
 
 user_id = "user-123"

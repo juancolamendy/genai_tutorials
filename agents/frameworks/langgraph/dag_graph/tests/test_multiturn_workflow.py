@@ -11,11 +11,11 @@ allowing the user to provide feedback before continuing.
 from uuid import uuid4
 
 # Import handlers FIRST to populate the metadata registry via @handler decorators
-from src.workflow import handlers  # noqa: F401
+from src.docprocessing import handlers  # noqa: F401
 from src.engine.handler_registry import does_state_wait_for_input
-from src.workflow.graph import DocumentPipelineGraph, build_graph
-from src.workflow.pipeline_state import new_pipeline
-from src.workflow.state_machine import State
+from src.docprocessing.graph import build_graph
+from src.docprocessing.pipeline_state import new_pipeline
+from src.docprocessing.state_machine import State
 
 
 def test_multiturn_workflow_pause_at_upload_documents() -> None:
@@ -43,9 +43,7 @@ def test_multiturn_workflow_pause_at_upload_documents() -> None:
     user_id = "user-123"
 
     # Build graph with default configuration
-    compiled_graph = build_graph()
-    graph = DocumentPipelineGraph()
-    graph.compiled_graph = compiled_graph
+    graph = build_graph()
 
     # ── TURN 1: Auto-progress INIT → FETCH → UPLOAD_DOCUMENTS ──
     print(f"\n▶ TURN 1: Starting workflow for {doc_id}")
@@ -55,7 +53,7 @@ def test_multiturn_workflow_pause_at_upload_documents() -> None:
     state_1 = new_pipeline(doc_id)
 
     # Invoke turn with mocked fetch to ensure it succeeds
-    with patch("src.workflow.handlers.random.random", return_value=0.9):  # Mock random to skip failure
+    with patch("src.docprocessing.handlers.random.random", return_value=0.9):  # Mock random to skip failure
         response_1 = graph.invoke_turn(
             user_id=user_id,
             session_id=session_id,
@@ -116,7 +114,7 @@ def test_multiturn_workflow_pause_at_upload_documents() -> None:
     ]
 
     # Continue with uploaded documents and mocked handlers
-    with patch("src.workflow.handlers.random.random", return_value=0.9):  # Skip fetch failure
+    with patch("src.docprocessing.handlers.random.random", return_value=0.9):  # Skip fetch failure
         response_2 = graph.invoke_turn(
             user_id=user_id,
             session_id=session_id,
@@ -187,9 +185,7 @@ def test_multiturn_auto_progression() -> None:
     print(sep)
 
     # Build graph
-    compiled_graph = build_graph()
-    graph = DocumentPipelineGraph()
-    graph.compiled_graph = compiled_graph
+    graph = build_graph()
 
     session_id = str(uuid4())
     doc_id = "AUTO-PROGRESS-001"
@@ -197,7 +193,7 @@ def test_multiturn_auto_progression() -> None:
     print(f"\n▶ Single turn with auto-progression")
     print(f"  Input: Process this document")
 
-    with patch("src.workflow.handlers.random.random", return_value=0.9):  # Skip fetch failure
+    with patch("src.docprocessing.handlers.random.random", return_value=0.9):  # Skip fetch failure
         response = graph.invoke_turn(
             user_id="user-456",
             session_id=session_id,
@@ -229,13 +225,12 @@ def test_turn_semantics() -> None:
     """Test that turn metadata and conversation tracking work correctly."""
     from unittest.mock import patch
 
-    graph = DocumentPipelineGraph()
-    graph.compiled_graph = build_graph()
+    graph = build_graph()
 
     session_id = str(uuid4())
 
     # Turn 1 - mock fetch to ensure success
-    with patch("src.workflow.handlers.random.random", return_value=0.9):
+    with patch("src.docprocessing.handlers.random.random", return_value=0.9):
         response_1 = graph.invoke_turn(
             user_id="user-789",
             session_id=session_id,
@@ -249,7 +244,7 @@ def test_turn_semantics() -> None:
     # Turn 2 - provide document data to progress from upload_documents
     import json
     docs = [{"name": "doc1.pdf", "content": "test"}]
-    with patch("src.workflow.handlers.random.random", return_value=0.9):
+    with patch("src.docprocessing.handlers.random.random", return_value=0.9):
         response_2 = graph.invoke_turn(
             user_id="user-789",
             session_id=session_id,

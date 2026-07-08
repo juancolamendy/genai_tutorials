@@ -1,6 +1,6 @@
 """Domain-specific state machine for document processing pipeline.
 
-Defines states, allowed transitions, and state types for the workflow.
+Defines states, allowed transitions, and state types for the pipeline.
 """
 
 from __future__ import annotations

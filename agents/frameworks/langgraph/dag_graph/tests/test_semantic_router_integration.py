@@ -1,9 +1,9 @@
 """Tests for semantic router integration in graph."""
 
 
-from src.workflow.graph import DocumentPipelineGraph
-from src.workflow.pipeline_state import new_pipeline
-from src.workflow.state_machine import State
+from src.docprocessing.graph import DocumentPipelineGraph
+from src.docprocessing.pipeline_state import new_pipeline
+from src.docprocessing.state_machine import State
 
 
 class MockSemanticRouter:
@@ -11,7 +11,7 @@ class MockSemanticRouter:
 
     def route(self, state):
         """Return a mock router decision."""
-        from src.workflow.router import DocRouterOutput
+        from src.docprocessing.router import DocRouterOutput
 
         current = state.get("current_state", State.INIT.value)
 
@@ -110,7 +110,7 @@ def test_semantic_router_reasoning_stored():
 
     class ReasoningRouter:
         def route(self, state):
-            from src.workflow.router import DocRouterOutput
+            from src.docprocessing.router import DocRouterOutput
 
             return DocRouterOutput(
                 proposed_next=State.FETCH,

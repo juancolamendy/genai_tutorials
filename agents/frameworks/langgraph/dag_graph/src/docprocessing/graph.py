@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from src.engine.engine_graph import EngineGraph
 from src.engine.json_checkpointer import JsonCheckpointer
-from src.workflow.router import DocPipelineRouter
+from src.docprocessing.router import DocPipelineRouter
 
 if TYPE_CHECKING:
     pass

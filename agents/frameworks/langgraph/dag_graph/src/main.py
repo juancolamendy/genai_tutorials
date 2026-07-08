@@ -19,7 +19,7 @@ from uuid import uuid4
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.workflow.graph import build_graph
+from src.docprocessing.graph import build_graph
 
 
 def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
@@ -58,7 +58,7 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
     print(f"\n  ┌─ TURN 1: Start document processing ────────────────────────┐")
 
     # Mock random to ensure fetch succeeds (avoid 30% random failure)
-    with patch("workflow.handlers.random.random", return_value=0.9):
+    with patch("src.docprocessing.handlers.random.random", return_value=0.9):
         response_1 = graph.invoke_turn(
             user_id=user_id,
             session_id=session_id,
@@ -83,7 +83,7 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
         {"name": "attachment2.pdf", "content": "Supporting document 2"},
     ]
 
-    with patch("workflow.handlers.random.random", return_value=0.9):
+    with patch("src.docprocessing.handlers.random.random", return_value=0.9):
         response_2 = graph.invoke_turn(
             user_id=user_id,
             session_id=session_id,

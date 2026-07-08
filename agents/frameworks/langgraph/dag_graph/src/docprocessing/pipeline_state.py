@@ -59,6 +59,7 @@ def new_pipeline(document_id: str, timeout_seconds: float = 300.0) -> PipelineSt
         retry_count=0,
         error_message=None,
         guardrail_ok=True,
+        fallback_depth=0,
         audit_trail=[f"init  doc_id={document_id}"],
         # Multi-turn Support (EngineSessionState)
         turn_input=None,

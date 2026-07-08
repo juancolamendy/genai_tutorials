@@ -1,4 +1,4 @@
-"""Handler functions for document processing workflow.
+"""Handler functions for document processing pipeline.
 
 Each handler executes business logic for a state and must:
   1. Read from state dict

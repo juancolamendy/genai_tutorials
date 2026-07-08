@@ -1,7 +1,7 @@
 """Tests for semantic router integration with graph routing."""
 
 
-from src.workflow.router import DocPipelineRouter, DocRouterOutput
+from src.docprocessing.router import DocPipelineRouter, DocRouterOutput
 
 
 def test_router_decision_structure():

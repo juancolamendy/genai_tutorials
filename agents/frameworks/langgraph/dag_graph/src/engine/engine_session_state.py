@@ -35,6 +35,7 @@ class EngineSessionState(TypedDict, total=False):
     Optional Fields:
       • error_message: Error description if state=error
       • guardrail_ok: Guardrail validation result
+      • fallback_depth: Consecutive guardrail-fallback count (cascade detection)
       • turn_input: Current turn's user input (escaped)
       • user_id: Caller identity (for audit)
       • session_id: Multi-turn session ID
@@ -55,6 +56,9 @@ class EngineSessionState(TypedDict, total=False):
 
     guardrail_ok: bool
     """Guardrail validation result. True if proposed_next passed guardrails."""
+
+    fallback_depth: int
+    """Consecutive guardrail-fallback count. Incremented on fallback, reset on pass."""
 
     audit_trail: list[str]
     """Append-only log of every step. One entry per state transition."""

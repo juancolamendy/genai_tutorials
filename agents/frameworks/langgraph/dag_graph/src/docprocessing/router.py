@@ -44,7 +44,7 @@ class DocRouterOutput(BaseModel):
 
 class DocPipelineRouter(DefaultSemanticRouter):
     """
-    Semantic router for document processing workflow.
+    Semantic router for document processing pipeline.
 
     Uses Claude LLM to determine next state based on:
     - Current processing state

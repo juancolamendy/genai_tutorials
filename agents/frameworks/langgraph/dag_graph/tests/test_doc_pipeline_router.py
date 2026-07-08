@@ -1,6 +1,6 @@
 """Tests for document pipeline router."""
 
-from src.workflow.router import DocPipelineRouter, DocRouterOutput
+from src.docprocessing.router import DocPipelineRouter, DocRouterOutput
 
 
 def test_doc_router_output_schema():

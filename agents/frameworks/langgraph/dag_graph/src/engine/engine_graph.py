@@ -202,20 +202,24 @@ class EngineGraph:
             log.info("[GUARDRAIL] ✅  %s passed", proposed)
             return {
                 **state,
+                "fallback_depth": 0,
                 "audit_trail": state.get("audit_trail", []) + [f"guardrail PASS → {proposed}"],
             }
 
         fallback_val = (result.fallback or self.state_enum.ERROR).value
+        fallback_depth = state.get("fallback_depth", 0) + 1
         log.warning(
-            "[GUARDRAIL] ❌  %s failed (%s) → fallback: %s",
+            "[GUARDRAIL] ❌  %s failed (%s) → fallback: %s (depth=%d)",
             proposed,
             result.reason,
             fallback_val,
+            fallback_depth,
         )
         return {
             **state,
             "proposed_next": fallback_val,
             "error_message": result.reason,
+            "fallback_depth": fallback_depth,
             "audit_trail": state.get("audit_trail", [])
             + [f"guardrail FAIL → {proposed} ({result.reason}) → fallback {fallback_val}"],
         }
@@ -467,6 +471,20 @@ class EngineGraph:
             state["router_timeout_sec"] = timeout_sec
             state["user_id"] = user_id
             state["session_id"] = session_id
+
+            # Resuming at a blocking state: run its own handler with the fresh
+            # turn_input before the graph executes. The router only proposes
+            # transitions FORWARD from current_state via the routing table, so
+            # without this it would skip past the blocking state on resume and
+            # silently discard the new turn's input (e.g. an upload) instead of
+            # letting the handler process it.
+            from src.engine.handler_registry import does_state_wait_for_input
+
+            current_state_str = state.get("current_state", "init")
+            if does_state_wait_for_input(current_state_str):
+                handler_fn = self.handler_map.get(self.state_enum(current_state_str))
+                if handler_fn is not None:
+                    state = handler_fn(state)
 
             # Initialize router if available and needed
             if hasattr(self, "_init_router"):

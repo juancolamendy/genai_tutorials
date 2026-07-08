@@ -1,7 +1,7 @@
 """LangGraph state machine engine (reusable, domain-agnostic)."""
 
 # Generic engine utilities (framework-agnostic, reusable across projects)
-from .chain import (
+from .chains import (
     get_chain,
     make_chain,
     make_llm_chain,
@@ -16,7 +16,7 @@ from .engine_graph import (
 from .json_checkpointer import JsonCheckpointer
 from .sqlite_checkpointing import SqliteCheckpointer
 
-# Note: Domain-specific state machine, handlers, and guardrails are in src/workflow/
+# Note: Domain-specific state machine, handlers, and guardrails are in src/docprocessing/
 # This module provides only the generic engine utilities for reuse across projects.
 
 __all__ = [

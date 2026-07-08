@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from src.engine.input_validation import InputValidationError
-from src.workflow.pipeline_state import new_pipeline
+from src.docprocessing.pipeline_state import new_pipeline
 
 
 # Helper to create a mock graph

@@ -1,4 +1,4 @@
-"""LangGraph document processing workflow entrypoint.
+"""LangGraph document processing pipeline entrypoint.
 
 Orchestrates the complete pipeline: Router → Guardrail → Handler → Loop/End
 Includes checkpointing, timeouts, and input validation.

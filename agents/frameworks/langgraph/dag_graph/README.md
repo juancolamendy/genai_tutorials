@@ -33,7 +33,7 @@ pip install -e .
 Process a single entity through the complete workflow:
 
 ```python
-from src.workflow.workflow import run_pipeline
+from src.docprocessing.pipeline import run_pipeline
 
 # Process a document
 result = run_pipeline(
@@ -177,9 +177,9 @@ Semantic routing uses Claude LLM to make intelligent state transitions based on 
 Enable semantic routing by passing a router to the graph:
 
 ```python
-from src.workflow.graph import DocumentPipelineGraph
-from src.workflow.router import DocPipelineRouter
-from src.workflow.workflow import run_pipeline
+from src.docprocessing.graph import DocumentPipelineGraph
+from src.docprocessing.router import DocPipelineRouter
+from src.docprocessing.pipeline import run_pipeline
 
 # Create router instance
 semantic_router = DocPipelineRouter(model="claude-haiku-4-5-20251001")
@@ -204,7 +204,7 @@ The router automatically:
 ### Built-in Document Router
 
 ```python
-from src.workflow.router import DocPipelineRouter
+from src.docprocessing.router import DocPipelineRouter
 
 # Uses Claude Haiku for fast, cost-effective routing
 router = DocPipelineRouter(model="claude-haiku-4-5-20251001")
@@ -268,7 +268,7 @@ State after routing includes:
 Sessions stored as JSON files in `.doc_sessions` directory (matching Agno pattern):
 
 ```python
-from src.workflow.workflow import run_pipeline
+from src.docprocessing.pipeline import run_pipeline
 
 # Sessions automatically stored in .doc_sessions/
 result = run_pipeline(
@@ -348,7 +348,7 @@ src/
 │   ├── chain.py              # LCEL chain factory
 │   ├── guardrail.py          # GuardrailResult, make_guardrail
 │   └── session.py            # Session helpers
-├── workflow/
+├── docprocessing/
 │   ├── pipeline_state.py     # PipelineState TypedDict, new_pipeline()
 │   ├── state_machine.py      # State enum, ALLOWED_TRANSITIONS
 │   ├── handlers.py           # 8 handler functions with @handler decorator
@@ -357,7 +357,7 @@ src/
 │   ├── guardrails.py         # Domain-specific guardrail checks
 │   ├── graph.py              # DocumentPipelineGraph
 │   ├── validation.py         # Input sanitization
-│   └── workflow.py           # run_pipeline() public API
+│   └── pipeline.py           # run_pipeline() public API
 └── main.py                   # Demo scenarios (one-turn + multi-turn)
 
 tests/

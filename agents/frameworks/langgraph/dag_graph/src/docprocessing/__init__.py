@@ -1,6 +1,6 @@
-"""LangGraph workflow package: framework-specific integration and business logic.
+"""Document processing package: framework-specific integration and business logic.
 
-The workflow layer combines:
+The docprocessing layer combines:
   • Generic engine patterns (src.engine) for reusable state machine logic
   • LangGraph StateGraph for execution
   • Domain-specific handlers, guardrails, and routing for document processing
@@ -10,7 +10,7 @@ The workflow layer combines:
 from src.engine.guardrail import GuardrailResult
 
 # LLM chains (domain-specific)
-from src.workflow.chains import (
+from src.docprocessing.chains import (
     ENRICH_CHAIN,
     REVIEW_CHAIN,
     VALIDATE_CHAIN,
@@ -18,7 +18,7 @@ from src.workflow.chains import (
     ReviewDecision,
     ValidationResult,
 )
-from src.workflow.graph import (
+from src.docprocessing.graph import (
     HANDLER_MAP,
     HAPPY_PATH,
     TERMINAL_STATES,
@@ -27,7 +27,7 @@ from src.workflow.graph import (
 )
 
 # Guardrails (validation checks)
-from src.workflow.guardrails import (
+from src.docprocessing.guardrails import (
     GUARDRAILS,
     check_enriched_data_present,
     check_raw_data_present,
@@ -37,7 +37,7 @@ from src.workflow.guardrails import (
 )
 
 # Handlers (business logic for each state)
-from src.workflow.handlers import (
+from src.docprocessing.handlers import (
     handle_complete,
     handle_enrich,
     handle_error,
@@ -49,17 +49,17 @@ from src.workflow.handlers import (
 )
 
 # Pipeline state and guardrail types
-from src.workflow.pipeline_state import PipelineState
+from src.docprocessing.pipeline_state import PipelineState
 
 # State machine (domain-specific core logic)
-from src.workflow.state_machine import (
+from src.docprocessing.state_machine import (
     ALLOWED_TRANSITIONS,
     State,
     is_transition_allowed,
 )
 
-# Workflow entrypoint
-from src.workflow.workflow import run_pipeline
+# Pipeline entrypoint
+from src.docprocessing.pipeline import run_pipeline
 
 __all__ = [
     # Graph building
@@ -68,7 +68,7 @@ __all__ = [
     "HAPPY_PATH",
     "HANDLER_MAP",
     "TERMINAL_STATES",
-    # Workflow entrypoint
+    # Pipeline entrypoint
     "run_pipeline",
     # State machine
     "State",
