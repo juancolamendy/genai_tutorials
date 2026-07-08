@@ -21,13 +21,6 @@ class HandlerMetadata:
     waits_for_input: bool = False
     description: Optional[str] = None
 
-    def __repr__(self) -> str:
-        return (
-            f"HandlerMetadata(state={self.state!r}, "
-            f"waits_for_input={self.waits_for_input}, "
-            f"description={self.description!r})"
-        )
-
 
 # Global registry: populated by @handler decorator
 HANDLER_MAP_METADATA: dict[str, HandlerMetadata] = {}
@@ -92,11 +85,6 @@ def does_state_wait_for_input(state: str) -> bool:
     """
     meta = get_handler_metadata(state)
     return meta.waits_for_input if meta else False
-
-
-def list_handler_metadata() -> list[HandlerMetadata]:
-    """List all registered handler metadata."""
-    return list(HANDLER_MAP_METADATA.values())
 
 
 def clear_metadata() -> None:

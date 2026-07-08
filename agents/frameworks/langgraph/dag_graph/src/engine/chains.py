@@ -25,7 +25,7 @@ log = logging.getLogger(__name__)
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 
 # Process-level chain cache — each chain is created once.
-_CHAIN_REGISTRY: dict[str, Any] = {}
+_chain_registry: dict[str, Any] = {}
 
 # Global LLM instance
 _llm: Optional[ChatAnthropic] = None
@@ -69,8 +69,8 @@ def make_chain(
     Returns:
         LCEL chain (prompt | llm | parser)
     """
-    if name in _CHAIN_REGISTRY:
-        return _CHAIN_REGISTRY[name]
+    if name in _chain_registry:
+        return _chain_registry[name]
 
     llm = _get_llm(model_id)
 
@@ -88,16 +88,16 @@ def make_chain(
 
     # Build LCEL chain using pipe operator
     chain = prompt | llm | parser
-    _CHAIN_REGISTRY[name] = chain
+    _chain_registry[name] = chain
     log.debug("[engine] registered chain '%s'", name)
     return chain
 
 
 def get_chain(name: str) -> Any:
     """Retrieve a registered chain by name; raises KeyError if not found."""
-    if name not in _CHAIN_REGISTRY:
+    if name not in _chain_registry:
         raise KeyError(f"Chain '{name}' has not been registered.")
-    return _CHAIN_REGISTRY[name]
+    return _chain_registry[name]
 
 
 # ── Step builder ──────────────────────────────────────────────────────────────

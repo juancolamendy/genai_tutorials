@@ -120,27 +120,3 @@ def escape_for_llm(turn_input: str) -> str:
     escaped = escaped.strip()
 
     return escaped
-
-
-def sanitize_for_db(text: str) -> str:
-    """
-    Sanitize text for safe storage in database.
-
-    Removes:
-    - Prototype pollution patterns (__proto__, constructor, prototype)
-    - NoSQL injection patterns
-
-    Args:
-        text: Text to sanitize
-
-    Returns:
-        Sanitized text
-    """
-    text = str(text)
-
-    # Remove dangerous keys
-    dangerous = ["__proto__", "constructor", "prototype"]
-    for key in dangerous:
-        text = re.sub(rf"{re.escape(key)}", "", text, flags=re.IGNORECASE)
-
-    return text

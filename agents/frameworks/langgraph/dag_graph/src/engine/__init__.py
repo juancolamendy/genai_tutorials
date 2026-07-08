@@ -11,22 +11,10 @@ from .engine_session_state import EngineSessionState
 from .engine_graph import (
     END,  # re-export for convenience
     EngineGraph,
-    deserialize_to_session_state,
     safe_node,
-    serialize_session_state,
 )
 from .json_checkpointer import JsonCheckpointer
-from .session import (
-    append_turn,
-    build_history_prompt,
-    get_execution_context,
-    init_session_defaults,
-)
-from .sqlite_checkpointing import (
-    SqliteCheckpointer,
-    get_checkpointer,
-    init_checkpointer,
-)
+from .sqlite_checkpointing import SqliteCheckpointer
 
 # Note: Domain-specific state machine, handlers, and guardrails are in src/workflow/
 # This module provides only the generic engine utilities for reuse across projects.
@@ -35,21 +23,13 @@ __all__ = [
     # Generic engine (reusable across projects)
     "EngineSessionState",
     "EngineGraph",
-    "serialize_session_state",
-    "deserialize_to_session_state",
     "safe_node",
     "make_chain",
     "get_chain",
     "make_llm_chain",
     "render_as_xml",
-    "append_turn",
-    "build_history_prompt",
-    "get_execution_context",
-    "init_session_defaults",
     "END",
     # Checkpointing
     "SqliteCheckpointer",
     "JsonCheckpointer",
-    "init_checkpointer",
-    "get_checkpointer",
 ]

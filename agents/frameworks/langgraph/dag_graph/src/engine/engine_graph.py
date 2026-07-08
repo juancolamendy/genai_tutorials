@@ -2,7 +2,6 @@
 
 Provides:
   • EngineGraph — base class for state machine workflows
-  • State serialization/deserialization helpers
   • Router, guardrail, and handler dispatch patterns
 """
 
@@ -39,43 +38,6 @@ def safe_node(func: Callable) -> Callable:
                 "proposed_next": "error",  # Route to error state
             }
     return wrapper
-
-
-def serialize_session_state(
-    session_state: dict[str, Any],
-    keys: tuple[str, ...],
-    defaults: Optional[dict[str, Any]] = None,
-) -> dict[str, Any]:
-    """Extract specified keys from session_state into a new dict.
-
-    Args:
-        session_state: The LangGraph state dict
-        keys: Tuple of keys to extract (order matters for positional access)
-        defaults: Optional dict of {key: default_value} for missing keys
-
-    Returns:
-        A new dict containing only the specified keys with their values
-        from session_state (or defaults if missing).
-    """
-    defaults = defaults or {}
-    return {k: session_state.get(k, defaults.get(k)) for k in keys}
-
-
-def deserialize_to_session_state(
-    state_dict: dict[str, Any],
-    session_state: dict[str, Any],
-    keys: tuple[str, ...],
-) -> None:
-    """Write state_dict values back into session_state for specified keys.
-
-    Args:
-        state_dict: The state dict to read from
-        session_state: The LangGraph state dict to write to (in-place)
-        keys: Tuple of keys to sync
-    """
-    for k in keys:
-        if k in state_dict:
-            session_state[k] = state_dict[k]
 
 
 class EngineGraph:
