@@ -103,6 +103,15 @@ def get_chain(name: str) -> Any:
     return _chain_registry[name]
 
 
+def chain_field(result: Any, name: str, default: Any = None) -> Any:
+    """Read a field off a chain result that may be a dict or a Pydantic object.
+
+    JsonOutputParser can hand back either shape depending on parser/model
+    version, so callers would otherwise repeat this isinstance check per field.
+    """
+    return result.get(name, default) if isinstance(result, dict) else getattr(result, name, default)
+
+
 # ── Step builder ──────────────────────────────────────────────────────────────
 def make_llm_chain(
     name: str,

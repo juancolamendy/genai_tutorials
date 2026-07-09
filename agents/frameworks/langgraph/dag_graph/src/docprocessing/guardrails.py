@@ -6,61 +6,33 @@ to a fallback state if the check fails (e.g., RETRY, HUMAN_REVIEW, ERROR).
 
 from __future__ import annotations
 
-import time
 from typing import Dict
 
-from src.engine.guardrail import GuardrailFn, GuardrailResult, make_guardrail
+from src.engine.guardrail import (
+    GuardrailFn,
+    GuardrailResult,
+    make_fallback_depth_guardrail,
+    make_guardrail,
+    make_retry_budget_guardrail,
+    make_timeout_guardrail,
+    make_transition_guardrail,
+)
 
 from .session_state import SessionState
 from .state_transitions import State, is_transition_allowed
 
 # ─────────────────────────────────────────────────────────────────────────────
-# INDIVIDUAL CHECKS
+# GENERIC CHECKS (built from src.engine.guardrail factories)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def check_transition_allowed(state: SessionState) -> GuardrailResult:
-    """Validate that proposed transition is allowed by state machine.
+check_transition_allowed = make_transition_guardrail(State, is_transition_allowed, State.ERROR)
+check_retry_budget = make_retry_budget_guardrail(max_retries=3, error_state=State.ERROR)
+check_pipeline_timeout = make_timeout_guardrail(error_state=State.ERROR)
+check_fallback_depth = make_fallback_depth_guardrail(max_depth=2, error_state=State.ERROR)
 
-    Args:
-        state: SessionState with current_state and proposed_next
-
-    Returns:
-        GuardrailResult with passed=True or fallback state
-    """
-    current = State(state["current_state"])
-    proposed = State(state["proposed_next"])
-
-    if is_transition_allowed(current, proposed):
-        return GuardrailResult(passed=True)
-
-    return GuardrailResult(
-        passed=False,
-        reason=f"Transition {current.value} → {proposed.value} is not in the state machine.",
-        fallback=State.ERROR,
-    )
-
-
-def check_retry_budget(state: SessionState) -> GuardrailResult:
-    """Check retry budget exhaustion.
-
-    Allows up to MAX_RETRIES (3) before rejecting further retries.
-
-    Args:
-        state: SessionState with retry_count
-
-    Returns:
-        GuardrailResult with passed=True or fallback to ERROR
-    """
-    MAX_RETRIES = 3
-    if state["retry_count"] <= MAX_RETRIES:
-        return GuardrailResult(passed=True)
-
-    return GuardrailResult(
-        passed=False,
-        reason=f"Retry budget exhausted ({state['retry_count']} attempts).",
-        fallback=State.ERROR,
-    )
-
+# ─────────────────────────────────────────────────────────────────────────────
+# DOCUMENT-SPECIFIC CHECKS
+# ─────────────────────────────────────────────────────────────────────────────
 
 def check_raw_data_present(state: SessionState) -> GuardrailResult:
     """Check that raw_data is present before validation.
@@ -117,52 +89,6 @@ def check_enriched_data_present(state: SessionState) -> GuardrailResult:
         reason="enriched_data is missing; cannot store.",
         fallback=State.RETRY,
     )
-
-
-def check_pipeline_timeout(state: SessionState) -> GuardrailResult:
-    """Check that pipeline execution has not exceeded timeout.
-
-    Args:
-        state: SessionState with started_at and timeout_seconds
-
-    Returns:
-        GuardrailResult with passed=True or fallback to ERROR
-    """
-    started_at = state.get("started_at")
-    if started_at is None:
-        return GuardrailResult(passed=True)  # Skip if not set
-
-    timeout_seconds = state.get("timeout_seconds", 300)  # 5 minute default
-    elapsed = time.time() - started_at
-
-    if elapsed > timeout_seconds:
-        return GuardrailResult(
-            passed=False,
-            reason=f"Pipeline timeout ({elapsed:.1f}s > {timeout_seconds}s)",
-            fallback=State.ERROR,
-        )
-    return GuardrailResult(passed=True)
-
-
-def check_fallback_depth(state: SessionState) -> GuardrailResult:
-    """Detect fallback cascade loops (max depth = 2).
-
-    Args:
-        state: SessionState with fallback_depth field
-
-    Returns:
-        GuardrailResult with passed=True or fallback to ERROR
-    """
-    MAX_DEPTH = 2
-
-    depth = state.get("fallback_depth", 0)
-    if depth > MAX_DEPTH:
-        return GuardrailResult(
-            passed=False,
-            reason=f"Fallback cascade detected (depth {depth} > {MAX_DEPTH})",
-            fallback=State.ERROR,
-        )
-    return GuardrailResult(passed=True)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -127,6 +127,8 @@ def handle_validate(state: SessionState) -> SessionState:
         Updated state with validated_data or error info
     """
     log.info("[HANDLER] validate")
+    from src.engine.chains import chain_field
+
     from .chains import validate_chain
 
     raw = state.get("raw_data") or {}
@@ -135,20 +137,9 @@ def handle_validate(state: SessionState) -> SessionState:
         # Invoke the validation chain
         result = validate_chain.invoke({"input": str(raw)})
 
-        # Handle dict result from JsonOutputParser
-        is_valid = (
-            result.get("is_valid", False)
-            if isinstance(result, dict)
-            else result.is_valid
-        )
-        sanitized = (
-            result.get("sanitized_data", {})
-            if isinstance(result, dict)
-            else result.sanitized_data
-        )
-        issues = (
-            result.get("issues", []) if isinstance(result, dict) else result.issues
-        )
+        is_valid = chain_field(result, "is_valid", False)
+        sanitized = chain_field(result, "sanitized_data", {})
+        issues = chain_field(result, "issues", [])
 
         if is_valid:
             validated = {**sanitized, "_validated": True}
@@ -188,6 +179,8 @@ def handle_enrich(state: SessionState) -> SessionState:
         Updated state with enriched_data
     """
     log.info("[HANDLER] enrich")
+    from src.engine.chains import chain_field
+
     from .chains import enrich_chain
 
     base = state.get("validated_data") or state.get("raw_data") or {}
@@ -196,12 +189,11 @@ def handle_enrich(state: SessionState) -> SessionState:
         # Invoke the enrichment chain
         result = enrich_chain.invoke({"input": str(base)})
 
-        # Handle dict result from JsonOutputParser
-        tags = result.get("tags", []) if isinstance(result, dict) else result.tags
-        summary = result.get("summary", "") if isinstance(result, dict) else result.summary
-        word_count = result.get("word_count", 0) if isinstance(result, dict) else result.word_count
-        language = result.get("language", "en") if isinstance(result, dict) else result.language
-        metadata = result.get("metadata", {}) if isinstance(result, dict) else result.metadata
+        tags = chain_field(result, "tags", [])
+        summary = chain_field(result, "summary", "")
+        word_count = chain_field(result, "word_count", 0)
+        language = chain_field(result, "language", "en")
+        metadata = chain_field(result, "metadata", {})
 
         enriched = {
             **base,
@@ -300,6 +292,8 @@ def handle_human_review(state: SessionState) -> SessionState:
         Updated state with human review result
     """
     log.warning("[HANDLER] 🔍  document routed to HUMAN_REVIEW  doc_id=%s", state["document_id"])
+    from src.engine.chains import chain_field
+
     from .chains import review_chain
 
     raw = state.get("raw_data") or {}
@@ -308,22 +302,9 @@ def handle_human_review(state: SessionState) -> SessionState:
         # Invoke the review chain
         result = review_chain.invoke({"input": str(raw)})
 
-        # Handle dict result from JsonOutputParser
-        approved = (
-            result.get("approved", False)
-            if isinstance(result, dict)
-            else result.approved
-        )
-        fixed_data = (
-            result.get("fixed_data", {})
-            if isinstance(result, dict)
-            else result.fixed_data
-        )
-        reviewer_note = (
-            result.get("reviewer_note", "")
-            if isinstance(result, dict)
-            else result.reviewer_note
-        )
+        approved = chain_field(result, "approved", False)
+        fixed_data = chain_field(result, "fixed_data", {})
+        reviewer_note = chain_field(result, "reviewer_note", "")
 
         if approved:
             approved_data = {

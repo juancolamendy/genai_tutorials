@@ -2,6 +2,7 @@
 
 # Generic engine utilities (framework-agnostic, reusable across projects)
 from .chains import (
+    chain_field,
     get_chain,
     make_chain,
     make_llm_chain,
@@ -28,6 +29,7 @@ __all__ = [
     "get_chain",
     "make_llm_chain",
     "render_as_xml",
+    "chain_field",
     "END",
     # Checkpointing
     "SqliteCheckpointer",
