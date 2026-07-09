@@ -82,7 +82,7 @@ def handler(
     
     Usage:
         @handler(state="validate", waits_for_input=False)
-        def handle_validate(state: PipelineState) -> PipelineState:
+        def handle_validate(state: SessionState) -> SessionState:
             # Validate document
             state["current_state"] = "enrich"
             return state
@@ -979,16 +979,16 @@ def test_doc_router_build_prompt():
 
 ## Phase 2: Multi-turn Support (Days 6-10)
 
-### Task 2.1: Extend PipelineState
+### Task 2.1: Extend SessionState
 
 **File:** `src/workflow/pipeline_state.py` (UPDATED)
 
 ```python
-# Add these fields to PipelineState TypedDict
+# Add these fields to SessionState TypedDict
 
 from typing import TypedDict, Optional, Any, List
 
-class PipelineState(TypedDict):
+class SessionState(TypedDict):
     # Existing fields (keep as-is)
     current_state: str
     proposed_next: str
@@ -1022,7 +1022,7 @@ def new_pipeline(entity_id: str, timeout_seconds: float = 300.0) -> dict[str, An
         timeout_seconds: Max execution time
     
     Returns:
-        Fresh PipelineState dict
+        Fresh SessionState dict
     """
     return {
         "current_state": "init",
@@ -1179,7 +1179,7 @@ def _get_or_init_state(self, session_id: str) -> dict[str, Any]:
         session_id: Session identifier
     
     Returns:
-        PipelineState dict
+        SessionState dict
     """
     thread_id = f"invoke_turn:{session_id}"
     config = {"configurable": {"thread_id": thread_id}}
@@ -1299,7 +1299,7 @@ def _build_response(
     
     Args:
         entity_id: Entity being processed
-        state: Final PipelineState
+        state: Final SessionState
     
     Returns:
         Response dict
@@ -1322,7 +1322,7 @@ def _build_turn_response(
     Build response dict from state after invoke_turn().
     
     Args:
-        state: PipelineState after turn execution
+        state: SessionState after turn execution
     
     Returns:
         Turn response dict
@@ -1623,7 +1623,7 @@ HANDLER_MAP = {
 
 ### Summary: Phase 2 Deliverables
 
-✅ Extended `PipelineState` with multi-turn fields  
+✅ Extended `SessionState` with multi-turn fields  
 ✅ Implemented `invoke_turn()` method  
 ✅ Implemented `_auto_progress_langgraph()` method  
 ✅ Implemented `process()` method  

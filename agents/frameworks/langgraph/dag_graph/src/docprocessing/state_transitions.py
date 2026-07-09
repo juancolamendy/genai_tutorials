@@ -31,7 +31,7 @@ class State(str, Enum):
 # STATE TRANSITIONS
 # ─────────────────────────────────────────────────────────────────────────────
 
-HAPPY_PATH: dict[State, State] = {
+happy_path: dict[State, State] = {
     State.INIT: State.FETCH,
     State.FETCH: State.UPLOAD_DOCUMENTS,
     State.UPLOAD_DOCUMENTS: State.VALIDATE,
@@ -42,10 +42,10 @@ HAPPY_PATH: dict[State, State] = {
     State.HUMAN_REVIEW: State.ENRICH,
 }
 
-TERMINAL_STATES = set({State.COMPLETE, State.ERROR})
+terminal_states = set({State.COMPLETE, State.ERROR})
 
 # Adjacency list: which states can follow each state
-ALLOWED_TRANSITIONS: Dict[State, Set[State]] = {
+allowed_transitions: Dict[State, Set[State]] = {
     State.INIT: {State.FETCH},
     State.FETCH: {State.UPLOAD_DOCUMENTS, State.RETRY, State.ERROR},
     State.UPLOAD_DOCUMENTS: {State.VALIDATE, State.RETRY, State.ERROR},
@@ -69,13 +69,13 @@ def is_transition_allowed(current: State, proposed: State) -> bool:
     Returns:
         True if transition is in ALLOWED_TRANSITIONS, False otherwise
     """
-    return proposed in ALLOWED_TRANSITIONS.get(current, set())
+    return proposed in allowed_transitions.get(current, set())
 
 
 __all__ = [
     "State",
-    "ALLOWED_TRANSITIONS",
-    "HAPPY_PATH",
-    "TERMINAL_STATES",
+    "allowed_transitions",
+    "happy_path",
+    "terminal_states",
     "is_transition_allowed",
 ]

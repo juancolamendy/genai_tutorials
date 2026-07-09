@@ -7,33 +7,28 @@ The docprocessing layer combines:
 """
 
 # Graph building and nodes (LangGraph-specific)
-from src.engine.guardrail import GuardrailResult
-
 # LLM chains (domain-specific)
 from src.docprocessing.chains import (
-    ENRICH_CHAIN,
-    REVIEW_CHAIN,
-    VALIDATE_CHAIN,
     EnrichmentResult,
     ReviewDecision,
     ValidationResult,
+    enrich_chain,
+    review_chain,
+    validate_chain,
 )
 from src.docprocessing.graph import (
-    HANDLER_MAP,
-    HAPPY_PATH,
-    TERMINAL_STATES,
-    DocumentPipelineGraph,
+    Graph,
     build_graph,
 )
 
 # Guardrails (validation checks)
 from src.docprocessing.guardrails import (
-    GUARDRAILS,
     check_enriched_data_present,
     check_raw_data_present,
     check_retry_budget,
     check_transition_allowed,
     check_validated_data_present,
+    guardrails,
 )
 
 # Handlers (business logic for each state)
@@ -45,39 +40,40 @@ from src.docprocessing.handlers import (
     handle_human_review,
     handle_retry,
     handle_store,
+    handle_upload_documents,
     handle_validate,
+    handler_map,
 )
 
 # Pipeline state and guardrail types
-from src.docprocessing.pipeline_state import PipelineState
+from src.docprocessing.session_state import SessionState, new_session_state
 
 # State machine (domain-specific core logic)
-from src.docprocessing.state_machine import (
-    ALLOWED_TRANSITIONS,
+from src.docprocessing.state_transitions import (
     State,
+    allowed_transitions,
+    happy_path,
     is_transition_allowed,
+    terminal_states,
 )
-
-# Pipeline entrypoint
-from src.docprocessing.pipeline import run_pipeline
+from src.engine.guardrail import GuardrailResult
 
 __all__ = [
     # Graph building
-    "DocumentPipelineGraph",
+    "Graph",
     "build_graph",
-    "HAPPY_PATH",
-    "HANDLER_MAP",
-    "TERMINAL_STATES",
-    # Pipeline entrypoint
-    "run_pipeline",
+    "happy_path",
+    "terminal_states",
     # State machine
     "State",
-    "PipelineState",
+    "SessionState",
+    "new_session_state",
     "GuardrailResult",
-    "ALLOWED_TRANSITIONS",
+    "allowed_transitions",
     "is_transition_allowed",
     # Handlers
     "handle_fetch",
+    "handle_upload_documents",
     "handle_validate",
     "handle_enrich",
     "handle_store",
@@ -85,17 +81,18 @@ __all__ = [
     "handle_human_review",
     "handle_complete",
     "handle_error",
+    "handler_map",
     # Guardrails
-    "GUARDRAILS",
+    "guardrails",
     "check_transition_allowed",
     "check_retry_budget",
     "check_raw_data_present",
     "check_validated_data_present",
     "check_enriched_data_present",
     # LLM chains
-    "VALIDATE_CHAIN",
-    "ENRICH_CHAIN",
-    "REVIEW_CHAIN",
+    "validate_chain",
+    "enrich_chain",
+    "review_chain",
     "ValidationResult",
     "EnrichmentResult",
     "ReviewDecision",

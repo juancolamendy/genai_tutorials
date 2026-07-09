@@ -1,7 +1,7 @@
 """Generic state machine state definition for LangGraph.
 
 EngineSessionState defines the common control plane and multi-turn support fields
-used by all state machine workflows. Domain-specific states (e.g., PipelineState)
+used by all state machine workflows. Domain-specific states (e.g., SessionState)
 inherit from this and add their own business payload fields.
 """
 
@@ -17,7 +17,7 @@ class EngineSessionState(TypedDict, total=False):
       • Multi-turn support: conversation history, user context
       • Semantic routing: context and confidence
 
-    Domain-specific states (e.g., PipelineState for documents) inherit from
+    Domain-specific states (e.g., SessionState for documents) inherit from
     this class and add business-specific payload fields.
 
     Required Fields:
@@ -116,3 +116,29 @@ class EngineSessionState(TypedDict, total=False):
 
     timeout_seconds: float
     """Maximum execution time for entire workflow (default: 300.0)."""
+
+def new_engine_session_state() -> EngineSessionState:
+    """Create fresh session state."""
+    import time
+
+    return EngineSessionState(
+        current_state="init",
+        proposed_next="init",
+        retry_count=0,
+        error_message=None,
+        guardrail_ok=True,
+        fallback_depth=0,
+        audit_trail=["init session state"],
+        turn_input=None,
+        turn_number=0,
+        conversation_history=[],
+        max_history_turns=10,
+        router_timeout_sec=10.0,
+        user_id="",
+        session_id="",
+        semantic_context={},
+        router_confidence=0.0,
+        router_reasoning=None,
+        started_at=time.time(),
+        timeout_seconds=300.0,
+    )

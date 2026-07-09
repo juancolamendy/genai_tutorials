@@ -1,9 +1,9 @@
 """Tests for main.py example demonstrations."""
 
 
+from src.docprocessing.session_state import new_pipeline
 from src.engine.handler_registry import clear_metadata, does_state_wait_for_input, handler
 from src.engine.input_validation import InputValidationError, escape_for_llm, validate_turn_input
-from src.docprocessing.pipeline_state import new_pipeline
 
 
 def test_example_one_turn_process():

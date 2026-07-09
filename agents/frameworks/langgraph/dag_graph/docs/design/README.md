@@ -173,14 +173,14 @@ response3 = graph.invoke_turn("user1", "session1", "")
 
 **Before:**
 ```python
-def handle_validate(state: PipelineState) -> PipelineState:
+def handle_validate(state: SessionState) -> SessionState:
     ...
 ```
 
 **After:**
 ```python
 @handler(state="validate", waits_for_input=False)
-def handle_validate(state: PipelineState) -> PipelineState:
+def handle_validate(state: SessionState) -> SessionState:
     ...
 ```
 

@@ -1,7 +1,7 @@
 """Tests for multi-turn workflow support."""
 
 
-from src.docprocessing.pipeline_state import new_pipeline
+from src.docprocessing.session_state import new_pipeline
 
 
 def test_new_pipeline_includes_multi_turn_fields():

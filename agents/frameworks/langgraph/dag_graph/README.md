@@ -116,7 +116,7 @@ Nine states with clear progression:
 **Handler Nodes**
 - Execute business logic for each state
 - Metadata (`@handler` decorator) controls pause/resume
-- Pure functions: `(PipelineState) → PipelineState`
+- Pure functions: `(SessionState) → SessionState`
 
 ### Handler Metadata
 
@@ -349,7 +349,7 @@ src/
 │   ├── guardrail.py          # GuardrailResult, make_guardrail
 │   └── session.py            # Session helpers
 ├── docprocessing/
-│   ├── pipeline_state.py     # PipelineState TypedDict, new_pipeline()
+│   ├── pipeline_state.py     # SessionState TypedDict, new_pipeline()
 │   ├── state_machine.py      # State enum, ALLOWED_TRANSITIONS
 │   ├── handlers.py           # 8 handler functions with @handler decorator
 │   ├── chains.py             # VALIDATE_CHAIN, ENRICH_CHAIN, REVIEW_CHAIN

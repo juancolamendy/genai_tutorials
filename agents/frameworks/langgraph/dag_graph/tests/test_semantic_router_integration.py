@@ -2,8 +2,8 @@
 
 
 from src.docprocessing.graph import DocumentPipelineGraph
-from src.docprocessing.pipeline_state import new_pipeline
-from src.docprocessing.state_machine import State
+from src.docprocessing.session_state import new_pipeline
+from src.docprocessing.state_transitions import State
 
 
 class MockSemanticRouter:

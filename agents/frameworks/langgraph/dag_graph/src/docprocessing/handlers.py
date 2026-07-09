@@ -15,13 +15,13 @@ import random
 
 from src.engine.handler_registry import handler
 
-from .pipeline_state import PipelineState
-from .state_machine import State
+from .session_state import SessionState
+from .state_transitions import State
 
 log = logging.getLogger(__name__)
 
 
-def _audit(state: PipelineState, msg: str) -> list[str]:
+def _audit(state: SessionState, msg: str) -> list[str]:
     """Helper: append audit message to trail."""
     return state["audit_trail"] + [msg]
 
@@ -31,11 +31,11 @@ def _audit(state: PipelineState, msg: str) -> list[str]:
 # ─────────────────────────────────────────────────────────────────────────────
 
 @handler(state="fetch", waits_for_input=False, description="Fetch document from source")
-def handle_fetch(state: PipelineState) -> PipelineState:
+def handle_fetch(state: SessionState) -> SessionState:
     """Fetch document by document_id and populate raw_data.
 
     Args:
-        state: PipelineState with document_id set
+        state: SessionState with document_id set
 
     Returns:
         Updated state with raw_data populated or error info set
@@ -70,11 +70,11 @@ def handle_fetch(state: PipelineState) -> PipelineState:
     waits_for_input=True,
     description="Wait for user to upload supporting documents",
 )
-def handle_upload_documents(state: PipelineState) -> PipelineState:
+def handle_upload_documents(state: SessionState) -> SessionState:
     """Wait for user to upload supporting documents.
 
     Args:
-        state: PipelineState with turn_input containing uploaded document metadata
+        state: SessionState with turn_input containing uploaded document metadata
 
     Returns:
         Updated state with supporting_docs populated from turn_input, ready to proceed to validate
@@ -117,23 +117,23 @@ def handle_upload_documents(state: PipelineState) -> PipelineState:
     waits_for_input=False,
     description="Validate document schema and content",
 )
-def handle_validate(state: PipelineState) -> PipelineState:
+def handle_validate(state: SessionState) -> SessionState:
     """Validate schema of raw_data and populate validated_data using VALIDATE_CHAIN.
 
     Args:
-        state: PipelineState with raw_data set
+        state: SessionState with raw_data set
 
     Returns:
         Updated state with validated_data or error info
     """
     log.info("[HANDLER] validate")
-    from .chains import VALIDATE_CHAIN
+    from .chains import validate_chain
 
     raw = state.get("raw_data") or {}
 
     try:
         # Invoke the validation chain
-        result = VALIDATE_CHAIN.invoke({"input": str(raw)})
+        result = validate_chain.invoke({"input": str(raw)})
 
         # Handle dict result from JsonOutputParser
         is_valid = (
@@ -178,23 +178,23 @@ def handle_validate(state: PipelineState) -> PipelineState:
 
 
 @handler(state="enrich", waits_for_input=False, description="Add metadata and tags to document")
-def handle_enrich(state: PipelineState) -> PipelineState:
+def handle_enrich(state: SessionState) -> SessionState:
     """Add metadata and tags to validated_data using ENRICH_CHAIN.
 
     Args:
-        state: PipelineState with validated_data set
+        state: SessionState with validated_data set
 
     Returns:
         Updated state with enriched_data
     """
     log.info("[HANDLER] enrich")
-    from .chains import ENRICH_CHAIN
+    from .chains import enrich_chain
 
     base = state.get("validated_data") or state.get("raw_data") or {}
 
     try:
         # Invoke the enrichment chain
-        result = ENRICH_CHAIN.invoke({"input": str(base)})
+        result = enrich_chain.invoke({"input": str(base)})
 
         # Handle dict result from JsonOutputParser
         tags = result.get("tags", []) if isinstance(result, dict) else result.tags
@@ -230,11 +230,11 @@ def handle_enrich(state: PipelineState) -> PipelineState:
 
 
 @handler(state="store", waits_for_input=False, description="Persist document to storage")
-def handle_store(state: PipelineState) -> PipelineState:
+def handle_store(state: SessionState) -> SessionState:
     """Persist enriched_data to database.
 
     Args:
-        state: PipelineState with enriched_data set
+        state: SessionState with enriched_data set
 
     Returns:
         Updated state after storage
@@ -251,11 +251,11 @@ def handle_store(state: PipelineState) -> PipelineState:
 
 
 @handler(state="complete", waits_for_input=False, description="Mark pipeline as complete")
-def handle_complete(state: PipelineState) -> PipelineState:
+def handle_complete(state: SessionState) -> SessionState:
     """Mark pipeline as complete.
 
     Args:
-        state: PipelineState
+        state: SessionState
 
     Returns:
         Updated state with COMPLETE status
@@ -269,11 +269,11 @@ def handle_complete(state: PipelineState) -> PipelineState:
 
 
 @handler(state="retry", waits_for_input=False, description="Retry last operation")
-def handle_retry(state: PipelineState) -> PipelineState:
+def handle_retry(state: SessionState) -> SessionState:
     """Increment retry counter and clear stale data.
 
     Args:
-        state: PipelineState with retry_count
+        state: SessionState with retry_count
 
     Returns:
         Updated state with incremented retry_count
@@ -290,23 +290,23 @@ def handle_retry(state: PipelineState) -> PipelineState:
 
 
 @handler(state="human_review", waits_for_input=True, description="Wait for human expert review")
-def handle_human_review(state: PipelineState) -> PipelineState:
+def handle_human_review(state: SessionState) -> SessionState:
     """Route document to human review using REVIEW_CHAIN.
 
     Args:
-        state: PipelineState
+        state: SessionState
 
     Returns:
         Updated state with human review result
     """
     log.warning("[HANDLER] 🔍  document routed to HUMAN_REVIEW  doc_id=%s", state["document_id"])
-    from .chains import REVIEW_CHAIN
+    from .chains import review_chain
 
     raw = state.get("raw_data") or {}
 
     try:
         # Invoke the review chain
-        result = REVIEW_CHAIN.invoke({"input": str(raw)})
+        result = review_chain.invoke({"input": str(raw)})
 
         # Handle dict result from JsonOutputParser
         approved = (
@@ -364,11 +364,11 @@ def handle_human_review(state: PipelineState) -> PipelineState:
 
 
 @handler(state="error", waits_for_input=False, description="Handle pipeline error")
-def handle_error(state: PipelineState) -> PipelineState:
+def handle_error(state: SessionState) -> SessionState:
     """Handle pipeline error state.
 
     Args:
-        state: PipelineState with error_message set
+        state: SessionState with error_message set
 
     Returns:
         Updated state with ERROR status
@@ -389,7 +389,7 @@ def handle_error(state: PipelineState) -> PipelineState:
 # HANDLER MAP (exported for use in state machine graph)
 # ─────────────────────────────────────────────────────────────────────────────
 
-HANDLER_MAP = {
+handler_map = {
     State.FETCH: handle_fetch,
     State.UPLOAD_DOCUMENTS: handle_upload_documents,
     State.VALIDATE: handle_validate,
@@ -411,5 +411,5 @@ __all__ = [
     "handle_retry",
     "handle_human_review",
     "handle_error",
-    "HANDLER_MAP",
+    "handler_map",
 ]

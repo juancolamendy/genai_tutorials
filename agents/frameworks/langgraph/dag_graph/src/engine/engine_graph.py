@@ -391,7 +391,7 @@ class EngineGraph:
         """
         try:
             # Create fresh state
-            state = self.new_pipeline(entity_id, timeout_seconds)
+            state = self._new_session_state()
 
             # Thread ID for checkpointing
             thread_id = f"process:{entity_id}"
@@ -405,7 +405,7 @@ class EngineGraph:
 
         except Exception as e:
             log.exception("[process] Error: %s", e)
-            state = self.new_pipeline(entity_id, timeout_seconds)
+            state = self._new_session_state()
             state["current_state"] = "error"
             state["error_message"] = str(e)
 
@@ -499,7 +499,8 @@ class EngineGraph:
             # Auto-progress through non-blocking states
             state = self._auto_progress_langgraph(state, config)
 
-            # CRITICAL: Restore turn_number again after auto-progress (additional invoke calls may reset it)
+            # CRITICAL: Restore turn_number again after auto-progress
+            # (additional invoke calls may reset it)
             state["turn_number"] = current_turn_number
 
             # Trim history
@@ -534,15 +535,19 @@ class EngineGraph:
 
             if does_state_wait_for_input(state.get("current_state")):
                 # Mark this checkpoint as a pause point for automatic resumption
-                if hasattr(self.compiled_graph, "checkpointer") and self.compiled_graph.checkpointer:
+                checkpointer = getattr(self.compiled_graph, "checkpointer", None)
+                if checkpointer:
                     try:
                         # Get the latest checkpoint ID from the session file
-                        session_data = self.compiled_graph.checkpointer.export_session(thread_id)
+                        session_data = checkpointer.export_session(thread_id)
                         if session_data:
                             checkpoint_id = session_data.get("latest_checkpoint_id")
                             if checkpoint_id:
-                                self.compiled_graph.checkpointer.save_pause_point(config, checkpoint_id)
-                                log.info(f"[invoke_turn] Auto-saved pause point {checkpoint_id} at {state['current_state']}")
+                                checkpointer.save_pause_point(config, checkpoint_id)
+                                log.info(
+                                    f"[invoke_turn] Auto-saved pause point "
+                                    f"{checkpoint_id} at {state['current_state']}"
+                                )
                     except Exception as e:
                         log.debug(f"[invoke_turn] Could not auto-save pause point: {e}")
 
@@ -578,7 +583,7 @@ class EngineGraph:
             user_id: User identifier (used for thread_id in checkpointing)
 
         Returns:
-            PipelineState dict
+            SessionState dict
         """
         thread_id = f"{user_id}:{session_id}" if user_id else session_id
 
@@ -590,7 +595,10 @@ class EngineGraph:
                 # Check for pause point first
                 pause_checkpoint_id = self.compiled_graph.checkpointer.get_pause_point(config)
                 if pause_checkpoint_id:
-                    log.info(f"[invoke_turn] Found pause point {pause_checkpoint_id}; resuming from there")
+                    log.info(
+                        f"[invoke_turn] Found pause point {pause_checkpoint_id}; "
+                        "resuming from there"
+                    )
                     config["configurable"]["checkpoint_id"] = pause_checkpoint_id
                     checkpoint_tuple = self.compiled_graph.checkpointer.get_tuple(config)
                     if checkpoint_tuple:
@@ -603,14 +611,17 @@ class EngineGraph:
                 if checkpoint_tuple:
                     state = self._extract_state_from_checkpoint(checkpoint_tuple)
                     if state is not None:
-                        log.info(f"[invoke_turn] Loaded state from latest checkpoint with turn_number={state.get('turn_number', 0)}")
+                        log.info(
+                            "[invoke_turn] Loaded state from latest checkpoint "
+                            f"with turn_number={state.get('turn_number', 0)}"
+                        )
                         return state
         except Exception as e:
             log.debug(f"[invoke_turn] Checkpoint load failed ({e}); creating fresh state")
 
         # Create fresh state if no checkpoint found
         log.info(f"[invoke_turn] Creating fresh state for session_id={session_id}")
-        return self.new_pipeline(session_id)
+        return self._new_session_state()
 
     def _extract_state_from_checkpoint(self, checkpoint_tuple: Any) -> Optional[dict[str, Any]]:
         """Extract state dict from a CheckpointTuple.
@@ -634,8 +645,8 @@ class EngineGraph:
 
         return None
 
-    def new_pipeline(self, entity_id: str, timeout_seconds: float = 300.0) -> dict[str, Any]:
-        """Create fresh pipeline state. Override in subclass if needed."""
+    def _new_session_state(self) -> dict[str, Any]:
+        """Create fresh session state. Override in subclass if needed."""
         raise NotImplementedError
 
     def _build_response(
@@ -668,7 +679,7 @@ class EngineGraph:
         """Build response dict from state after invoke_turn().
 
         Args:
-            state: PipelineState after turn execution
+            state: SessionState after turn execution
 
         Returns:
             Turn response dict

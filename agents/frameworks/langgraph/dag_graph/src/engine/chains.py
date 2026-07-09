@@ -66,7 +66,8 @@ def make_chain(
         description: Chain purpose (for logging)
         system_prompt: System message for the model
         output_schema: Optional Pydantic model for structured output
-        model_id: Chat model ID in "provider:model" format (e.g. "anthropic:claude-haiku-4-5-20251001")
+        model_id: Chat model ID in "provider:model" format
+            (e.g. "anthropic:claude-haiku-4-5-20251001")
 
     Returns:
         LCEL chain (prompt | llm | parser)
@@ -118,7 +119,8 @@ def make_llm_chain(
         name: Chain identifier
         build_prompt: Callable that builds prompt from state dict
         output_schema: Optional Pydantic model for structured output
-        model_id: Chat model ID in "provider:model" format (e.g. "anthropic:claude-haiku-4-5-20251001")
+        model_id: Chat model ID in "provider:model" format
+            (e.g. "anthropic:claude-haiku-4-5-20251001")
 
     Returns:
         Chain executor function

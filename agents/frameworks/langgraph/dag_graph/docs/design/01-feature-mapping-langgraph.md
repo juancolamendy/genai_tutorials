@@ -132,8 +132,8 @@ class StateMachineGraph(BaseModel):
         # Build and return turn response
         return self._build_turn_response(output_state)
 
-# workflow/pipeline_state.py: Updated PipelineState
-class PipelineState(TypedDict):
+# workflow/pipeline_state.py: Updated SessionState
+class SessionState(TypedDict):
     # ... existing fields ...
     # Multi-turn fields
     turn_input: Optional[str]           # Current turn's user input (escaped)
@@ -148,7 +148,7 @@ class PipelineState(TypedDict):
 ```
 
 **Implementation Steps:**
-1. Add `turn_input`, `turn_number`, `conversation_history` to `PipelineState`
+1. Add `turn_input`, `turn_number`, `conversation_history` to `SessionState`
 2. Implement `invoke_turn()` method in `StateMachineGraph`
 3. Update handlers to append turn results to `conversation_history`
 4. Implement `_auto_progress_langgraph()` for LangGraph's graph structure
@@ -333,7 +333,7 @@ Valid states: init, fetch, validate, enrich, store, complete, retry, error, huma
 
 ```python
 # engine/graph.py: Router node updated for multi-turn
-def _semantic_router_node(self, state: PipelineState) -> dict:
+def _semantic_router_node(self, state: SessionState) -> dict:
     """LLM-powered router (called when turn_input is present)."""
     if not self.router:
         # Fallback to pure code router
@@ -402,11 +402,11 @@ def does_state_wait_for_input(state: str) -> bool:
 
 # Usage in workflow
 @handler(state="validate", waits_for_input=False)
-def handle_validate(state: PipelineState) -> PipelineState:
+def handle_validate(state: SessionState) -> SessionState:
     ...
 
 @handler(state="human_review", waits_for_input=True)
-def handle_human_review(state: PipelineState) -> PipelineState:
+def handle_human_review(state: SessionState) -> SessionState:
     ...
 ```
 
@@ -435,7 +435,7 @@ def handler(state: str,
     
     Usage:
         @handler(state="validate", waits_for_input=False)
-        def handle_validate(state: PipelineState) -> PipelineState:
+        def handle_validate(state: SessionState) -> SessionState:
             ...
     """
     def decorator(func: Callable) -> Callable:
@@ -460,16 +460,16 @@ def does_state_wait_for_input(state: str) -> bool:
 from engine.handler_registry import handler
 
 @handler(state="init", waits_for_input=False, description="Initialize pipeline")
-def handle_init(state: PipelineState) -> PipelineState:
+def handle_init(state: SessionState) -> SessionState:
     state["current_state"] = "fetch"
     return state
 
 @handler(state="fetch", waits_for_input=False, description="Fetch document")
-def handle_fetch(state: PipelineState) -> PipelineState:
+def handle_fetch(state: SessionState) -> SessionState:
     ...
 
 @handler(state="human_review", waits_for_input=True, description="Wait for human review")
-def handle_human_review(state: PipelineState) -> PipelineState:
+def handle_human_review(state: SessionState) -> SessionState:
     state["current_state"] = "human_review"
     return state  # Workflow pauses here until next turn
 ```
@@ -494,7 +494,7 @@ class StateMachineGraph:
         # Create handler nodes using metadata
         for state, handler_info in self.handlers_with_meta.items():
             def make_handler_node(fn, state):
-                def node(state_dict: PipelineState) -> PipelineState:
+                def node(state_dict: SessionState) -> SessionState:
                     return fn(state_dict)
                 return node
             
@@ -672,7 +672,7 @@ def _auto_progress(self) -> None:
 
 ```python
 # engine/graph.py
-def _auto_progress_langgraph(self, state: PipelineState, config: dict) -> PipelineState:
+def _auto_progress_langgraph(self, state: SessionState, config: dict) -> SessionState:
     """
     Auto-progress through non-blocking states until hitting a pause point.
     
@@ -796,8 +796,8 @@ class StateMachineGraph:
         self.checkpointer = SqliteCheckpointer(db_path)
     
     def invoke(self,
-               state: PipelineState,
-               config: dict = None) -> PipelineState:
+               state: SessionState,
+               config: dict = None) -> SessionState:
         """
         Invoke compiled graph once.
         
@@ -951,7 +951,7 @@ class StateMachineGraph:
                 "router_confidence": 0.0
             }
     
-    def _get_or_init_state(self, session_id: str) -> PipelineState:
+    def _get_or_init_state(self, session_id: str) -> SessionState:
         """Get existing state or create fresh state for session."""
         # Try to load from checkpointer
         thread_id = f"invoke_turn:{session_id}"
@@ -960,7 +960,7 @@ class StateMachineGraph:
         # If not found, create fresh
         return self.new_pipeline(session_id)
     
-    def _auto_progress_langgraph(self, state: PipelineState, config: dict) -> PipelineState:
+    def _auto_progress_langgraph(self, state: SessionState, config: dict) -> SessionState:
         """Auto-progress through non-blocking states."""
         from engine.handler_registry import does_state_wait_for_input
         
@@ -974,7 +974,7 @@ class StateMachineGraph:
         
         return state
     
-    def _build_response(self, entity_id: str, state: PipelineState) -> dict:
+    def _build_response(self, entity_id: str, state: SessionState) -> dict:
         """Build response from final state."""
         return {
             "current_state": state.get("current_state", "init"),
@@ -985,7 +985,7 @@ class StateMachineGraph:
             "entity_id": entity_id
         }
     
-    def _build_turn_response(self, state: PipelineState) -> dict:
+    def _build_turn_response(self, state: SessionState) -> dict:
         """Build response from state after a turn."""
         from engine.handler_registry import does_state_wait_for_input
         
@@ -1133,7 +1133,7 @@ def _build_turn_response(self) -> dict[str, Any]:
 
 ### Phase 2: Multi-turn Support (Weeks 3-4)
 
-- [ ] **2.1** Extend `PipelineState` in `workflow/pipeline_state.py`
+- [ ] **2.1** Extend `SessionState` in `workflow/pipeline_state.py`
   - Add `turn_input`, `turn_number`, `conversation_history`
   - Add `max_history_turns`, `router_timeout_sec`
   - Add `user_id`, `session_id`
@@ -1399,7 +1399,7 @@ regex = "^2024.0"               # NEW: For pattern matching in escape_for_llm
 
 **Before (current):**
 ```python
-def handle_validate(state: PipelineState) -> PipelineState:
+def handle_validate(state: SessionState) -> SessionState:
     ...
     return state
 ```
@@ -1407,7 +1407,7 @@ def handle_validate(state: PipelineState) -> PipelineState:
 **After:**
 ```python
 @handler(state="validate", waits_for_input=False, description="Validate document")
-def handle_validate(state: PipelineState) -> PipelineState:
+def handle_validate(state: SessionState) -> SessionState:
     ...
     return state
 ```

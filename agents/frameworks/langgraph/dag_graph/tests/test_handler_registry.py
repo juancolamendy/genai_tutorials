@@ -2,11 +2,11 @@
 
 
 from src.engine.handler_registry import (
-    handler_metadata_map,
     clear_metadata,
     does_state_wait_for_input,
     get_handler_metadata,
     handler,
+    handler_metadata_map,
 )
 
 

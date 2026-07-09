@@ -260,7 +260,10 @@ class JsonCheckpointer(BaseCheckpointSaver):
 
         # Return stored checkpoint as-is (includes "v", values, channels, etc.)
         stored_checkpoint = cp_data.get("checkpoint", {})
-        log.debug(f"[JsonCheckpointer.get_tuple] Loaded checkpoint keys: {stored_checkpoint.keys() if isinstance(stored_checkpoint, dict) else 'not a dict'}")
+        checkpoint_keys = (
+            stored_checkpoint.keys() if isinstance(stored_checkpoint, dict) else "not a dict"
+        )
+        log.debug(f"[JsonCheckpointer.get_tuple] Loaded checkpoint keys: {checkpoint_keys}")
 
         return CheckpointTuple(
             config={

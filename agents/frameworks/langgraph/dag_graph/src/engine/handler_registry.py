@@ -36,7 +36,7 @@ def handler(
 
     Usage:
         @handler(state="validate", waits_for_input=False)
-        def handle_validate(state: PipelineState) -> PipelineState:
+        def handle_validate(state: SessionState) -> SessionState:
             # Validate document
             state["current_state"] = "enrich"
             return state

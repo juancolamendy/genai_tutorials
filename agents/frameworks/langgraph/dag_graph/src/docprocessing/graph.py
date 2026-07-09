@@ -1,6 +1,6 @@
 """Domain-specific LangGraph configuration for document processing.
 
-DocumentPipelineGraph inherits from EngineGraph and defines:
+Graph inherits from EngineGraph and defines:
   • State machine (states + transitions)
   • Routing table (happy path)
   • Guardrails
@@ -11,23 +11,27 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
+from src.docprocessing.router import DocPipelineRouter
 from src.engine.engine_graph import EngineGraph
 from src.engine.json_checkpointer import JsonCheckpointer
-from src.docprocessing.router import DocPipelineRouter
 
 if TYPE_CHECKING:
     pass
 
-from .guardrails import GUARDRAILS
-from .handlers import HANDLER_MAP
-from .pipeline_state import PipelineState
-from .state_machine import HAPPY_PATH, TERMINAL_STATES, State
+from .guardrails import guardrails
+from .handlers import handler_map
+from .session_state import SessionState, new_session_state
+from .state_transitions import (
+    State,
+    happy_path,
+    terminal_states,
+)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # DOCUMENT PIPELINE GRAPH (inherits from EngineGraph)
 # ─────────────────────────────────────────────────────────────────────────────
 
-class DocumentPipelineGraph(EngineGraph):
+class Graph(EngineGraph):
     """Document processing pipeline using generic EngineGraph.
 
     Implements the production pattern:
@@ -41,10 +45,14 @@ class DocumentPipelineGraph(EngineGraph):
 
     # Domain-specific configuration
     state_enum = State
-    terminal_states = TERMINAL_STATES
-    handler_map = HANDLER_MAP
+    terminal_states = terminal_states
+    handler_map = handler_map
 
-    def __init__(self, semantic_router: Optional[Any] = None):
+    def __init__(
+        self,
+        semantic_router: Optional[Any] = None,
+        handler_map: Optional[dict[Any, Callable]] = None,
+    ):
         """Initialize graph with optional semantic router.
 
         Args:
@@ -54,7 +62,7 @@ class DocumentPipelineGraph(EngineGraph):
 
     def _build_routing_table(self) -> dict[Any, Any]:
         """Return happy path routing table."""
-        return HAPPY_PATH
+        return happy_path
 
     def _get_current_state(self, state: dict[str, Any]) -> State:
         """Extract current state from state dict."""
@@ -66,15 +74,7 @@ class DocumentPipelineGraph(EngineGraph):
 
     def _get_guardrails(self) -> dict[Any, Callable]:
         """Return guardrail registry."""
-        return GUARDRAILS
-
-    def set_semantic_router(self, router: Any) -> None:
-        """Set the semantic router for LLM-powered routing.
-
-        Args:
-            router: Semantic router instance (e.g., DocPipelineRouter, DefaultSemanticRouter)
-        """
-        self.semantic_router = router
+        return guardrails
 
     def _get_allowed_states(self, current_state: State) -> list[str]:
         """Get allowed next states for current state from ALLOWED_TRANSITIONS.
@@ -85,34 +85,32 @@ class DocumentPipelineGraph(EngineGraph):
         Returns:
             List of allowed state strings
         """
-        from .state_machine import ALLOWED_TRANSITIONS
+        from .state_transitions import allowed_transitions
 
         # Get allowed states from the state machine's transition table
-        allowed = ALLOWED_TRANSITIONS.get(current_state, set())
+        allowed = allowed_transitions.get(current_state, set())
         return [s.value if hasattr(s, "value") else s for s in allowed]
 
-    def new_pipeline(
-        self, entity_id: str, timeout_seconds: float = 300.0
-    ) -> PipelineState:
-        """Create a fresh pipeline state for document processing.
+
+    def _new_session_state(self) -> dict[str, Any]:
+        """Create fresh session state."""
+        return new_session_state()
+
+
+    def set_semantic_router(self, router: Any) -> None:
+        """Set the semantic router for LLM-powered routing.
 
         Args:
-            entity_id: Document identifier
-            timeout_seconds: Max execution time (default 300s = 5 min)
-
-        Returns:
-            Fresh PipelineState with all fields initialized
+            router: Semantic router instance (e.g., DocPipelineRouter, DefaultSemanticRouter)
         """
-        from .pipeline_state import new_pipeline as create_pipeline
-
-        return create_pipeline(entity_id, timeout_seconds)
+        self.semantic_router = router
 
 
 def build_graph(
     sessions_dir: str = ".doc_sessions",
     semantic_router: Optional[Any] = None,
     use_semantic_routing: bool = False,
-) -> DocumentPipelineGraph:
+) -> Graph:
     """Build and compile the state machine graph.
 
     Args:
@@ -124,7 +122,7 @@ def build_graph(
                              If False, uses code-based routing only (faster, more predictable).
 
     Returns:
-        DocumentPipelineGraph with compiled_graph set and ready for invoke_turn()
+        Graph with compiled_graph set and ready for invoke_turn()
 
     Note:
         Code-based routing is enabled by default. Enable semantic routing for LLM-powered
@@ -139,8 +137,8 @@ def build_graph(
     elif not use_semantic_routing:
         semantic_router = None
 
-    graph = DocumentPipelineGraph(semantic_router=semantic_router)
+    graph = Graph(semantic_router=semantic_router)
     # Set the compiled graph on the wrapper
-    graph.compiled_graph = graph.build_graph(PipelineState, checkpointer=checkpointer)
+    graph.compiled_graph = graph.build_graph(SessionState, checkpointer=checkpointer)
     return graph
 

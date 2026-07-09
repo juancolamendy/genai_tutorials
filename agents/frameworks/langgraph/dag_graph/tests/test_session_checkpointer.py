@@ -213,5 +213,6 @@ def test_session_checkpointer_json_format():
         assert "thread_id" in data
         assert "checkpoints" in data
         assert "cp-001" in data["checkpoints"]
-        # Checkpoints are stored with full structure: {"checkpoint": {...}, "metadata": {...}, "ts_created": ...}
+        # Checkpoints are stored with full structure:
+        # {"checkpoint": {...}, "metadata": {...}, "ts_created": ...}
         assert data["checkpoints"]["cp-001"]["checkpoint"]["values"]["key"] == "value"

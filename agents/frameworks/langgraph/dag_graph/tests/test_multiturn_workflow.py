@@ -12,10 +12,9 @@ from uuid import uuid4
 
 # Import handlers FIRST to populate the metadata registry via @handler decorators
 from src.docprocessing import handlers  # noqa: F401
-from src.engine.handler_registry import does_state_wait_for_input
 from src.docprocessing.graph import build_graph
-from src.docprocessing.pipeline_state import new_pipeline
-from src.docprocessing.state_machine import State
+from src.docprocessing.state_transitions import State
+from src.engine.handler_registry import does_state_wait_for_input
 
 
 def test_multiturn_workflow_pause_at_upload_documents() -> None:
@@ -23,7 +22,8 @@ def test_multiturn_workflow_pause_at_upload_documents() -> None:
 
     Demonstrates the auto-progression feature with document upload:
     - Turn 1: INIT → FETCH → UPLOAD_DOCUMENTS (PAUSE)
-    - Turn 2: Continue from UPLOAD_DOCUMENTS with uploaded docs → VALIDATE → ENRICH → STORE → COMPLETE
+    - Turn 2: Continue from UPLOAD_DOCUMENTS with uploaded docs
+      → VALIDATE → ENRICH → STORE → COMPLETE
 
     This shows how workflows can pause at specific states (waits_for_input=True)
     and resume with user-provided context in the next turn.
@@ -47,13 +47,10 @@ def test_multiturn_workflow_pause_at_upload_documents() -> None:
 
     # ── TURN 1: Auto-progress INIT → FETCH → UPLOAD_DOCUMENTS ──
     print(f"\n▶ TURN 1: Starting workflow for {doc_id}")
-    print(f"  Expected: INIT → FETCH → UPLOAD_DOCUMENTS (STOP)")
+    print("  Expected: INIT → FETCH → UPLOAD_DOCUMENTS (STOP)")
 
-    # Create initial state
-    state_1 = new_pipeline(doc_id)
-
-    # Invoke turn with mocked fetch to ensure it succeeds
-    with patch("src.docprocessing.handlers.random.random", return_value=0.9):  # Mock random to skip failure
+    # Invoke turn with mocked fetch to ensure it succeeds (mock skips random failure)
+    with patch("src.docprocessing.handlers.random.random", return_value=0.9):
         response_1 = graph.invoke_turn(
             user_id=user_id,
             session_id=session_id,
@@ -61,7 +58,7 @@ def test_multiturn_workflow_pause_at_upload_documents() -> None:
             timeout_sec=10.0,
         )
 
-    print(f"\n✅ Turn 1 Complete:")
+    print("\n✅ Turn 1 Complete:")
     print(f"  Current State: {response_1.get('current_state')}")
     print(f"  Waits for Input: {response_1.get('waits_for_input')}")
     print(f"  Turn Number: {response_1.get('turn_number')}")
@@ -94,8 +91,8 @@ def test_multiturn_workflow_pause_at_upload_documents() -> None:
         print(f"    {i}. [{role}] {content}...")
 
     # ── TURN 2: Upload supporting documents and continue ────────────────────
-    print(f"\n▶ TURN 2: User uploads supporting documents")
-    print(f"  Expected: UPLOAD_DOCUMENTS → VALIDATE → ENRICH → STORE → COMPLETE")
+    print("\n▶ TURN 2: User uploads supporting documents")
+    print("  Expected: UPLOAD_DOCUMENTS → VALIDATE → ENRICH → STORE → COMPLETE")
 
     # Upload supporting documents with metadata
     import json
@@ -122,7 +119,7 @@ def test_multiturn_workflow_pause_at_upload_documents() -> None:
             timeout_sec=10.0,
         )
 
-    print(f"\n✅ Turn 2 Complete:")
+    print("\n✅ Turn 2 Complete:")
     print(f"  Current State: {response_2.get('current_state')}")
     print(f"  Waits for Input: {response_2.get('waits_for_input')}")
     print(f"  Turn Number: {response_2.get('turn_number')}")
@@ -162,10 +159,10 @@ def test_multiturn_workflow_pause_at_upload_documents() -> None:
         if intents:
             print(f"    Intents: {intents}")
 
-    print(f"\n🎉 Multi-turn workflow test PASSED!")
+    print("\n🎉 Multi-turn workflow test PASSED!")
     print(
-        f"   Successfully paused at HUMAN_REVIEW "
-        f"and resumed in next turn.\n"
+        "   Successfully paused at HUMAN_REVIEW "
+        "and resumed in next turn.\n"
     )
 
 
@@ -188,10 +185,9 @@ def test_multiturn_auto_progression() -> None:
     graph = build_graph()
 
     session_id = str(uuid4())
-    doc_id = "AUTO-PROGRESS-001"
 
-    print(f"\n▶ Single turn with auto-progression")
-    print(f"  Input: Process this document")
+    print("\n▶ Single turn with auto-progression")
+    print("  Input: Process this document")
 
     with patch("src.docprocessing.handlers.random.random", return_value=0.9):  # Skip fetch failure
         response = graph.invoke_turn(
@@ -200,7 +196,7 @@ def test_multiturn_auto_progression() -> None:
             turn_input="Process this document",
         )
 
-    print(f"\n✅ Single turn result:")
+    print("\n✅ Single turn result:")
     print(f"  Starting state: {State.INIT.value}")
     print(f"  Ending state: {response.get('current_state')}")
     print(f"  Waits for input: {response.get('waits_for_input')}")
@@ -217,8 +213,8 @@ def test_multiturn_auto_progression() -> None:
         "Should pause at blocking state (upload_documents)"
     )
 
-    print(f"\n✅ Auto-progression verified:")
-    print(f"   INIT → FETCH → UPLOAD_DOCUMENTS (blocked)")
+    print("\n✅ Auto-progression verified:")
+    print("   INIT → FETCH → UPLOAD_DOCUMENTS (blocked)")
 
 
 def test_turn_semantics() -> None:
@@ -254,7 +250,8 @@ def test_turn_semantics() -> None:
     assert response_2.get("turn_number") == 2
     # After uploading docs, should progress to complete
     assert response_2.get("current_state") == "complete"
-    assert len(response_2.get("conversation_history", [])) >= 2  # At least user + assistant for this turn
+    # At least user + assistant for this turn
+    assert len(response_2.get("conversation_history", [])) >= 2
 
     # Verify turn numbers are properly set in history
     hist = response_2.get("conversation_history", [])
@@ -265,7 +262,7 @@ def test_turn_semantics() -> None:
 
 
 if __name__ == "__main__":
-    test_multiturn_workflow_pause_at_human_review()
+    test_multiturn_workflow_pause_at_upload_documents()
     test_multiturn_auto_progression()
     test_turn_semantics()
     print("\n🎉 All multi-turn tests passed!")

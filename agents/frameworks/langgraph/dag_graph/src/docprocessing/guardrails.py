@@ -11,18 +11,18 @@ from typing import Dict
 
 from src.engine.guardrail import GuardrailFn, GuardrailResult, make_guardrail
 
-from .pipeline_state import PipelineState
-from .state_machine import State, is_transition_allowed
+from .session_state import SessionState
+from .state_transitions import State, is_transition_allowed
 
 # ─────────────────────────────────────────────────────────────────────────────
 # INDIVIDUAL CHECKS
 # ─────────────────────────────────────────────────────────────────────────────
 
-def check_transition_allowed(state: PipelineState) -> GuardrailResult:
+def check_transition_allowed(state: SessionState) -> GuardrailResult:
     """Validate that proposed transition is allowed by state machine.
 
     Args:
-        state: PipelineState with current_state and proposed_next
+        state: SessionState with current_state and proposed_next
 
     Returns:
         GuardrailResult with passed=True or fallback state
@@ -40,13 +40,13 @@ def check_transition_allowed(state: PipelineState) -> GuardrailResult:
     )
 
 
-def check_retry_budget(state: PipelineState) -> GuardrailResult:
+def check_retry_budget(state: SessionState) -> GuardrailResult:
     """Check retry budget exhaustion.
 
     Allows up to MAX_RETRIES (3) before rejecting further retries.
 
     Args:
-        state: PipelineState with retry_count
+        state: SessionState with retry_count
 
     Returns:
         GuardrailResult with passed=True or fallback to ERROR
@@ -62,11 +62,11 @@ def check_retry_budget(state: PipelineState) -> GuardrailResult:
     )
 
 
-def check_raw_data_present(state: PipelineState) -> GuardrailResult:
+def check_raw_data_present(state: SessionState) -> GuardrailResult:
     """Check that raw_data is present before validation.
 
     Args:
-        state: PipelineState with raw_data field
+        state: SessionState with raw_data field
 
     Returns:
         GuardrailResult with passed=True or fallback to RETRY
@@ -81,11 +81,11 @@ def check_raw_data_present(state: PipelineState) -> GuardrailResult:
     )
 
 
-def check_validated_data_present(state: PipelineState) -> GuardrailResult:
+def check_validated_data_present(state: SessionState) -> GuardrailResult:
     """Check that validated_data is present before enrichment.
 
     Args:
-        state: PipelineState with validated_data field
+        state: SessionState with validated_data field
 
     Returns:
         GuardrailResult with passed=True or fallback to HUMAN_REVIEW
@@ -100,11 +100,11 @@ def check_validated_data_present(state: PipelineState) -> GuardrailResult:
     )
 
 
-def check_enriched_data_present(state: PipelineState) -> GuardrailResult:
+def check_enriched_data_present(state: SessionState) -> GuardrailResult:
     """Check that enriched_data is present before storage.
 
     Args:
-        state: PipelineState with enriched_data field
+        state: SessionState with enriched_data field
 
     Returns:
         GuardrailResult with passed=True or fallback to RETRY
@@ -119,11 +119,11 @@ def check_enriched_data_present(state: PipelineState) -> GuardrailResult:
     )
 
 
-def check_pipeline_timeout(state: PipelineState) -> GuardrailResult:
+def check_pipeline_timeout(state: SessionState) -> GuardrailResult:
     """Check that pipeline execution has not exceeded timeout.
 
     Args:
-        state: PipelineState with started_at and timeout_seconds
+        state: SessionState with started_at and timeout_seconds
 
     Returns:
         GuardrailResult with passed=True or fallback to ERROR
@@ -144,11 +144,11 @@ def check_pipeline_timeout(state: PipelineState) -> GuardrailResult:
     return GuardrailResult(passed=True)
 
 
-def check_fallback_depth(state: PipelineState) -> GuardrailResult:
+def check_fallback_depth(state: SessionState) -> GuardrailResult:
     """Detect fallback cascade loops (max depth = 2).
 
     Args:
-        state: PipelineState with fallback_depth field
+        state: SessionState with fallback_depth field
 
     Returns:
         GuardrailResult with passed=True or fallback to ERROR
@@ -169,7 +169,7 @@ def check_fallback_depth(state: PipelineState) -> GuardrailResult:
 # GUARDRAIL REGISTRY
 # ─────────────────────────────────────────────────────────────────────────────
 
-GUARDRAILS: Dict[State, GuardrailFn] = {
+guardrails: Dict[State, GuardrailFn] = {
     State.FETCH: make_guardrail(
         check_transition_allowed,
         check_pipeline_timeout,
@@ -217,7 +217,6 @@ GUARDRAILS: Dict[State, GuardrailFn] = {
 }
 
 __all__ = [
-    "GuardrailFn",
     "check_transition_allowed",
     "check_retry_budget",
     "check_raw_data_present",
@@ -225,5 +224,5 @@ __all__ = [
     "check_enriched_data_present",
     "check_pipeline_timeout",
     "check_fallback_depth",
-    "GUARDRAILS",
+    "guardrails",
 ]

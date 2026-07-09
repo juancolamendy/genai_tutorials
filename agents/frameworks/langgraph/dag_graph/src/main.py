@@ -42,8 +42,8 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
     print("█ SCENARIO 5: MULTI-TURN CONVERSATION WITH PAUSE/RESUME")
     print("█ Feature: Automatic checkpoint management at blocking states")
     print("█ User Experience: Same invoke_turn() call for all turns")
-    print(f"█ Expected: INIT → FETCH → UPLOAD_DOCUMENTS (pause)")
-    print(f"█           UPLOAD_DOCUMENTS → VALIDATE → ENRICH → STORE → COMPLETE")
+    print("█ Expected: INIT → FETCH → UPLOAD_DOCUMENTS (pause)")
+    print("█           UPLOAD_DOCUMENTS → VALIDATE → ENRICH → STORE → COMPLETE")
     print(f"{'█' * 80}")
 
     # Initialize graph with checkpointer
@@ -55,7 +55,7 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
     # ──────────────────────────────────────────────────────────────
     # TURN 1: Start processing, pause at upload_documents
     # ──────────────────────────────────────────────────────────────
-    print(f"\n  ┌─ TURN 1: Start document processing ────────────────────────┐")
+    print("\n  ┌─ TURN 1: Start document processing ────────────────────────┐")
 
     # Mock random to ensure fetch succeeds (avoid 30% random failure)
     with patch("src.docprocessing.handlers.random.random", return_value=0.9):
@@ -69,14 +69,15 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
     print(f"  │ Turn Number     : {response_1.get('turn_number')}")
     print(f"  │ Current State   : {response_1.get('current_state').upper()}")
     print(f"  │ Waits for Input : {response_1.get('waits_for_input')}")
-    print(f"  │ Status          : {'✓ Paused at upload_documents' if response_1.get('waits_for_input') else '✗ Not paused'}")
-    print(f"  │ Note            : Checkpoint automatically saved for resumption")
-    print(f"  └──────────────────────────────────────────────────────────┘")
+    paused = response_1.get("waits_for_input")
+    print(f"  │ Status          : {'✓ Paused at upload_documents' if paused else '✗ Not paused'}")
+    print("  │ Note            : Checkpoint automatically saved for resumption")
+    print("  └──────────────────────────────────────────────────────────┘")
 
     # ──────────────────────────────────────────────────────────────
     # TURN 2: Upload documents and continue to completion
     # ──────────────────────────────────────────────────────────────
-    print(f"\n  ┌─ TURN 2: Upload supporting documents and continue ───────┐")
+    print("\n  ┌─ TURN 2: Upload supporting documents and continue ───────┐")
 
     supporting_docs = [
         {"name": "attachment1.pdf", "content": "Supporting document 1"},
@@ -94,12 +95,13 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
     print(f"  │ Turn Number     : {response_2.get('turn_number')}")
     print(f"  │ Current State   : {response_2.get('current_state').upper()}")
     print(f"  │ Waits for Input : {response_2.get('waits_for_input')}")
-    print(f"  │ Status          : {'✓ Complete' if response_2.get('current_state') == 'complete' else '✗ In progress'}")
-    print(f"  │ Note            : Resumed from checkpoint, documents processed, flow continued")
-    print(f"  └──────────────────────────────────────────────────────────┘")
+    completed = response_2.get("current_state") == "complete"
+    print(f"  │ Status          : {'✓ Complete' if completed else '✗ In progress'}")
+    print("  │ Note            : Resumed from checkpoint, documents processed, flow continued")
+    print("  └──────────────────────────────────────────────────────────┘")
 
     # Print conversation history from Turn 2
-    print(f"\n  Conversation History (Turn 2 summary):")
+    print("\n  Conversation History (Turn 2 summary):")
     history = response_2.get("conversation_history", [])
     if history:
         # Show last 2 entries (user input and assistant response from Turn 2)
@@ -109,7 +111,7 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
             turn = entry.get("turn_number", "?")
             print(f"    {i}. [Turn {turn} - {role}] {content}...")
     else:
-        print(f"    (No conversation history)")
+        print("    (No conversation history)")
 
     print()
 

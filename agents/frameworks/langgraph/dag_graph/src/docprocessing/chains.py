@@ -48,7 +48,7 @@ class ReviewDecision(BaseModel):
 # CHAINS
 # ─────────────────────────────────────────────────────────────────────────────
 
-VALIDATE_CHAIN = make_chain(
+validate_chain = make_chain(
     name="ValidateChain",
     system_prompt="""You are a document validator. Analyze payloads for validity.
 
@@ -71,7 +71,7 @@ Never invent content — only clean what is provided.""",
     output_schema=ValidationResult,
 )
 
-ENRICH_CHAIN = make_chain(
+enrich_chain = make_chain(
     name="EnrichChain",
     system_prompt="""You are a document enrichment specialist. Add value to validated documents.
 
@@ -93,7 +93,7 @@ Respond ONLY with valid JSON matching this structure:
     output_schema=EnrichmentResult,
 )
 
-REVIEW_CHAIN = make_chain(
+review_chain = make_chain(
     name="ReviewChain",
     system_prompt="""You are a review expert. Approve or reject documents.
 
@@ -119,7 +119,7 @@ __all__ = [
     "ValidationResult",
     "EnrichmentResult",
     "ReviewDecision",
-    "VALIDATE_CHAIN",
-    "ENRICH_CHAIN",
-    "REVIEW_CHAIN",
+    "validate_chain",
+    "enrich_chain",
+    "review_chain",
 ]
