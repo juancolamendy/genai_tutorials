@@ -23,20 +23,20 @@ class SessionState(EngineSessionState):
     """
 
     # ─ Business Payload (document-specific) ───────────────────────────────
-    document_id: str
     """Unique document identifier being processed."""
+    document_id: str
 
-    raw_data: Optional[Dict[str, Any]]
     """Raw document content fetched from source. Set by fetch handler."""
+    raw_data: Optional[Dict[str, Any]]
 
-    validated_data: Optional[Dict[str, Any]]
-    """Validated document content. Set by validate handler."""
-
-    enriched_data: Optional[Dict[str, Any]]
-    """Enriched document with metadata. Set by enrich handler."""
-
-    supporting_docs: Optional[list[Dict[str, Any]]]
     """Supporting documents uploaded by user. Set by upload_documents handler."""
+    supporting_docs: Optional[list[Dict[str, Any]]]
+
+    """Validated document content. Set by validate handler."""
+    validated_data: Optional[Dict[str, Any]]
+
+    """Enriched document with metadata. Set by enrich handler."""
+    enriched_data: Optional[Dict[str, Any]]
 
 # functions
 # ── Constructor ───────────────────────────────────────────────────────────────

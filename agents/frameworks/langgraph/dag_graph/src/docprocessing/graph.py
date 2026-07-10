@@ -39,8 +39,6 @@ class Graph(EngineGraph):
 
     All generic logic (router, guardrail, graph building) is inherited from
     EngineGraph. This class only defines domain-specific configuration.
-
-    Can optionally use semantic routing (LLM-powered) via set_semantic_router().
     """
 
     # Domain-specific configuration
@@ -48,17 +46,9 @@ class Graph(EngineGraph):
     terminal_states = terminal_states
     handler_map = handler_map
 
-    def __init__(
-        self,
-        semantic_router: Optional[Any] = None,
-        handler_map: Optional[dict[Any, Callable]] = None,
-    ):
-        """Initialize graph with optional semantic router.
-
-        Args:
-            semantic_router: Optional semantic router instance (e.g., DocPipelineRouter)
-        """
-        self.semantic_router = semantic_router
+    def __init__(self) -> None:
+        """Initialize graph."""
+        super().__init__()
 
     def _build_routing_table(self) -> dict[Any, Any]:
         """Return happy path routing table."""
@@ -97,15 +87,6 @@ class Graph(EngineGraph):
         return new_session_state()
 
 
-    def set_semantic_router(self, router: Any) -> None:
-        """Set the semantic router for LLM-powered routing.
-
-        Args:
-            router: Semantic router instance (e.g., DocPipelineRouter, DefaultSemanticRouter)
-        """
-        self.semantic_router = router
-
-
 def build_graph(
     sessions_dir: str = ".doc_sessions",
     semantic_router: Optional[Any] = None,
@@ -137,7 +118,8 @@ def build_graph(
     elif not use_semantic_routing:
         semantic_router = None
 
-    graph = Graph(semantic_router=semantic_router)
+    graph = Graph()
+    graph.semantic_router = semantic_router
     # Set the compiled graph on the wrapper
     graph.compiled_graph = graph.build_graph(SessionState, checkpointer=checkpointer)
     return graph

@@ -73,7 +73,7 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
         state = graph.invoke(
             user_id=user_id,
             session_id=session_id,
-            turn_input="Please process document",
+            turn_input="Please process document: mydocument.pdf",
             timeout_sec=10.0,
         )
 
@@ -94,7 +94,10 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
         response_2 = graph.invoke(
             user_id=user_id,
             session_id=session_id,
-            turn_input=json.dumps(supporting_docs),
+            turn_input="there you have the supporting documents",
+            state_delta={
+                "supporting_docs": supporting_docs,
+            },
             timeout_sec=10.0,
         )
 
