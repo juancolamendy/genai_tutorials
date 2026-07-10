@@ -83,28 +83,12 @@ def handle_upload_documents(state: SessionState) -> SessionState:
 
     # Parse uploaded documents from turn_input
     # Expected turn_input format: JSON with list of documents
-    import json
-
-    turn_input = state.get("turn_input", "")
-    supporting_docs = []
-
-    if turn_input:
-        try:
-            # Try to parse as JSON
-            data = json.loads(turn_input) if isinstance(turn_input, str) else turn_input
-            if isinstance(data, list):
-                supporting_docs = data
-            elif isinstance(data, dict) and "documents" in data:
-                supporting_docs = data["documents"]
-        except (json.JSONDecodeError, TypeError):
-            # If not JSON, create a simple document entry from the input text
-            supporting_docs = [{"name": "uploaded_file", "content": turn_input}]
+    supporting_docs = state.get("supporting_docs") or []
 
     return {
         **state,
         "current_state": State.UPLOAD_DOCUMENTS.value,
         "proposed_next": State.VALIDATE.value,
-        "supporting_docs": supporting_docs,
         "audit_trail": _audit(
             state,
             f"upload_documents OK – {len(supporting_docs)} documents uploaded",

@@ -79,6 +79,9 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
             user_id=user_id,
             session_id=session_id,
             turn_input="Please process document: mydocument.pdf",
+            state_delta={
+                "document_id": "mydocument.pdf",
+            },
             timeout_sec=10.0,
         )
 
