@@ -13,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from langchain_core.messages import BaseMessage, message_to_dict, messages_from_dict
 from langgraph.checkpoint.base import (
     BaseCheckpointSaver,
     Checkpoint,
@@ -25,6 +26,26 @@ log = logging.getLogger(__name__)
 
 # Default sessions directory
 DEFAULT_SESSIONS_DIR = ".doc_sessions"
+
+_BASEMESSAGE_MARKER = "__basemessage__"
+
+
+def _json_default(obj: Any) -> Any:
+    """Serialize BaseMessage objects (e.g. the "messages" channel) to JSON-safe dicts.
+
+    Without this, json.dump's fallback would stringify them via repr(),
+    which can't be parsed back — silently losing message history on reload.
+    """
+    if isinstance(obj, BaseMessage):
+        return {_BASEMESSAGE_MARKER: True, **message_to_dict(obj)}
+    return str(obj)
+
+
+def _json_object_hook(d: dict[str, Any]) -> Any:
+    """Reconstruct BaseMessage objects serialized by _json_default."""
+    if d.get(_BASEMESSAGE_MARKER):
+        return messages_from_dict([{k: v for k, v in d.items() if k != _BASEMESSAGE_MARKER}])[0]
+    return d
 
 
 class JsonCheckpointer(BaseCheckpointSaver):
@@ -130,7 +151,7 @@ class JsonCheckpointer(BaseCheckpointSaver):
 
         try:
             with open(path, "r") as f:
-                return json.load(f)
+                return json.load(f, object_hook=_json_object_hook)
         except (json.JSONDecodeError, OSError) as e:
             log.error(f"Error loading session from {path}: {e}")
             return None
@@ -148,7 +169,7 @@ class JsonCheckpointer(BaseCheckpointSaver):
                 delete=False,
                 suffix=".tmp",
             ) as tmp:
-                json.dump(data, tmp, indent=2, default=str)
+                json.dump(data, tmp, indent=2, default=_json_default)
                 tmp_path = tmp.name
 
             # Atomic rename (works across platforms)

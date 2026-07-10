@@ -5,7 +5,12 @@ used by all state machine workflows. Domain-specific states (e.g., SessionState)
 inherit from this and add their own business payload fields.
 """
 
-from typing import Any, Dict, Optional, TypedDict
+import operator
+import time
+from typing import Annotated, Any, Dict, Literal, Optional, TypedDict
+
+from langchain_core.messages import BaseMessage
+from langgraph.graph.message import add_messages
 
 
 class EngineSessionState(TypedDict, total=False):
@@ -14,31 +19,38 @@ class EngineSessionState(TypedDict, total=False):
     This TypedDict provides the foundation for all state machine workflows.
     It includes:
       • Control plane: state tracking, routing, error handling
-      • Multi-turn support: conversation history, user context
+      • Multi-turn support: message history, user context
       • Semantic routing: context and confidence
 
     Domain-specific states (e.g., SessionState for documents) inherit from
     this class and add business-specific payload fields.
 
-    Required Fields:
+    Fields:
       • current_state: Current state in the state machine
       • proposed_next: Router's suggestion for next state
       • retry_count: Number of retries attempted
-      • audit_trail: Append-only log of state transitions
-      • turn_number: Multi-turn counter
-      • conversation_history: Accumulated turns
-      • max_history_turns: Max turns to retain
-      • router_timeout_sec: Timeout for semantic router
-      • semantic_context: Extracted entities and intents
-      • router_confidence: Confidence of router decision
-
-    Optional Fields:
-      • error_message: Error description if state=error
+      • error_message: Error description if status='error'
+      • error_type: Exception class name if status='error'
+      • status: 'ok' or 'error' — set centrally (safe_node, handler dispatch),
+        never by individual handlers
       • guardrail_ok: Guardrail validation result
       • fallback_depth: Consecutive guardrail-fallback count (cascade detection)
-      • turn_input: Current turn's user input (escaped)
+      • audit_trail: Append-only log of state transitions (reducer: operator.add)
+      • input_message: Current turn's user input (escaped)
+      • turn_number: Multi-turn counter
+      • messages: Accumulated conversation messages (reducer: add_messages)
       • user_id: Caller identity (for audit)
       • session_id: Multi-turn session ID
+      • semantic_context: Extracted entities and intents
+      • router_confidence: Confidence of router decision
+      • router_reasoning: Optional explanation from semantic router
+      • started_at: Workflow start timestamp
+      • timeout_seconds: Max execution time for entire workflow
+
+    Note: max_history_turns and router_timeout_sec are NOT here — they're
+    run configuration, not session data. max_history_turns lives on
+    EngineGraph (doesn't vary per-session); router_timeout_sec is threaded
+    per-invocation via LangGraph's config["configurable"], not persisted.
     """
 
     # ─ Control Plane ─────────────────────────────────────────────────────
@@ -52,7 +64,15 @@ class EngineSessionState(TypedDict, total=False):
     """Number of retries attempted for current operation. Incremented by retry handler."""
 
     error_message: Optional[str]
-    """Error description if state='error'. None otherwise."""
+    """Error description if status='error'. None otherwise."""
+
+    error_type: Optional[str]
+    """Exception class name if status='error' (set by safe_node). None otherwise."""
+
+    status: Literal["ok", "error"]
+    """Overall session health. Set centrally — by safe_node on uncaught exceptions,
+    and by handler dispatch when the state entered is the domain's ERROR state.
+    Individual handlers never set this themselves."""
 
     guardrail_ok: bool
     """Guardrail validation result. True if proposed_next passed guardrails."""
@@ -60,33 +80,25 @@ class EngineSessionState(TypedDict, total=False):
     fallback_depth: int
     """Consecutive guardrail-fallback count. Incremented on fallback, reset on pass."""
 
-    audit_trail: list[str]
-    """Append-only log of every step. One entry per state transition."""
+    audit_trail: Annotated[list[str], operator.add]
+    """Append-only log of every step. Reducer-backed: nodes return only the new
+    entry/entries (e.g. ["fetch OK"]), LangGraph appends them automatically."""
 
     # ─ Multi-turn Support ────────────────────────────────────────────────
-    turn_input: Optional[str]
+    input_message: Optional[str]
     """Current turn's user input (already escaped for LLM safety)."""
 
     turn_number: int
     """Turn counter. 0 = initial state, 1+ = multi-turn turns."""
 
-    conversation_history: list[Dict[str, Any]]
-    """Accumulated conversation history across turns.
+    messages: Annotated[list[BaseMessage], add_messages]
+    """Accumulated conversation messages across turns. Reducer-backed: nodes
+    return only new messages, LangGraph appends/merges them automatically.
 
-    Each entry: {
-        "role": "user" | "assistant",
-        "content": str,
-        "turn_number": int,
-        "state": str (optional),
-        "semantic_context": dict (optional)
-    }
+    Per-turn bookkeeping (turn_number, state, semantic_context) is carried in
+    each message's additional_kwargs, since BaseMessage has no room for
+    app-specific fields otherwise.
     """
-
-    max_history_turns: int
-    """Maximum number of turns to retain in conversation_history (default: 10)."""
-
-    router_timeout_sec: float
-    """Timeout in seconds for semantic router LLM call (default: 10.0)."""
 
     user_id: Optional[str]
     """Caller identity. Used for audit trail and session management."""
@@ -117,23 +129,22 @@ class EngineSessionState(TypedDict, total=False):
     timeout_seconds: float
     """Maximum execution time for entire workflow (default: 300.0)."""
 
+
 def new_engine_session_state() -> EngineSessionState:
     """Create fresh session state."""
-    import time
-
     return EngineSessionState(
         current_state="init",
         proposed_next="init",
         retry_count=0,
         error_message=None,
+        error_type=None,
+        status="ok",
         guardrail_ok=True,
         fallback_depth=0,
         audit_trail=["init session state"],
-        turn_input=None,
+        input_message=None,
         turn_number=0,
-        conversation_history=[],
-        max_history_turns=10,
-        router_timeout_sec=10.0,
+        messages=[],
         user_id="",
         session_id="",
         semantic_context={},

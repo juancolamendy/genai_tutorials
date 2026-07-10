@@ -56,7 +56,7 @@ class DocPipelineRouter(DefaultSemanticRouter):
         router = DocPipelineRouter()
         decision = router.route(
             current_state="validate",
-            turn_input="Document looks good, proceed",
+            input_message="Document looks good, proceed",
             history=[...],
             allowed_states=["enrich", "human_review", "error"],
         )
@@ -96,7 +96,7 @@ Be concise and confident in your decision."""
     def build_router_prompt(
         self,
         current_state: str,
-        turn_input: str,
+        input_message: str,
         history_text: str,
         allowed_states: list,
     ) -> str:
@@ -111,7 +111,7 @@ Conversation History (last 3 turns):
 {history_text}
 
 User Input / Feedback:
-{turn_input}
+{input_message}
 
 Based on the current state, user feedback, and allowed transitions,
 determine the next state. Extract any entities and intents from the user input."""

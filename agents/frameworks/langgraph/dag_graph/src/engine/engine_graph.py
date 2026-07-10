@@ -7,10 +7,13 @@ Provides:
 
 from __future__ import annotations
 
+import inspect
 import logging
 from functools import wraps
 from typing import Any, Callable, Optional
 
+from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, StateGraph
 
 log = logging.getLogger(__name__)
@@ -23,18 +26,24 @@ log = logging.getLogger(__name__)
 def safe_node(func: Callable) -> Callable:
     """Wrap node function with error handling.
 
-    Catches exceptions and returns error state without propagating.
+    Catches exceptions and returns error state without propagating. If func
+    declares a second parameter, the LangGraph invocation config is forwarded
+    to it — used by nodes that need a per-invocation runtime setting (e.g.
+    router timeout) without persisting it in the checkpointed session state.
     """
+    accepts_config = len(inspect.signature(func).parameters) > 1
+
     @wraps(func)
-    def wrapper(state: dict[str, Any]) -> dict[str, Any]:
+    def wrapper(state: dict[str, Any], config: Optional[RunnableConfig] = None) -> dict[str, Any]:
         try:
-            return func(state)
+            return func(state, config) if accepts_config else func(state)
         except Exception as e:
             log.error(f"Node {func.__name__} failed: {e}", exc_info=True)
             return {
                 **state,
                 "error_message": str(e),
                 "error_type": type(e).__name__,
+                "status": "error",
                 "proposed_next": "error",  # Route to error state
             }
     return wrapper
@@ -57,6 +66,9 @@ class EngineGraph:
 
     Optional:
       • semantic_router — LLM-powered router (if None, uses routing table)
+      • max_history_turns — message retention policy (default: 10). Lives
+        here, not in session state, because it's the same for every session
+        of this graph rather than data that changes as a session progresses.
     """
 
     # Subclasses must override these
@@ -64,6 +76,7 @@ class EngineGraph:
     terminal_states: set = set()
     handler_map: dict[Any, Callable] = {}
     semantic_router: Optional[Any] = None
+    max_history_turns: int = 10
 
     def _build_routing_table(self) -> dict[Any, Any]:
         """Return {current_state: next_state} routing table. Override in subclass."""
@@ -100,7 +113,9 @@ class EngineGraph:
     # GENERIC NODES (used by all subclasses)
     # ─────────────────────────────────────────────────────────────────────────
 
-    def _router_node(self, state: dict[str, Any]) -> dict[str, Any]:
+    def _router_node(
+        self, state: dict[str, Any], config: Optional[RunnableConfig] = None
+    ) -> dict[str, Any]:
         """Route: current_state → proposed_next via semantic or code router.
 
         If semantic_router is available, uses LLM routing. Otherwise falls back
@@ -108,6 +123,8 @@ class EngineGraph:
 
         Args:
             state: State dict with current_state set
+            config: LangGraph invocation config; configurable.router_timeout_sec
+                overrides the semantic router's default LLM call timeout
 
         Returns:
             Updated state with proposed_next set
@@ -119,16 +136,16 @@ class EngineGraph:
             try:
                 # Extract arguments for semantic router
                 current_state = state.get("current_state", "init")
-                turn_input = state.get("turn_input", "")
-                history = state.get("conversation_history", [])
-                timeout_sec = state.get("router_timeout_sec", 10.0)
+                input_message = state.get("input_message", "")
+                history = state.get("messages", [])
+                timeout_sec = (config or {}).get("configurable", {}).get("router_timeout_sec", 10.0)
 
                 # Get allowed next states from state machine
                 allowed_states = self._get_allowed_states(current)
 
                 router_decision = self.semantic_router.route(
                     current_state=current_state,
-                    turn_input=turn_input,
+                    input_message=input_message,
                     history=history,
                     allowed_states=allowed_states,
                     timeout_sec=timeout_sec,
@@ -145,15 +162,13 @@ class EngineGraph:
 
                 # Store semantic context in state
                 semantic_state = {
-                    **state,
                     "proposed_next": proposal_val,
                     "semantic_context": {
                         "entities": router_decision.semantic_entities,
                         "intents": router_decision.semantic_intents,
                     },
                     "router_confidence": router_decision.confidence,
-                    "audit_trail": state.get("audit_trail", [])
-                    + [
+                    "audit_trail": [
                         f"router: semantic {current} → {proposal} "
                         f"(conf={router_decision.confidence:.2f})"
                     ],
@@ -179,9 +194,8 @@ class EngineGraph:
         log.info("[ROUTER] code: %s → proposes %s", current, proposal)
 
         return {
-            **state,
             "proposed_next": proposal_val,
-            "audit_trail": state.get("audit_trail", []) + [f"router: code {current} → {proposal}"],
+            "audit_trail": [f"router: code {current} → {proposal}"],
         }
 
     def _guardrail_node(self, state: dict[str, Any]) -> dict[str, Any]:
@@ -207,10 +221,11 @@ class EngineGraph:
 
         if result.passed:
             log.info("[GUARDRAIL] ✅  %s passed", proposed)
+            # proposed_next is unchanged from what the router set — no need to re-set it.
+            target = proposed.value if hasattr(proposed, "value") else proposed
             new_state = {
-                **state,
                 "fallback_depth": 0,
-                "audit_trail": state.get("audit_trail", []) + [f"guardrail PASS → {proposed}"],
+                "audit_trail": [f"guardrail PASS → {proposed}"],
             }
         else:
             fallback_val = (result.fallback or self.state_enum.ERROR).value
@@ -222,18 +237,21 @@ class EngineGraph:
                 fallback_val,
                 fallback_depth,
             )
+            target = fallback_val
             new_state = {
-                **state,
                 "proposed_next": fallback_val,
                 "error_message": result.reason,
                 "fallback_depth": fallback_depth,
-                "audit_trail": state.get("audit_trail", [])
-                + [f"guardrail FAIL → {proposed} ({result.reason}) → fallback {fallback_val}"],
+                "audit_trail": [
+                    f"guardrail FAIL → {proposed} ({result.reason}) → fallback {fallback_val}"
+                ],
             }
 
-        target = new_state["proposed_next"]
         if does_state_wait_for_input(target):
+            # Parking at a blocking state is a normal pause, not a failure —
+            # and it's never the ERROR state (ERROR isn't waits_for_input).
             new_state["current_state"] = target
+            new_state["status"] = "ok"
 
         return new_state
 
@@ -252,6 +270,51 @@ class EngineGraph:
         if does_state_wait_for_input(proposed):
             return END
         return proposed
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # HANDLER DISPATCH (centralizes what every handler call needs, so
+    # handlers never set current_state/status themselves)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _dispatch_handler(self, state_val: Any, state: dict[str, Any]) -> dict[str, Any]:
+        """Run the handler registered for state_val and stamp its result.
+
+        A handler is only ever run because state_val's node was dispatched to
+        (whether by the graph or, on multi-turn resume, directly by invoke()),
+        so current_state is fully determined by state_val — no handler needs
+        to (or should) set it. status flips to "error" only when state_val is
+        the domain's designated ERROR state; every other dispatch resets it
+        to "ok", so a later successful state self-heals a prior error.
+
+        Returns ONLY the handler's delta plus the stamped fields — never a
+        full merged state. This matters for reducer-backed fields (messages,
+        audit_trail): a handler dispatch never touches them, so they must be
+        absent from this delta, not resubmitted via a full state spread —
+        resubmitting an unchanged list through a reducer is not a no-op (e.g.
+        add_messages would treat it as new messages to merge/append).
+
+        Args:
+            state_val: The state enum whose handler should run
+            state: Current state dict, passed through to the handler to read
+
+        Returns:
+            The handler's delta, plus current_state/status stamped on top
+        """
+        handler_fn = self.handler_map[state_val]
+        result = handler_fn(state)
+        return {
+            **result,
+            "current_state": state_val.value,
+            "status": "error" if state_val == self.state_enum.ERROR else "ok",
+        }
+
+    def _make_handler_node(self, state_val: Any) -> Callable:
+        """Build a 1-arg node function bound to state_val, for add_node()."""
+
+        def node(state: dict[str, Any]) -> dict[str, Any]:
+            return self._dispatch_handler(state_val, state)
+
+        return node
 
     # ─────────────────────────────────────────────────────────────────────────
     # GRAPH BUILDING (generic, reusable for all subclasses)
@@ -276,8 +339,8 @@ class EngineGraph:
         g.add_node("guardrail", safe_node(self._guardrail_node))
 
         # Add handler nodes with error handling
-        for state_val, handler_fn in self.handler_map.items():
-            g.add_node(state_val.value, safe_node(handler_fn))
+        for state_val in self.handler_map:
+            g.add_node(state_val.value, safe_node(self._make_handler_node(state_val)))
 
         # Entry point
         g.set_entry_point("router")
@@ -331,6 +394,14 @@ class EngineGraph:
         If current state has waits_for_input=False, continue running state machine
         until hitting a state with waits_for_input=True or a terminal state.
 
+        The state passed into each compiled_graph.invoke() call here has
+        audit_trail/messages reset to their identity ([]) first — the state
+        we're holding is always the (already checkpointed) result of a
+        prior invoke() call on this same thread, so LangGraph already has
+        the true accumulated value; feeding it back in full would
+        double-count it against what's already persisted. See
+        _get_or_init_state's docstring for the same reasoning applied there.
+
         Args:
             state: Current pipeline state
             config: Graph invocation config (with thread_id for checkpointing)
@@ -357,7 +428,8 @@ class EngineGraph:
 
             # Continue: run state machine one more time
             log.debug(f"[auto_progress] {current} is non-blocking; continuing...")
-            state = self.compiled_graph.invoke(state, config=config)
+            call_state = {**state, "audit_trail": [], "messages": []}
+            state = self.compiled_graph.invoke(call_state, config=config)
             iters += 1
 
         if iters >= max_auto_iters:
@@ -369,7 +441,7 @@ class EngineGraph:
         self,
         user_id: str,
         session_id: str,
-        turn_input: str,
+        input_message: str,
         state_delta: Optional[dict[str, Any]] = None,
         timeout_sec: float = 10.0,
     ) -> dict[str, Any]:
@@ -381,28 +453,21 @@ class EngineGraph:
         3. Prepare turn metadata (and merge state_delta, if given)
         4. Run state machine once
         5. Auto-progress through non-blocking states
-        6. Trim conversation history
-        7. Append turn to history
+        6. Trim message history
+        7. Append turn to message history
         8. Return turn response
 
         Args:
             user_id: Caller identity (for audit)
             session_id: Multi-turn session ID
-            turn_input: User's input text
+            input_message: User's input text
             state_delta: Optional extra fields to merge into state alongside
-                turn_input (e.g. business payload supplied this turn), before
-                the graph is invoked
+                input_message (e.g. business payload supplied this turn),
+                before the graph is invoked
             timeout_sec: LLM router timeout
 
         Returns:
-            {
-                "current_state": str,
-                "waits_for_input": bool,
-                "turn_number": int,
-                "semantic_context": dict,
-                "router_confidence": float,
-                "error": str or None,
-            }
+            Final SessionState after this turn's execution.
         """
         from src.engine.input_validation import (
             InputValidationError,
@@ -412,21 +477,25 @@ class EngineGraph:
 
         try:
             # Validate and escape input
-            validate_turn_input(turn_input)
-            escaped = escape_for_llm(turn_input)
+            validate_turn_input(input_message)
+            escaped = escape_for_llm(input_message)
 
             # Thread ID for checkpointing across turns
             thread_id = f"{user_id}:{session_id}"
-            config = {"configurable": {"thread_id": thread_id}}
+            config = {
+                "configurable": {
+                    "thread_id": thread_id,
+                    "router_timeout_sec": timeout_sec,
+                }
+            }
 
             # Get or initialize state (use thread_id format for consistency)
             state = self._get_or_init_state(session_id, user_id=user_id)
 
             # Prepare turn metadata
-            state["turn_input"] = escaped
+            state["input_message"] = escaped
             current_turn_number = state.get("turn_number", 0) + 1
             state["turn_number"] = current_turn_number
-            state["router_timeout_sec"] = timeout_sec
             state["user_id"] = user_id
             state["session_id"] = session_id
 
@@ -435,7 +504,7 @@ class EngineGraph:
                 state.update(state_delta)
 
             # Resuming at a blocking state: run its own handler with the fresh
-            # turn_input before the graph executes. The router only proposes
+            # input_message before the graph executes. The router only proposes
             # transitions FORWARD from current_state via the routing table, so
             # without this it would skip past the blocking state on resume and
             # silently discard the new turn's input (e.g. an upload) instead of
@@ -444,9 +513,15 @@ class EngineGraph:
 
             current_state_str = state.get("current_state", "init")
             if does_state_wait_for_input(current_state_str):
-                handler_fn = self.handler_map.get(self.state_enum(current_state_str))
-                if handler_fn is not None:
-                    state = handler_fn(state)
+                delta = self._dispatch_handler(self.state_enum(current_state_str), state)
+                # delta["audit_trail"] is just the new entry (not the full
+                # accumulated list) — plain-merging it here is intentional:
+                # it correctly overwrites state's audit_trail (which
+                # _get_or_init_state already reset to [] for a
+                # loaded-from-checkpoint state) with just this new entry,
+                # ready for the compiled_graph.invoke() call below. See
+                # _get_or_init_state's docstring for why.
+                state = {**state, **delta}
 
             # Initialize router if available and needed
             if hasattr(self, "_init_router"):
@@ -465,32 +540,36 @@ class EngineGraph:
             # (additional invoke calls may reset it)
             state["turn_number"] = current_turn_number
 
-            # Trim history
-            max_turns = state.get("max_history_turns", 10)
-            history = state.get("conversation_history", [])
-            if len(history) > max_turns:
-                dropped = len(history) - max_turns
-                state["conversation_history"] = history[-max_turns:]
-                log.info(f"[invoke] Trimmed {dropped} old turns; keeping {max_turns}")
+            # Trim history (this runs outside the graph's node/reducer cycle,
+            # directly on the accumulated list, so plain list ops are correct)
+            messages = state.get("messages", [])
+            if len(messages) > self.max_history_turns:
+                dropped = len(messages) - self.max_history_turns
+                messages = messages[-self.max_history_turns:]
+                state["messages"] = messages
+                log.info(
+                    f"[invoke] Trimmed {dropped} old messages; keeping {self.max_history_turns}"
+                )
 
             # Append user input to history
-            state["conversation_history"].append({
-                "role": "user",
-                "content": escaped,
-                "turn_number": state["turn_number"],
-            })
+            messages.append(HumanMessage(
+                content=escaped,
+                additional_kwargs={"turn_number": state["turn_number"]},
+            ))
 
             # Append turn result to history
-            state["conversation_history"].append({
-                "role": "assistant",
-                "content": f"Transitioned to {state['current_state']}",
-                "semantic_context": {
-                    "entities": state.get("semantic_context", {}).get("entities", {}),
-                    "intents": state.get("semantic_context", {}).get("intents", []),
+            messages.append(AIMessage(
+                content=f"Transitioned to {state['current_state']}",
+                additional_kwargs={
+                    "turn_number": state["turn_number"],
+                    "state": state["current_state"],
+                    "semantic_context": {
+                        "entities": state.get("semantic_context", {}).get("entities", {}),
+                        "intents": state.get("semantic_context", {}).get("intents", []),
+                    },
                 },
-                "state": state["current_state"],
-                "turn_number": state["turn_number"],
-            })
+            ))
+            state["messages"] = messages
 
             # AUTO-SAVE PAUSE POINT (hidden from user)
             from src.engine.handler_registry import does_state_wait_for_input
@@ -517,9 +596,9 @@ class EngineGraph:
 
         except InputValidationError as e:
             return {
-                "error": str(e),
+                "error_message": str(e),
+                "status": "error",
                 "current_state": None,
-                "waits_for_input": False,
                 "turn_number": 0,
                 "semantic_context": {},
                 "router_confidence": 0.0,
@@ -527,9 +606,9 @@ class EngineGraph:
         except Exception as e:
             log.exception("[invoke] Error: %s", e)
             return {
-                "error": str(e),
+                "error_message": str(e),
+                "status": "error",
                 "current_state": "error",
-                "waits_for_input": False,
                 "turn_number": 0,
                 "semantic_context": {},
                 "router_confidence": 0.0,
@@ -539,6 +618,19 @@ class EngineGraph:
         """Get existing state or create fresh state for session.
 
         Auto-loads from pause point if available, otherwise tries latest checkpoint.
+
+        A state loaded from a checkpoint has its reducer-backed fields
+        (audit_trail, messages) reset to their identity (empty list) before
+        being returned. This matters because invoke() feeds the result of
+        this method into compiled_graph.invoke() shortly after: LangGraph
+        merges whatever we pass for a reducer-backed channel against what
+        it has ALREADY persisted for this thread — it does not treat our
+        input as a replacement. Everything in a just-loaded checkpoint's
+        audit_trail/messages is, by definition, already persisted, so
+        feeding it back in full would double-count it. Any handler that
+        runs directly on this state before the graph does (see invoke()'s
+        resume-at-blocking-state step) must therefore also only ever set
+        these fields to new entries, never a full accumulated copy.
 
         Args:
             session_id: Session identifier
@@ -566,7 +658,7 @@ class EngineGraph:
                     if checkpoint_tuple:
                         pause_state = self._extract_state_from_checkpoint(checkpoint_tuple)
                         if pause_state is not None:
-                            return pause_state
+                            return {**pause_state, "audit_trail": [], "messages": []}
 
                 # Fallback to latest checkpoint if no pause point
                 checkpoint_tuple = self.compiled_graph.checkpointer.get_tuple(config)
@@ -577,11 +669,12 @@ class EngineGraph:
                             "[invoke] Loaded state from latest checkpoint "
                             f"with turn_number={state.get('turn_number', 0)}"
                         )
-                        return state
+                        return {**state, "audit_trail": [], "messages": []}
         except Exception as e:
             log.debug(f"[invoke] Checkpoint load failed ({e}); creating fresh state")
 
-        # Create fresh state if no checkpoint found
+        # Create fresh state if no checkpoint found — nothing is persisted
+        # yet for this thread, so its initial audit_trail is genuinely new.
         log.info(f"[invoke] Creating fresh state for session_id={session_id}")
         return self._new_session_state()
 

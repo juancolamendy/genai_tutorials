@@ -54,7 +54,7 @@ def test_multiturn_workflow_pause_at_upload_documents() -> None:
         response_1 = graph.invoke(
             user_id=user_id,
             session_id=session_id,
-            turn_input="Please process this document for me",
+            input_message="Please process this document for me",
             timeout_sec=10.0,
         )
 
@@ -83,20 +83,17 @@ def test_multiturn_workflow_pause_at_upload_documents() -> None:
         "UPLOAD_DOCUMENTS should have waits_for_input=True"
     )
 
-    print("\n📋 Conversation history after Turn 1:")
-    history = response_1.get("conversation_history", [])
-    for i, turn in enumerate(history, 1):
-        role = turn.get("role", "?").upper()
-        content = turn.get("content", "")[:50]
-        print(f"    {i}. [{role}] {content}...")
+    print("\n📋 Message history after Turn 1:")
+    history = response_1.get("messages", [])
+    for i, msg in enumerate(history, 1):
+        content = str(msg.content)[:50]
+        print(f"    {i}. [{msg.type.upper()}] {content}...")
 
     # ── TURN 2: Upload supporting documents and continue ────────────────────
     print("\n▶ TURN 2: User uploads supporting documents")
     print("  Expected: UPLOAD_DOCUMENTS → VALIDATE → ENRICH → STORE → COMPLETE")
 
     # Upload supporting documents with metadata
-    import json
-
     supporting_docs = [
         {
             "name": "attachment1.pdf",
@@ -115,7 +112,8 @@ def test_multiturn_workflow_pause_at_upload_documents() -> None:
         response_2 = graph.invoke(
             user_id=user_id,
             session_id=session_id,
-            turn_input=json.dumps(supporting_docs),
+            input_message="Here are the supporting documents",
+            state_delta={"supporting_docs": supporting_docs},
             timeout_sec=10.0,
         )
 
@@ -135,18 +133,17 @@ def test_multiturn_workflow_pause_at_upload_documents() -> None:
         f"Expected turn_number=2, got {response_2.get('turn_number')}"
     )
 
-    # Verify conversation history accumulated across both turns
-    history_2 = response_2.get("conversation_history", [])
+    # Verify message history accumulated for this turn
+    history_2 = response_2.get("messages", [])
     assert len(history_2) >= 2, (
-        f"Expected at least 2 turns in history, got {len(history_2)}"
+        f"Expected at least 2 messages in history, got {len(history_2)}"
     )
 
-    print("\n📋 Complete conversation history:")
-    for i, turn in enumerate(history_2, 1):
-        role = turn.get("role", "?").upper()
-        content = turn.get("content", "")[:60]
-        state = turn.get("state", "?")
-        print(f"    {i:2d}. [{role}] {content}... (state: {state})")
+    print("\n📋 Message history (Turn 2):")
+    for i, msg in enumerate(history_2, 1):
+        content = str(msg.content)[:60]
+        state = msg.additional_kwargs.get("state", "?")
+        print(f"    {i:2d}. [{msg.type.upper()}] {content}... (state: {state})")
 
     # Verify semantic context was captured
     semantic_context = response_2.get("semantic_context", {})
@@ -193,7 +190,7 @@ def test_multiturn_auto_progression() -> None:
         response = graph.invoke(
             user_id="user-456",
             session_id=session_id,
-            turn_input="Process this document",
+            input_message="Process this document",
         )
 
     print("\n✅ Single turn result:")
@@ -230,33 +227,33 @@ def test_turn_semantics() -> None:
         response_1 = graph.invoke(
             user_id="user-789",
             session_id=session_id,
-            turn_input="Start workflow",
+            input_message="Start workflow",
         )
 
     assert response_1.get("turn_number") == 1
     assert response_1.get("current_state") == "upload_documents"
-    assert len(response_1.get("conversation_history", [])) >= 2  # User + assistant entries
+    assert len(response_1.get("messages", [])) >= 2  # User + assistant entries
 
     # Turn 2 - provide document data to progress from upload_documents
-    import json
     docs = [{"name": "doc1.pdf", "content": "test"}]
     with patch("src.docprocessing.handlers.random.random", return_value=0.9):
         response_2 = graph.invoke(
             user_id="user-789",
             session_id=session_id,
-            turn_input=json.dumps(docs),
+            input_message="Here's the document",
+            state_delta={"supporting_docs": docs},
         )
 
     assert response_2.get("turn_number") == 2
     # After uploading docs, should progress to complete
     assert response_2.get("current_state") == "complete"
     # At least user + assistant for this turn
-    assert len(response_2.get("conversation_history", [])) >= 2
+    assert len(response_2.get("messages", [])) >= 2
 
-    # Verify turn numbers are properly set in history
-    hist = response_2.get("conversation_history", [])
+    # Verify turn numbers are properly set in message history
+    hist = response_2.get("messages", [])
     if len(hist) > 0:
-        assert hist[0].get("turn_number") in [1, 2], "Turn numbers should be set"
+        assert hist[0].additional_kwargs.get("turn_number") in [1, 2], "Turn numbers should be set"
 
     print("✅ Turn semantics test passed")
 

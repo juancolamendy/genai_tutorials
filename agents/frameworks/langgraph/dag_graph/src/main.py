@@ -24,12 +24,13 @@ from src.docprocessing.graph import build_graph
 
 def print_turn_state(state: dict) -> None:
     """Print key fields from a turn's session state."""
-    print(f"  │ Turn Input     : {state.get('turn_input')}")
+    print(f"  │ Input Message   : {state.get('input_message')}")
     print(f"  │ Current State   : {state.get('current_state').upper()}")
     print(f"  │ Proposed Next State   : {state.get('proposed_next').upper()}")
-    print(f"  │ Error   : {state.get('error')}")
+    print(f"  │ Status   : {state.get('status')}")
+    print(f"  │ Error   : {state.get('error_message')}")
     print(f"  │ Audit Trail     : {state.get('audit_trail')}")
-    print(f"  │ Conversation History     : {state.get('conversation_history')}")
+    print(f"  │ Messages     : {state.get('messages')}")
     print(f"  │ Semantic Context     : {state.get('semantic_context')}")
     print(f"  │ Document ID     : {state.get('document_id')}")
     print(f"  │ Raw Data     : {state.get('raw_data')}")
@@ -77,7 +78,7 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
         state = graph.invoke(
             user_id=user_id,
             session_id=session_id,
-            turn_input="Please process document: mydocument.pdf",
+            input_message="Please process document: mydocument.pdf",
             state_delta={
                 "document_id": "mydocument.pdf",
             },
@@ -101,7 +102,7 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
         response_2 = graph.invoke(
             user_id=user_id,
             session_id=session_id,
-            turn_input="there you have the supporting documents",
+            input_message="there you have the supporting documents",
             state_delta={
                 "supporting_docs": supporting_docs,
             },
@@ -111,18 +112,18 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
     print_turn_state(response_2)
     print("  └──────────────────────────────────────────────────────────┘")
 
-    # Print conversation history from Turn 2
-    print("\n  Conversation History (Turn 2 summary):")
-    history = response_2.get("conversation_history", [])
+    # Print message history from Turn 2
+    print("\n  Message History (Turn 2 summary):")
+    history = response_2.get("messages", [])
     if history:
         # Show last 2 entries (user input and assistant response from Turn 2)
         for i, entry in enumerate(history[-2:], 1):
-            role = entry.get("role", "?").upper()
-            content = entry.get("content", "")[:60]
-            turn = entry.get("turn_number", "?")
+            role = entry.type.upper()
+            content = str(entry.content)[:60]
+            turn = entry.additional_kwargs.get("turn_number", "?")
             print(f"    {i}. [Turn {turn} - {role}] {content}...")
     else:
-        print("    (No conversation history)")
+        print("    (No message history)")
 
     print()
 

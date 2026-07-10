@@ -3,9 +3,11 @@
 Each handler executes business logic for a state and must:
   1. Read from state dict
   2. Process the data
-  3. Update state dict with results
-  4. Return the updated state dict
-  5. ALWAYS set current_state to its own state value
+  3. Return ONLY the fields it's updating (a partial delta)
+
+current_state and status are stamped centrally by EngineGraph._run_handler —
+handlers never set them. audit_trail is reducer-backed (operator.add), so
+handlers return only the new entry/entries, not the accumulated list.
 """
 
 from __future__ import annotations
@@ -21,11 +23,6 @@ from .state_transitions import State
 log = logging.getLogger(__name__)
 
 
-def _audit(state: SessionState, msg: str) -> list[str]:
-    """Helper: append audit message to trail."""
-    return state["audit_trail"] + [msg]
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 # HANDLERS
 # ─────────────────────────────────────────────────────────────────────────────
@@ -38,7 +35,7 @@ def handle_fetch(state: SessionState) -> SessionState:
         state: SessionState with document_id set
 
     Returns:
-        Updated state with raw_data populated or error info set
+        Delta with raw_data populated or error info set
     """
     log.info("[HANDLER] fetch  doc_id=%s", state.get("document_id", "unknown"))
 
@@ -46,10 +43,9 @@ def handle_fetch(state: SessionState) -> SessionState:
     if random.random() < 0.30 and state["retry_count"] == 0:
         log.warning("[HANDLER] fetch failed – will retry")
         return {
-            **state,
-            "current_state": State.FETCH.value,
+            "status": "error",
             "raw_data": None,
-            "audit_trail": _audit(state, "fetch FAILED"),
+            "audit_trail": ["fetch FAILED"],
         }
 
     raw = {
@@ -58,10 +54,8 @@ def handle_fetch(state: SessionState) -> SessionState:
         "schema_version": "2.1",
     }
     return {
-        **state,
-        "current_state": State.FETCH.value,
         "raw_data": raw,
-        "audit_trail": _audit(state, f"fetch OK  payload_id={raw['id']}"),
+        "audit_trail": [f"fetch OK  payload_id={raw['id']}"],
     }
 
 
@@ -74,22 +68,21 @@ def handle_upload_documents(state: SessionState) -> SessionState:
     """Wait for user to upload supporting documents.
 
     Args:
-        state: SessionState with turn_input containing uploaded document metadata
+        state: SessionState with supporting_docs already merged in (via
+            invoke()'s state_delta) for this turn
 
     Returns:
-        Updated state with supporting_docs populated from turn_input, ready to proceed to validate
+        Delta with an audit_trail entry reporting how many documents arrived
     """
     supporting_docs = state.get("supporting_docs") or []
-    log.info("[HANDLER] upload_documents  doc_id=%s  supporting_docs=%s", state.get("document_id", "unknown"), len(supporting_docs))
+    log.info(
+        "[HANDLER] upload_documents  doc_id=%s  supporting_docs=%s",
+        state.get("document_id", "unknown"),
+        len(supporting_docs),
+    )
 
     return {
-        **state,
-        "current_state": State.UPLOAD_DOCUMENTS.value,
-        "proposed_next": State.VALIDATE.value,
-        "audit_trail": _audit(
-            state,
-            f"upload_documents OK – {len(supporting_docs)} documents uploaded",
-        ),
+        "audit_trail": [f"upload_documents OK – {len(supporting_docs)} documents uploaded"],
     }
 
 
@@ -105,7 +98,7 @@ def handle_validate(state: SessionState) -> SessionState:
         state: SessionState with raw_data set
 
     Returns:
-        Updated state with validated_data or error info
+        Delta with validated_data or error info
     """
     log.info("[HANDLER] validate")
     from src.engine.chains import chain_field
@@ -126,26 +119,22 @@ def handle_validate(state: SessionState) -> SessionState:
             validated = {**sanitized, "_validated": True}
             msg = f"validate OK – {'; '.join(issues) if issues else 'no issues'}"
             return {
-                **state,
-                "current_state": State.VALIDATE.value,
                 "validated_data": validated,
-                "audit_trail": _audit(state, msg),
+                "audit_trail": [msg],
             }
         else:
             log.warning("[HANDLER] validation failed – %s", "; ".join(issues))
             return {
-                **state,
-                "current_state": State.VALIDATE.value,
+                "status": "error",
                 "validated_data": None,
-                "audit_trail": _audit(state, f"validate FAILED – {'; '.join(issues)}"),
+                "audit_trail": [f"validate FAILED – {'; '.join(issues)}"],
             }
     except Exception as e:
         log.error("[HANDLER] validation chain error: %s", str(e))
         return {
-            **state,
-            "current_state": State.VALIDATE.value,
+            "status": "error",
             "validated_data": None,
-            "audit_trail": _audit(state, f"validate ERROR – {str(e)}"),
+            "audit_trail": [f"validate ERROR – {str(e)}"],
         }
 
 
@@ -157,7 +146,7 @@ def handle_enrich(state: SessionState) -> SessionState:
         state: SessionState with validated_data set
 
     Returns:
-        Updated state with enriched_data
+        Delta with enriched_data
     """
     log.info("[HANDLER] enrich")
     from src.engine.chains import chain_field
@@ -185,20 +174,17 @@ def handle_enrich(state: SessionState) -> SessionState:
             "metadata": metadata,
         }
         return {
-            **state,
-            "current_state": State.ENRICH.value,
             "enriched_data": enriched,
-            "audit_trail": _audit(state, f"enrich OK – tags={', '.join(tags)}"),
+            "audit_trail": [f"enrich OK – tags={', '.join(tags)}"],
         }
     except Exception as e:
         log.error("[HANDLER] enrichment chain error: %s", str(e))
         # Fallback to simple enrichment
         enriched = {**base, "tags": ["unknown"], "word_count": len(str(base))}
         return {
-            **state,
-            "current_state": State.ENRICH.value,
+            "status": "error",
             "enriched_data": enriched,
-            "audit_trail": _audit(state, f"enrich FALLBACK – {str(e)}"),
+            "audit_trail": [f"enrich FALLBACK – {str(e)}"],
         }
 
 
@@ -210,16 +196,14 @@ def handle_store(state: SessionState) -> SessionState:
         state: SessionState with enriched_data set
 
     Returns:
-        Updated state after storage
+        Delta with an audit_trail entry recording the store
     """
     log.info("[HANDLER] store")
     # Simulate write to database
     enriched = state.get("enriched_data")
     record_id = enriched.get("id", "unknown") if enriched else "unknown"
     return {
-        **state,
-        "current_state": State.STORE.value,
-        "audit_trail": _audit(state, f"store OK  record_id={record_id}"),
+        "audit_trail": [f"store OK  record_id={record_id}"],
     }
 
 
@@ -231,13 +215,11 @@ def handle_complete(state: SessionState) -> SessionState:
         state: SessionState
 
     Returns:
-        Updated state with COMPLETE status
+        Delta with an audit_trail entry marking completion
     """
     log.info("[HANDLER] ✅  pipeline complete for doc_id=%s", state["document_id"])
     return {
-        **state,
-        "current_state": State.COMPLETE.value,
-        "audit_trail": _audit(state, "COMPLETE"),
+        "audit_trail": ["COMPLETE"],
     }
 
 
@@ -249,16 +231,14 @@ def handle_retry(state: SessionState) -> SessionState:
         state: SessionState with retry_count
 
     Returns:
-        Updated state with incremented retry_count
+        Delta with incremented retry_count
     """
     new_count = state["retry_count"] + 1
     log.info("[HANDLER] retry  attempt=%d", new_count)
     return {
-        **state,
-        "current_state": State.RETRY.value,
         "retry_count": new_count,
         "raw_data": None,  # clear stale payload
-        "audit_trail": _audit(state, f"retry #{new_count}"),
+        "audit_trail": [f"retry #{new_count}"],
     }
 
 
@@ -270,7 +250,7 @@ def handle_human_review(state: SessionState) -> SessionState:
         state: SessionState
 
     Returns:
-        Updated state with human review result
+        Delta with human review result
     """
     log.warning("[HANDLER] 🔍  document routed to HUMAN_REVIEW  doc_id=%s", state["document_id"])
     from src.engine.chains import chain_field
@@ -295,19 +275,15 @@ def handle_human_review(state: SessionState) -> SessionState:
             }
             msg = f"human_review: APPROVED – {reviewer_note[:50]}"
             return {
-                **state,
-                "current_state": State.HUMAN_REVIEW.value,
                 "validated_data": approved_data,
-                "audit_trail": _audit(state, msg),
+                "audit_trail": [msg],
             }
         else:
             log.warning("[HANDLER] human_review REJECTED: %s", reviewer_note)
             msg = f"human_review: REJECTED – {reviewer_note[:50]}"
             return {
-                **state,
-                "current_state": State.HUMAN_REVIEW.value,
                 "validated_data": None,
-                "audit_trail": _audit(state, msg),
+                "audit_trail": [msg],
             }
     except Exception as e:
         log.error("[HANDLER] review chain error: %s", str(e))
@@ -318,10 +294,9 @@ def handle_human_review(state: SessionState) -> SessionState:
             "_validated": True,
         }
         return {
-            **state,
-            "current_state": State.HUMAN_REVIEW.value,
+            "status": "error",
             "validated_data": approved_data,
-            "audit_trail": _audit(state, f"human_review: FALLBACK approved – {str(e)[:30]}"),
+            "audit_trail": [f"human_review: FALLBACK approved – {str(e)[:30]}"],
         }
 
 
@@ -333,7 +308,7 @@ def handle_error(state: SessionState) -> SessionState:
         state: SessionState with error_message set
 
     Returns:
-        Updated state with ERROR status
+        Delta with an audit_trail entry recording the error
     """
     log.error(
         "[HANDLER] 🔴  pipeline ERROR  doc_id=%s  reason=%s",
@@ -341,9 +316,7 @@ def handle_error(state: SessionState) -> SessionState:
         state.get("error_message", "unknown"),
     )
     return {
-        **state,
-        "current_state": State.ERROR.value,
-        "audit_trail": _audit(state, f"ERROR: {state.get('error_message', 'unknown')}"),
+        "audit_trail": [f"ERROR: {state.get('error_message', 'unknown')}"],
     }
 
 

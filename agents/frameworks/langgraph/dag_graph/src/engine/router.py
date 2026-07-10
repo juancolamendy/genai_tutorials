@@ -37,7 +37,7 @@ class BaseSemanticRouter(ABC):
 
     Example:
         class MyRouter(BaseSemanticRouter):
-            def route(self, current_state, turn_input, history, allowed_states, timeout_sec):
+            def route(self, current_state, input_message, history, allowed_states, timeout_sec):
                 # Use LLM to decide next state
                 return RouterDecision(proposed_next="validate", confidence=0.95)
     """
@@ -46,7 +46,7 @@ class BaseSemanticRouter(ABC):
     def route(
         self,
         current_state: str,
-        turn_input: str,
+        input_message: str,
         history: list,
         allowed_states: list,
         timeout_sec: float = 10.0,
@@ -56,8 +56,8 @@ class BaseSemanticRouter(ABC):
 
         Args:
             current_state: Current state (e.g., "validate")
-            turn_input: User's input text (already validated and escaped)
-            history: List of prior turns [{role, content, ...}]
+            input_message: User's input text (already validated and escaped)
+            history: List of prior BaseMessage turns
             allowed_states: Valid next states per state machine transitions
             timeout_sec: LLM call timeout (default 10s)
 
@@ -97,8 +97,8 @@ class DefaultSemanticRouter(BaseSemanticRouter):
             def get_instructions(self):
                 return "You are a document router. Choose next state: ..."
 
-            def build_router_prompt(self, current_state, turn_input, ...):
-                return f"State: {current_state}\\nInput: {turn_input}\\n..."
+            def build_router_prompt(self, current_state, input_message, ...):
+                return f"State: {current_state}\\nInput: {input_message}\\n..."
     """
 
     output_schema: type = None  # Subclasses MUST set this to a Pydantic model
@@ -155,7 +155,7 @@ Provide brief reasoning for your decision."""
     def build_router_prompt(
         self,
         current_state: str,
-        turn_input: str,
+        input_message: str,
         history_text: str,
         allowed_states: list,
     ) -> str:
@@ -167,7 +167,7 @@ Provide brief reasoning for your decision."""
 
         Args:
             current_state: Current state (e.g., "validate")
-            turn_input: Turn input text
+            input_message: Turn input text
             history_text: Formatted conversation history
             allowed_states: List of valid next states
 
@@ -183,7 +183,7 @@ Allowed Next States: {allowed_str}
 Conversation History (last 5 turns):
 {history_text}
 
-User Input: {turn_input}
+User Input: {input_message}
 
 Determine the next state based on the user's intent and the current state.
 Always choose from the ALLOWED NEXT STATES."""
@@ -191,7 +191,7 @@ Always choose from the ALLOWED NEXT STATES."""
     def route(
         self,
         current_state: str,
-        turn_input: str,
+        input_message: str,
         history: list,
         allowed_states: list,
         timeout_sec: float = 10.0,
@@ -201,8 +201,8 @@ Always choose from the ALLOWED NEXT STATES."""
 
         Args:
             current_state: Current state
-            turn_input: User input (already escaped)
-            history: List of prior turns
+            input_message: User input (already escaped)
+            history: List of prior BaseMessage turns
             allowed_states: Valid next states
             timeout_sec: Timeout for LLM call
 
@@ -223,15 +223,15 @@ Always choose from the ALLOWED NEXT STATES."""
             # Build history text from last 5 turns only
             history_text = "\n".join(
                 [
-                    f"{turn.get('role', 'user').title()}: {turn.get('content', '')[:100]}"
-                    for turn in history[-5:]
+                    f"{msg.type.title()}: {str(msg.content)[:100]}"
+                    for msg in history[-5:]
                 ]
             ) or "(No prior turns)"
 
             # Build prompt
             prompt = self.build_router_prompt(
                 current_state,
-                turn_input,
+                input_message,
                 history_text,
                 allowed_states,
             )
@@ -263,7 +263,7 @@ Always choose from the ALLOWED NEXT STATES."""
             log.info(
                 "[SemanticRouter] %s + '%s...' → %s (conf: %.2f)",
                 current_state,
-                turn_input[:30] if turn_input else "(empty)",
+                input_message[:30] if input_message else "(empty)",
                 response.proposed_next,
                 confidence,
             )
