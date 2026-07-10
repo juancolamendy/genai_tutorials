@@ -122,7 +122,7 @@ def build_graph(
                              If False, uses code-based routing only (faster, more predictable).
 
     Returns:
-        Graph with compiled_graph set and ready for invoke_turn()
+        Graph with compiled_graph set and ready for invoke()
 
     Note:
         Code-based routing is enabled by default. Enable semantic routing for LLM-powered

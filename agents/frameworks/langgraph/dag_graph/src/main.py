@@ -3,7 +3,7 @@ main.py
 ────────────────────────────────────────────────────────────────────────────
 Demo: run the document processing pipeline's multi-turn support.
 
-MULTI-TURN EXAMPLE (invoke_turn()):
+MULTI-TURN EXAMPLE (invoke()):
   Multi-turn conversation with pause/resume at a blocking state.
   - Turn 1: Start processing, pause at upload_documents
   - Turn 2: Upload documents, continue to completion
@@ -29,7 +29,7 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
     This scenario demonstrates the key multi-turn workflow feature:
     - Automatic pause at blocking states (waits_for_input=True)
     - Automatic checkpoint save/resume between turns
-    - Hidden from user API (same invoke_turn call for both turns)
+    - Hidden from user API (same invoke call for both turns)
 
     Expected flow:
     - Turn 1: INIT → FETCH → UPLOAD_DOCUMENTS (PAUSE and wait for documents)
@@ -41,7 +41,7 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
     print(f"\n\n{'█' * 80}")
     print("█ SCENARIO 5: MULTI-TURN CONVERSATION WITH PAUSE/RESUME")
     print("█ Feature: Automatic checkpoint management at blocking states")
-    print("█ User Experience: Same invoke_turn() call for all turns")
+    print("█ User Experience: Same invoke() call for all turns")
     print("█ Expected: INIT → FETCH → UPLOAD_DOCUMENTS (pause)")
     print("█           UPLOAD_DOCUMENTS → VALIDATE → ENRICH → STORE → COMPLETE")
     print(f"{'█' * 80}")
@@ -59,7 +59,7 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
 
     # Mock random to ensure fetch succeeds (avoid 30% random failure)
     with patch("src.docprocessing.handlers.random.random", return_value=0.9):
-        response_1 = graph.invoke_turn(
+        response_1 = graph.invoke(
             user_id=user_id,
             session_id=session_id,
             turn_input="Please process document",
@@ -85,7 +85,7 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
     ]
 
     with patch("src.docprocessing.handlers.random.random", return_value=0.9):
-        response_2 = graph.invoke_turn(
+        response_2 = graph.invoke(
             user_id=user_id,
             session_id=session_id,
             turn_input=json.dumps(supporting_docs),

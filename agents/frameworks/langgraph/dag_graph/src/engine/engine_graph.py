@@ -306,24 +306,6 @@ class EngineGraph:
     # MULTI-TURN SUPPORT METHODS (new in Phase 2)
     # ─────────────────────────────────────────────────────────────────────────
 
-    def invoke(
-        self,
-        state: dict[str, Any],
-        config: Optional[dict[str, Any]] = None,
-    ) -> dict[str, Any]:
-        """Invoke compiled graph once.
-
-        Args:
-            state: Current pipeline state
-            config: {"configurable": {"thread_id": ...}} for checkpointing
-
-        Returns:
-            Updated state after one full iteration (router → guardrail → handler)
-        """
-        if config is None:
-            config = {}
-        return self.compiled_graph.invoke(state, config=config)
-
     def _auto_progress_langgraph(
         self,
         state: dict[str, Any],
@@ -369,53 +351,12 @@ class EngineGraph:
 
         return state
 
-    def process(
-        self,
-        entity_id: str,
-        timeout_seconds: float = 300.0,
-    ) -> dict[str, Any]:
-        """Execute one complete workflow run for an entity.
-
-        Workflow:
-        1. Create fresh state
-        2. Run state machine loop
-        3. Auto-progress through non-blocking states
-        4. Return response
-
-        Args:
-            entity_id: Document ID, invoice ID, etc.
-            timeout_seconds: Max execution time
-
-        Returns:
-            Response dict with current_state, audit_trail, errors, etc.
-        """
-        try:
-            # Create fresh state
-            state = self._new_session_state()
-
-            # Thread ID for checkpointing
-            thread_id = f"process:{entity_id}"
-            config = {"configurable": {"thread_id": thread_id}}
-
-            # Run state machine
-            state = self.compiled_graph.invoke(state, config=config)
-
-            # Auto-progress
-            state = self._auto_progress_langgraph(state, config)
-
-        except Exception as e:
-            log.exception("[process] Error: %s", e)
-            state = self._new_session_state()
-            state["current_state"] = "error"
-            state["error_message"] = str(e)
-
-        return self._build_response(entity_id, state)
-
-    def invoke_turn(
+    def invoke(
         self,
         user_id: str,
         session_id: str,
         turn_input: str,
+        state_delta: Optional[dict[str, Any]] = None,
         timeout_sec: float = 10.0,
     ) -> dict[str, Any]:
         """Execute one turn of multi-turn conversation.
@@ -423,7 +364,7 @@ class EngineGraph:
         Workflow:
         1. Validate and escape user input
         2. Get or initialize state for session
-        3. Prepare turn metadata
+        3. Prepare turn metadata (and merge state_delta, if given)
         4. Run state machine once
         5. Auto-progress through non-blocking states
         6. Trim conversation history
@@ -434,6 +375,9 @@ class EngineGraph:
             user_id: Caller identity (for audit)
             session_id: Multi-turn session ID
             turn_input: User's input text
+            state_delta: Optional extra fields to merge into state alongside
+                turn_input (e.g. business payload supplied this turn), before
+                the graph is invoked
             timeout_sec: LLM router timeout
 
         Returns:
@@ -472,6 +416,10 @@ class EngineGraph:
             state["user_id"] = user_id
             state["session_id"] = session_id
 
+            # Merge caller-supplied state updates before the graph runs
+            if state_delta is not None:
+                state.update(state_delta)
+
             # Resuming at a blocking state: run its own handler with the fresh
             # turn_input before the graph executes. The router only proposes
             # transitions FORWARD from current_state via the routing table, so
@@ -509,7 +457,7 @@ class EngineGraph:
             if len(history) > max_turns:
                 dropped = len(history) - max_turns
                 state["conversation_history"] = history[-max_turns:]
-                log.info(f"[invoke_turn] Trimmed {dropped} old turns; keeping {max_turns}")
+                log.info(f"[invoke] Trimmed {dropped} old turns; keeping {max_turns}")
 
             # Append user input to history
             state["conversation_history"].append({
@@ -545,11 +493,11 @@ class EngineGraph:
                             if checkpoint_id:
                                 checkpointer.save_pause_point(config, checkpoint_id)
                                 log.info(
-                                    f"[invoke_turn] Auto-saved pause point "
+                                    f"[invoke] Auto-saved pause point "
                                     f"{checkpoint_id} at {state['current_state']}"
                                 )
                     except Exception as e:
-                        log.debug(f"[invoke_turn] Could not auto-save pause point: {e}")
+                        log.debug(f"[invoke] Could not auto-save pause point: {e}")
 
             return self._build_turn_response(state)
 
@@ -563,7 +511,7 @@ class EngineGraph:
                 "router_confidence": 0.0,
             }
         except Exception as e:
-            log.exception("[invoke_turn] Error: %s", e)
+            log.exception("[invoke] Error: %s", e)
             return {
                 "error": str(e),
                 "current_state": "error",
@@ -596,7 +544,7 @@ class EngineGraph:
                 pause_checkpoint_id = self.compiled_graph.checkpointer.get_pause_point(config)
                 if pause_checkpoint_id:
                     log.info(
-                        f"[invoke_turn] Found pause point {pause_checkpoint_id}; "
+                        f"[invoke] Found pause point {pause_checkpoint_id}; "
                         "resuming from there"
                     )
                     config["configurable"]["checkpoint_id"] = pause_checkpoint_id
@@ -612,15 +560,15 @@ class EngineGraph:
                     state = self._extract_state_from_checkpoint(checkpoint_tuple)
                     if state is not None:
                         log.info(
-                            "[invoke_turn] Loaded state from latest checkpoint "
+                            "[invoke] Loaded state from latest checkpoint "
                             f"with turn_number={state.get('turn_number', 0)}"
                         )
                         return state
         except Exception as e:
-            log.debug(f"[invoke_turn] Checkpoint load failed ({e}); creating fresh state")
+            log.debug(f"[invoke] Checkpoint load failed ({e}); creating fresh state")
 
         # Create fresh state if no checkpoint found
-        log.info(f"[invoke_turn] Creating fresh state for session_id={session_id}")
+        log.info(f"[invoke] Creating fresh state for session_id={session_id}")
         return self._new_session_state()
 
     def _extract_state_from_checkpoint(self, checkpoint_tuple: Any) -> Optional[dict[str, Any]]:
@@ -641,7 +589,7 @@ class EngineGraph:
                 # Fallback for alternate checkpoint format
                 return checkpoint_data["values"]
         except Exception as e:
-            log.debug(f"[invoke_turn] State extraction failed: {e}")
+            log.debug(f"[invoke] State extraction failed: {e}")
 
         return None
 
@@ -649,34 +597,11 @@ class EngineGraph:
         """Create fresh session state. Override in subclass if needed."""
         raise NotImplementedError
 
-    def _build_response(
-        self,
-        entity_id: str,
-        state: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Build response dict from final state after process().
-
-        Args:
-            entity_id: Entity being processed
-            state: Final state
-
-        Returns:
-            Response dict
-        """
-        return {
-            "current_state": state.get("current_state", "init"),
-            "proposed_next": state.get("proposed_next"),
-            "retry_count": state.get("retry_count", 0),
-            "error_message": state.get("error_message"),
-            "audit_trail": state.get("audit_trail", []),
-            "entity_id": entity_id,
-        }
-
     def _build_turn_response(
         self,
         state: dict[str, Any],
     ) -> dict[str, Any]:
-        """Build response dict from state after invoke_turn().
+        """Build response dict from state after invoke().
 
         Args:
             state: SessionState after turn execution

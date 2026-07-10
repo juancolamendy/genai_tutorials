@@ -51,7 +51,7 @@ def test_multiturn_workflow_pause_at_upload_documents() -> None:
 
     # Invoke turn with mocked fetch to ensure it succeeds (mock skips random failure)
     with patch("src.docprocessing.handlers.random.random", return_value=0.9):
-        response_1 = graph.invoke_turn(
+        response_1 = graph.invoke(
             user_id=user_id,
             session_id=session_id,
             turn_input="Please process this document for me",
@@ -112,7 +112,7 @@ def test_multiturn_workflow_pause_at_upload_documents() -> None:
 
     # Continue with uploaded documents and mocked handlers
     with patch("src.docprocessing.handlers.random.random", return_value=0.9):  # Skip fetch failure
-        response_2 = graph.invoke_turn(
+        response_2 = graph.invoke(
             user_id=user_id,
             session_id=session_id,
             turn_input=json.dumps(supporting_docs),
@@ -190,7 +190,7 @@ def test_multiturn_auto_progression() -> None:
     print("  Input: Process this document")
 
     with patch("src.docprocessing.handlers.random.random", return_value=0.9):  # Skip fetch failure
-        response = graph.invoke_turn(
+        response = graph.invoke(
             user_id="user-456",
             session_id=session_id,
             turn_input="Process this document",
@@ -227,7 +227,7 @@ def test_turn_semantics() -> None:
 
     # Turn 1 - mock fetch to ensure success
     with patch("src.docprocessing.handlers.random.random", return_value=0.9):
-        response_1 = graph.invoke_turn(
+        response_1 = graph.invoke(
             user_id="user-789",
             session_id=session_id,
             turn_input="Start workflow",
@@ -241,7 +241,7 @@ def test_turn_semantics() -> None:
     import json
     docs = [{"name": "doc1.pdf", "content": "test"}]
     with patch("src.docprocessing.handlers.random.random", return_value=0.9):
-        response_2 = graph.invoke_turn(
+        response_2 = graph.invoke(
             user_id="user-789",
             session_id=session_id,
             turn_input=json.dumps(docs),
