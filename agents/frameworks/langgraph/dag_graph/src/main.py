@@ -31,6 +31,11 @@ def print_turn_state(state: dict) -> None:
     print(f"  │ Audit Trail     : {state.get('audit_trail')}")
     print(f"  │ Conversation History     : {state.get('conversation_history')}")
     print(f"  │ Semantic Context     : {state.get('semantic_context')}")
+    print(f"  │ Document ID     : {state.get('document_id')}")
+    print(f"  │ Raw Data     : {state.get('raw_data')}")
+    print(f"  │ Supporting Docs     : {state.get('supporting_docs')}")
+    print(f"  │ Validated Data     : {state.get('validated_data')}")
+    print(f"  │ Enriched Data     : {state.get('enriched_data')}")
 
 
 def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
@@ -102,7 +107,6 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
         )
 
     print_turn_state(response_2)
-    print("  │ Note            : Checkpoint automatically saved for resumption")
     print("  └──────────────────────────────────────────────────────────┘")
 
     # Print conversation history from Turn 2
