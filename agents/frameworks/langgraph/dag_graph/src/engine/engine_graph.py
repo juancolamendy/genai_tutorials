@@ -551,25 +551,45 @@ class EngineGraph:
                     f"[invoke] Trimmed {dropped} old messages; keeping {self.max_history_turns}"
                 )
 
-            # Append user input to history
-            messages.append(HumanMessage(
-                content=escaped,
-                additional_kwargs={"turn_number": state["turn_number"]},
-            ))
-
-            # Append turn result to history
-            messages.append(AIMessage(
-                content=f"Transitioned to {state['current_state']}",
-                additional_kwargs={
-                    "turn_number": state["turn_number"],
-                    "state": state["current_state"],
-                    "semantic_context": {
-                        "entities": state.get("semantic_context", {}).get("entities", {}),
-                        "intents": state.get("semantic_context", {}).get("intents", []),
+            # New messages for this turn (user input + turn result)
+            new_messages = [
+                HumanMessage(
+                    content=escaped,
+                    additional_kwargs={"turn_number": state["turn_number"]},
+                ),
+                AIMessage(
+                    content=f"Transitioned to {state['current_state']}",
+                    additional_kwargs={
+                        "turn_number": state["turn_number"],
+                        "state": state["current_state"],
+                        "semantic_context": {
+                            "entities": state.get("semantic_context", {}).get("entities", {}),
+                            "intents": state.get("semantic_context", {}).get("intents", []),
+                        },
                     },
-                },
-            ))
+                ),
+            ]
+            messages.extend(new_messages)
             state["messages"] = messages
+
+            # Persist the new messages now. Nothing does this automatically:
+            # unlike audit_trail (written by graph nodes, so every node's
+            # checkpoint already includes it), messages are appended here in
+            # plain Python, after the graph has already finished running and
+            # checkpointing for this turn. Without this, the next turn loads
+            # a checkpoint from before these messages existed, and message
+            # history silently resets every turn. update_state() applies the
+            # update through the "messages" channel's add_messages reducer
+            # and persists it via the checkpointer, exactly like a node would
+            # — so only the new messages are passed, not the full list.
+            # This must run BEFORE the pause-point save below, so the pause
+            # point marks the checkpoint that actually includes them.
+            checkpointer = getattr(self.compiled_graph, "checkpointer", None)
+            if checkpointer:
+                try:
+                    self.compiled_graph.update_state(config, {"messages": new_messages})
+                except Exception as e:
+                    log.debug(f"[invoke] Could not persist new messages: {e}")
 
             # AUTO-SAVE PAUSE POINT (hidden from user)
             from src.engine.handler_registry import does_state_wait_for_input

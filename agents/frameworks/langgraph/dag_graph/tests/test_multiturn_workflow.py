@@ -247,13 +247,27 @@ def test_turn_semantics() -> None:
     assert response_2.get("turn_number") == 2
     # After uploading docs, should progress to complete
     assert response_2.get("current_state") == "complete"
-    # At least user + assistant for this turn
-    assert len(response_2.get("messages", [])) >= 2
 
-    # Verify turn numbers are properly set in message history
+    # Guard: message history must accumulate ACROSS turns, not just contain
+    # this turn's own entries. Regression this guards against: messages are
+    # appended in invoke() via plain Python after the graph has already
+    # finished running (and checkpointing) for the turn, so without an
+    # explicit persist step, the next turn's checkpoint load never sees
+    # them and history silently resets to just the current turn every time.
     hist = response_2.get("messages", [])
-    if len(hist) > 0:
-        assert hist[0].additional_kwargs.get("turn_number") in [1, 2], "Turn numbers should be set"
+    assert len(hist) == 4, (
+        f"Expected 4 messages (2 from turn 1 + 2 from turn 2), got {len(hist)}: "
+        f"{[m.content for m in hist]}"
+    )
+    assert hist[0].additional_kwargs.get("turn_number") == 1, (
+        "First message should be turn 1's — message history did not persist across turns"
+    )
+    assert hist[0].content == "Start workflow", (
+        "First message should be turn 1's own input, not overwritten by turn 2"
+    )
+    assert hist[2].additional_kwargs.get("turn_number") == 2, (
+        "Third message should be turn 2's — message history did not persist across turns"
+    )
 
     print("✅ Turn semantics test passed")
 

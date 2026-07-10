@@ -112,12 +112,11 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
     print_turn_state(response_2)
     print("  └──────────────────────────────────────────────────────────┘")
 
-    # Print message history from Turn 2
+    # Print message history
     print("\n  Message History (Turn 2 summary):")
     history = response_2.get("messages", [])
     if history:
-        # Show last 2 entries (user input and assistant response from Turn 2)
-        for i, entry in enumerate(history[-2:], 1):
+        for i, entry in enumerate(history, 1):
             role = entry.type.upper()
             content = str(entry.content)[:60]
             turn = entry.additional_kwargs.get("turn_number", "?")
