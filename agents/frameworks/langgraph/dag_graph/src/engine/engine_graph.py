@@ -499,7 +499,7 @@ class EngineGraph:
                     except Exception as e:
                         log.debug(f"[invoke] Could not auto-save pause point: {e}")
 
-            return self._build_turn_response(state)
+            return state
 
         except InputValidationError as e:
             return {
@@ -596,28 +596,3 @@ class EngineGraph:
     def _new_session_state(self) -> dict[str, Any]:
         """Create fresh session state. Override in subclass if needed."""
         raise NotImplementedError
-
-    def _build_turn_response(
-        self,
-        state: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Build response dict from state after invoke().
-
-        Args:
-            state: SessionState after turn execution
-
-        Returns:
-            Turn response dict
-        """
-        from src.engine.handler_registry import does_state_wait_for_input
-
-        current = state.get("current_state", "init")
-        return {
-            "current_state": current,
-            "waits_for_input": does_state_wait_for_input(current),
-            "turn_number": state.get("turn_number", 0),
-            "semantic_context": state.get("semantic_context", {}),
-            "router_confidence": state.get("router_confidence", 0.0),
-            "error": state.get("error_message"),
-            "conversation_history": state.get("conversation_history", []),
-        }

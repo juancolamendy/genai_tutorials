@@ -22,6 +22,17 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.docprocessing.graph import build_graph
 
 
+def print_turn_state(state: dict) -> None:
+    """Print key fields from a turn's session state."""
+    print(f"  │ Turn Input     : {state.get('turn_input')}")
+    print(f"  │ Current State   : {state.get('current_state').upper()}")
+    print(f"  │ Proposed Next State   : {state.get('proposed_next').upper()}")
+    print(f"  │ Error   : {state.get('error')}")
+    print(f"  │ Audit Trail     : {state.get('audit_trail')}")
+    print(f"  │ Conversation History     : {state.get('conversation_history')}")
+    print(f"  │ Semantic Context     : {state.get('semantic_context')}")
+
+
 def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
     """
     Multi-turn conversation with pause/resume at upload_documents
@@ -59,19 +70,14 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
 
     # Mock random to ensure fetch succeeds (avoid 30% random failure)
     with patch("src.docprocessing.handlers.random.random", return_value=0.9):
-        response_1 = graph.invoke(
+        state = graph.invoke(
             user_id=user_id,
             session_id=session_id,
             turn_input="Please process document",
             timeout_sec=10.0,
         )
 
-    print(f"  │ Turn Number     : {response_1.get('turn_number')}")
-    print(f"  │ Current State   : {response_1.get('current_state').upper()}")
-    print(f"  │ Waits for Input : {response_1.get('waits_for_input')}")
-    paused = response_1.get("waits_for_input")
-    print(f"  │ Status          : {'✓ Paused at upload_documents' if paused else '✗ Not paused'}")
-    print("  │ Note            : Checkpoint automatically saved for resumption")
+    print_turn_state(state)
     print("  └──────────────────────────────────────────────────────────┘")
 
     # ──────────────────────────────────────────────────────────────
@@ -92,12 +98,8 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
             timeout_sec=10.0,
         )
 
-    print(f"  │ Turn Number     : {response_2.get('turn_number')}")
-    print(f"  │ Current State   : {response_2.get('current_state').upper()}")
-    print(f"  │ Waits for Input : {response_2.get('waits_for_input')}")
-    completed = response_2.get("current_state") == "complete"
-    print(f"  │ Status          : {'✓ Complete' if completed else '✗ In progress'}")
-    print("  │ Note            : Resumed from checkpoint, documents processed, flow continued")
+    print_turn_state(response_2)
+    print("  │ Note            : Checkpoint automatically saved for resumption")
     print("  └──────────────────────────────────────────────────────────┘")
 
     # Print conversation history from Turn 2
