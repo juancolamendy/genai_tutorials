@@ -187,12 +187,19 @@ class EngineGraph:
     def _guardrail_node(self, state: dict[str, Any]) -> dict[str, Any]:
         """Validate proposed_next; apply fallback if needed.
 
+        If the (possibly fallback-adjusted) target state waits for input, park
+        current_state there without running its handler — the handler only
+        runs once, on the turn that actually supplies fresh input for it (see
+        the resume-at-blocking-state step in invoke()).
+
         Args:
             state: State dict with proposed_next set
 
         Returns:
             Updated state with guardrail result applied
         """
+        from src.engine.handler_registry import does_state_wait_for_input
+
         proposed = self._get_proposed_state(state)
         guardrails = self._get_guardrails()
         guard = guardrails.get(proposed, lambda _: type("Result", (), {"passed": True})())
@@ -200,40 +207,51 @@ class EngineGraph:
 
         if result.passed:
             log.info("[GUARDRAIL] ✅  %s passed", proposed)
-            return {
+            new_state = {
                 **state,
                 "fallback_depth": 0,
                 "audit_trail": state.get("audit_trail", []) + [f"guardrail PASS → {proposed}"],
             }
+        else:
+            fallback_val = (result.fallback or self.state_enum.ERROR).value
+            fallback_depth = state.get("fallback_depth", 0) + 1
+            log.warning(
+                "[GUARDRAIL] ❌  %s failed (%s) → fallback: %s (depth=%d)",
+                proposed,
+                result.reason,
+                fallback_val,
+                fallback_depth,
+            )
+            new_state = {
+                **state,
+                "proposed_next": fallback_val,
+                "error_message": result.reason,
+                "fallback_depth": fallback_depth,
+                "audit_trail": state.get("audit_trail", [])
+                + [f"guardrail FAIL → {proposed} ({result.reason}) → fallback {fallback_val}"],
+            }
 
-        fallback_val = (result.fallback or self.state_enum.ERROR).value
-        fallback_depth = state.get("fallback_depth", 0) + 1
-        log.warning(
-            "[GUARDRAIL] ❌  %s failed (%s) → fallback: %s (depth=%d)",
-            proposed,
-            result.reason,
-            fallback_val,
-            fallback_depth,
-        )
-        return {
-            **state,
-            "proposed_next": fallback_val,
-            "error_message": result.reason,
-            "fallback_depth": fallback_depth,
-            "audit_trail": state.get("audit_trail", [])
-            + [f"guardrail FAIL → {proposed} ({result.reason}) → fallback {fallback_val}"],
-        }
+        target = new_state["proposed_next"]
+        if does_state_wait_for_input(target):
+            new_state["current_state"] = target
+
+        return new_state
 
     def _guardrail_router(self, state: dict[str, Any]) -> str:
-        """Route to handler based on proposed_next.
+        """Route to handler based on proposed_next, or stop if it waits for input.
 
         Args:
             state: State dict with proposed_next set
 
         Returns:
-            State name (string) to route to
+            State name (string) to route to, or END
         """
-        return state["proposed_next"]
+        from src.engine.handler_registry import does_state_wait_for_input
+
+        proposed = state["proposed_next"]
+        if does_state_wait_for_input(proposed):
+            return END
+        return proposed
 
     # ─────────────────────────────────────────────────────────────────────────
     # GRAPH BUILDING (generic, reusable for all subclasses)
@@ -267,29 +285,25 @@ class EngineGraph:
         # Edges: router → guardrail (always)
         g.add_edge("router", "guardrail")
 
-        # Edges: guardrail → handler (conditional: based on proposed_next)
+        # Edges: guardrail → handler (conditional: based on proposed_next), or
+        # END if proposed_next waits for input — its handler never dispatches
+        # here; see _guardrail_router/_guardrail_node.
         g.add_conditional_edges(
             "guardrail",
             self._guardrail_router,
-            {state.value: state.value for state in self.handler_map.keys()},
+            {END: END, **{state.value: state.value for state in self.handler_map.keys()}},
         )
 
-        # Edges: handlers → router (loop for non-terminal) or END (for terminal or blocking)
+        # Edges: handlers → router (loop) or END (terminal). A handler is
+        # never dispatched to for a waits_for_input state (guardrail stops
+        # before that), so only the terminal check applies here.
         def _should_continue(state: dict[str, Any]) -> str:
-            """Route handler output: stop if blocking, loop if non-blocking."""
-            from src.engine.handler_registry import does_state_wait_for_input
-
+            """Route handler output: stop if terminal, loop otherwise."""
             current = state.get("current_state", "init")
 
-            # Terminal states always end
             if current in [s.value for s in self.terminal_states]:
                 return END
 
-            # Blocking states end (waits for input)
-            if does_state_wait_for_input(current):
-                return END
-
-            # Non-blocking states continue to router
             return "router"
 
         for state_val in self.handler_map.keys():

@@ -60,7 +60,7 @@ def test_multiturn_workflow_pause_at_upload_documents() -> None:
 
     print("\n✅ Turn 1 Complete:")
     print(f"  Current State: {response_1.get('current_state')}")
-    print(f"  Waits for Input: {response_1.get('waits_for_input')}")
+    print(f"  Waits for Input: {does_state_wait_for_input(response_1.get('current_state'))}")
     print(f"  Turn Number: {response_1.get('turn_number')}")
     confidence = response_1.get("router_confidence")
     if confidence is not None:
@@ -71,7 +71,7 @@ def test_multiturn_workflow_pause_at_upload_documents() -> None:
         f"Expected to pause at upload_documents, "
         f"but got {response_1.get('current_state')}"
     )
-    assert response_1.get("waits_for_input") is True, (
+    assert does_state_wait_for_input(response_1.get("current_state")) is True, (
         "Expected waits_for_input=True at upload_documents"
     )
     assert response_1.get("turn_number") == 1, (
@@ -121,14 +121,14 @@ def test_multiturn_workflow_pause_at_upload_documents() -> None:
 
     print("\n✅ Turn 2 Complete:")
     print(f"  Current State: {response_2.get('current_state')}")
-    print(f"  Waits for Input: {response_2.get('waits_for_input')}")
+    print(f"  Waits for Input: {does_state_wait_for_input(response_2.get('current_state'))}")
     print(f"  Turn Number: {response_2.get('turn_number')}")
 
     # Verify Turn 2 results
     assert response_2.get("current_state") == "complete", (
         f"Expected to complete, got {response_2.get('current_state')}"
     )
-    assert response_2.get("waits_for_input") is False, (
+    assert does_state_wait_for_input(response_2.get("current_state")) is False, (
         "Expected waits_for_input=False at complete"
     )
     assert response_2.get("turn_number") == 2, (
@@ -199,7 +199,7 @@ def test_multiturn_auto_progression() -> None:
     print("\n✅ Single turn result:")
     print(f"  Starting state: {State.INIT.value}")
     print(f"  Ending state: {response.get('current_state')}")
-    print(f"  Waits for input: {response.get('waits_for_input')}")
+    print(f"  Waits for input: {does_state_wait_for_input(response.get('current_state'))}")
 
     # Verify it progressed through non-blocking states
     final_state = response.get("current_state")
@@ -209,7 +209,7 @@ def test_multiturn_auto_progression() -> None:
     )
 
     # Verify it paused at the blocking state
-    assert response.get("waits_for_input") is True, (
+    assert does_state_wait_for_input(final_state) is True, (
         "Should pause at blocking state (upload_documents)"
     )
 

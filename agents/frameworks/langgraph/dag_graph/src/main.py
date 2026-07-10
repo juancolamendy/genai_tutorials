@@ -51,7 +51,6 @@ def scenario_multi_turn_example(sessions_dir: str = ".doc_sessions") -> None:
     - Turn 1: INIT → FETCH → UPLOAD_DOCUMENTS (PAUSE and wait for documents)
     - Turn 2: Resume from pause point → handler processes documents → continues to completion
     """
-    import json
     from unittest.mock import patch
 
     print(f"\n\n{'█' * 80}")

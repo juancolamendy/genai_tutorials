@@ -40,7 +40,7 @@ def handle_fetch(state: SessionState) -> SessionState:
     Returns:
         Updated state with raw_data populated or error info set
     """
-    log.info("[HANDLER] fetch  doc_id=%s", state["document_id"])
+    log.info("[HANDLER] fetch  doc_id=%s", state.get("document_id", "unknown"))
 
     # Simulate occasional fetch failures (30% of the time on first attempt)
     if random.random() < 0.30 and state["retry_count"] == 0:
@@ -79,11 +79,8 @@ def handle_upload_documents(state: SessionState) -> SessionState:
     Returns:
         Updated state with supporting_docs populated from turn_input, ready to proceed to validate
     """
-    log.info("[HANDLER] upload_documents  doc_id=%s", state["document_id"])
-
-    # Parse uploaded documents from turn_input
-    # Expected turn_input format: JSON with list of documents
     supporting_docs = state.get("supporting_docs") or []
+    log.info("[HANDLER] upload_documents  doc_id=%s  supporting_docs=%s", state.get("document_id", "unknown"), len(supporting_docs))
 
     return {
         **state,
