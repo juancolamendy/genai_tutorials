@@ -469,19 +469,13 @@ class EngineGraph:
         Returns:
             Final SessionState after this turn's execution.
         """
-        from src.engine.input_validation import (
-            InputValidationError,
-            escape_for_llm,
-            validate_turn_input,
-        )
+        from src.engine.input_validation import InputValidationError
 
         try:
-            # Validate and escape input
-            validate_turn_input(input_message)
-            escaped = escape_for_llm(input_message)
+            escaped = self._prepare_input(input_message)
 
             # Thread ID for checkpointing across turns
-            thread_id = f"{user_id}:{session_id}"
+            thread_id = self._thread_id(user_id, session_id)
             config = {
                 "configurable": {
                     "thread_id": thread_id,
@@ -634,6 +628,40 @@ class EngineGraph:
                 "router_confidence": 0.0,
             }
 
+    def _thread_id(self, user_id: str, session_id: str) -> str:
+        """Compute the checkpointer thread_id for (user_id, session_id).
+
+        The single source of truth for this formula — invoke() and
+        _get_or_init_state() previously computed it independently and
+        disagreed whenever user_id was falsy (invoke() always produced
+        f":{session_id}", _get_or_init_state() produced session_id), so a
+        turn's state would load from one thread_id and checkpoint under a
+        different one, silently starting a fresh session every call. Any
+        future caller (e.g. ainvoke()) must go through this method rather
+        than re-deriving the formula.
+        """
+        return f"{user_id}:{session_id}" if user_id else session_id
+
+    def _prepare_input(self, input_message: str) -> str:
+        """Validate+escape non-empty input; skip validation entirely for
+        empty input.
+
+        System-sourced and bg-run turns have nothing a human said this
+        turn, so they call invoke()/ainvoke() with input_message="" by
+        design (see aemit_event/arun_to_completion in later phases).
+        validate_turn_input() unconditionally rejects an empty string as
+        invalid input, which would reject every one of those calls before
+        the graph ever runs — that's a validation-scope bug, not a
+        legitimate rejection, since there is no human-authored text to
+        validate in the first place.
+        """
+        if not input_message:
+            return ""
+        from src.engine.input_validation import escape_for_llm, validate_turn_input
+
+        validate_turn_input(input_message)
+        return escape_for_llm(input_message)
+
     def _get_or_init_state(self, session_id: str, user_id: str = "") -> dict[str, Any]:
         """Get existing state or create fresh state for session.
 
@@ -659,7 +687,7 @@ class EngineGraph:
         Returns:
             SessionState dict
         """
-        thread_id = f"{user_id}:{session_id}" if user_id else session_id
+        thread_id = self._thread_id(user_id, session_id)
 
         # Try to load from pause point first (hidden auto-resumption)
         try:
