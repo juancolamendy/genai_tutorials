@@ -5,6 +5,7 @@
 
 # sessions
 .doc_sessions/
+.onboarding_sessions
 
 # Python
 __pycache__/

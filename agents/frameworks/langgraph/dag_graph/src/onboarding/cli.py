@@ -18,11 +18,14 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import logging
 import sys
 from typing import Any
 
 from src.onboarding.graph import Graph, build_graph
 from src.onboarding.sweep import sweep as run_sweep
+
+log = logging.getLogger(__name__)
 
 DEFAULT_SESSIONS_DIR = ".onboarding_sessions"
 
@@ -45,16 +48,42 @@ def _format_result(result: dict[str, Any]) -> str:
     return f"status={status} current_state={current_state}"
 
 
+def _configure_logging(verbose: bool = False) -> None:
+    """Enable handler/engine traces on stderr for CLI runs."""
+    level = logging.DEBUG if verbose else logging.INFO
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s %(levelname)-5s %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+        force=True,
+    )
+    # Keep third-party noise down unless -v
+    if not verbose:
+        logging.getLogger("httpx").setLevel(logging.WARNING)
+        logging.getLogger("httpcore").setLevel(logging.WARNING)
+        logging.getLogger("anthropic").setLevel(logging.WARNING)
+        logging.getLogger("openai").setLevel(logging.WARNING)
+
+
 async def _cmd_chat(graph: Graph, thread_id: str, message: str) -> str:
+    log.info("[CLI] chat  thread=%s  message=%r", thread_id, message[:80])
     result = await graph.aemit_event(
         thread_id=thread_id, source="human", event_type="message", payload={"text": message}
     )
+    log.info("[CLI] chat  result=%s", _format_result(result))
     return _format_result(result)
 
 
 async def _cmd_event(
     graph: Graph, thread_id: str, event_type: str, event_id: str, payload: dict[str, str]
 ) -> str:
+    log.info(
+        "[CLI] event  thread=%s  type=%s  event_id=%s  payload=%s",
+        thread_id,
+        event_type,
+        event_id,
+        payload,
+    )
     result = await graph.aemit_event(
         thread_id=thread_id,
         source="system",
@@ -62,13 +91,16 @@ async def _cmd_event(
         event_id=event_id,
         payload=payload,
     )
+    log.info("[CLI] event  result=%s", _format_result(result))
     return _format_result(result)
 
 
 async def _cmd_sweep(graph: Graph) -> str:
+    log.info("[CLI] sweep  thresholds=%s", DEFAULT_THRESHOLDS)
     results = await run_sweep(graph, DEFAULT_THRESHOLDS)
     lines = [f"Swept {len(results)} stale thread(s)"]
     lines.extend(_format_result(r) for r in results)
+    log.info("[CLI] sweep  swept=%d", len(results))
     return "\n".join(lines)
 
 
@@ -76,6 +108,12 @@ def _cmd_status(graph: Graph, thread_id: str) -> str:
     state = graph._get_or_init_state(session_id=thread_id, user_id="")
     current_state = state.get("current_state")
     status = state.get("status")
+    log.info(
+        "[CLI] status  thread=%s  current_state=%s  status=%s",
+        thread_id,
+        current_state,
+        status,
+    )
     return f"thread={thread_id} current_state={current_state} status={status}"
 
 
@@ -123,6 +161,12 @@ async def _serve(graph: Graph) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="onboarding-cli")
     parser.add_argument("--sessions-dir", default=DEFAULT_SESSIONS_DIR)
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="DEBUG logging (includes more engine/checkpointer detail)",
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     chat_parser = subparsers.add_parser("chat")
@@ -147,6 +191,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 async def _run(args: argparse.Namespace) -> None:
     graph = build_graph(sessions_dir=args.sessions_dir)
+    log.info("[CLI] sessions_dir=%s  command=%s", args.sessions_dir, args.command)
 
     if args.command == "chat":
         print(await _cmd_chat(graph, args.thread_id, args.message))
@@ -164,6 +209,7 @@ async def _run(args: argparse.Namespace) -> None:
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
+    _configure_logging(verbose=args.verbose)
     asyncio.run(_run(args))
 
 

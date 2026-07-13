@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
@@ -25,6 +26,40 @@ from .session_state import OnboardingState
 from .state_transitions import State
 
 log = logging.getLogger(__name__)
+
+
+def _log_enter(handler_name: str, state: OnboardingState) -> None:
+    """Trace handler entry: current park/progress state and event context."""
+    log.info(
+        "[HANDLER] ▶ %s  current_state=%s  event_source=%s  event_type=%s  "
+        "session_id=%s  turn=%s",
+        handler_name,
+        state.get("current_state"),
+        state.get("current_event_source", "human"),
+        state.get("current_event_type", "message"),
+        state.get("session_id") or "(none)",
+        state.get("turn_number", 0),
+    )
+
+
+def _log_exit(handler_name: str, delta: dict[str, Any]) -> dict[str, Any]:
+    """Trace the partial state delta returned (what this handler transforms)."""
+    keys = sorted(delta.keys())
+    summary: dict[str, Any] = {}
+    for key in keys:
+        value = delta[key]
+        if key == "output_messages" and isinstance(value, list):
+            summary[key] = [str(m)[:80] for m in value]
+        elif key == "audit_trail" and isinstance(value, list):
+            summary[key] = value
+        elif key == "new_hire_details" and isinstance(value, dict):
+            summary[key] = {
+                k: value.get(k) for k in ("full_name", "role", "start_date") if k in value
+            }
+        else:
+            summary[key] = value
+    log.info("[HANDLER] ◀ %s  delta_keys=%s  delta=%s", handler_name, keys, summary)
+    return delta
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -57,8 +92,9 @@ def handle_collect(state: OnboardingState) -> OnboardingState:
     """
     from .chains import collect_agent
 
+    _log_enter("collect", state)
     input_message = state.get("input_message") or ""
-    log.info("[HANDLER] collect  input=%r", input_message[:60])
+    log.info("[HANDLER] collect  input=%r", input_message[:80])
 
     try:
         result = collect_agent.invoke(
@@ -76,25 +112,42 @@ def handle_collect(state: OnboardingState) -> OnboardingState:
                 if isinstance(tool_result.content, str)
                 else tool_result.content
             )
-            return {
-                "new_hire_details": details,
-                "audit_trail": [f"collect: details submitted for {details.get('full_name')}"],
-            }
+            log.info(
+                "[HANDLER] collect  tool=submit_new_hire  details=%s",
+                {k: details.get(k) for k in ("full_name", "role", "start_date")},
+            )
+            return _log_exit(
+                "collect",
+                {
+                    "new_hire_details": details,
+                    "audit_trail": [f"collect: details submitted for {details.get('full_name')}"],
+                },
+            )
 
         last_ai = next(
             (m for m in reversed(agent_messages) if isinstance(m, AIMessage) and m.content),
             None,
         )
-        return {
-            "output_messages": [last_ai.content] if last_ai else [],
-            "audit_trail": ["collect: awaiting more details"],
-        }
+        log.info(
+            "[HANDLER] collect  no tool call yet — clarifying (ai=%r)",
+            (last_ai.content[:80] if last_ai else None),
+        )
+        return _log_exit(
+            "collect",
+            {
+                "output_messages": [last_ai.content] if last_ai else [],
+                "audit_trail": ["collect: awaiting more details"],
+            },
+        )
     except Exception as e:
         log.error("[HANDLER] collect agent error: %s", str(e))
-        return {
-            "status": "error",
-            "audit_trail": [f"collect ERROR - {str(e)}"],
-        }
+        return _log_exit(
+            "collect",
+            {
+                "status": "error",
+                "audit_trail": [f"collect ERROR - {str(e)}"],
+            },
+        )
 
 
 @handler(state=State.WELCOME_SENT.value, waits_for_input=False, description="Send welcome message")
@@ -107,15 +160,24 @@ def handle_welcome_sent(state: OnboardingState) -> OnboardingState:
     Returns:
         Delta with welcome_sent guard flag and the welcome output message
     """
+    _log_enter("welcome_sent", state)
     if state.get("welcome_sent"):
-        return {"audit_trail": ["welcome_sent: already sent, skipping (idempotent)"]}
+        log.info("[HANDLER] welcome_sent  skip — already sent (idempotent)")
+        return _log_exit(
+            "welcome_sent",
+            {"audit_trail": ["welcome_sent: already sent, skipping (idempotent)"]},
+        )
 
     name = (state.get("new_hire_details") or {}).get("full_name", "there")
-    return {
-        "welcome_sent": True,
-        "output_messages": [f"Welcome aboard, {name}! We've started your onboarding."],
-        "audit_trail": ["welcome_sent: sent"],
-    }
+    log.info("[HANDLER] welcome_sent  sending welcome to %r", name)
+    return _log_exit(
+        "welcome_sent",
+        {
+            "welcome_sent": True,
+            "output_messages": [f"Welcome aboard, {name}! We've started your onboarding."],
+            "audit_trail": ["welcome_sent: sent"],
+        },
+    )
 
 
 @handler(
@@ -132,9 +194,19 @@ def handle_await_documents_signed(state: OnboardingState) -> OnboardingState:
     the guardrail diversion on IT_PROVISIONED; this only fixes what gets
     recorded here.
     """
-    if state.get("current_event_type") == "timeout_escalation":
-        return {"audit_trail": ["await_documents_signed: timeout, no signature received"]}
-    return {"audit_trail": ["await_documents_signed: document_signed event received"]}
+    _log_enter("await_documents_signed", state)
+    event_type = state.get("current_event_type")
+    if event_type == "timeout_escalation":
+        log.info("[HANDLER] await_documents_signed  branch=timeout_escalation")
+        return _log_exit(
+            "await_documents_signed",
+            {"audit_trail": ["await_documents_signed: timeout, no signature received"]},
+        )
+    log.info("[HANDLER] await_documents_signed  branch=document_signed (or other legal)")
+    return _log_exit(
+        "await_documents_signed",
+        {"audit_trail": ["await_documents_signed: document_signed event received"]},
+    )
 
 
 @handler(
@@ -151,26 +223,39 @@ def handle_it_provisioned(state: OnboardingState) -> OnboardingState:
     Returns:
         Delta with it_provisioned guard flag and the selected username_prefix
     """
+    _log_enter("it_provisioned", state)
     if state.get("it_provisioned"):
-        return {"audit_trail": ["it_provisioned: already provisioned, skipping (idempotent)"]}
+        log.info("[HANDLER] it_provisioned  skip — already provisioned (idempotent)")
+        return _log_exit(
+            "it_provisioned",
+            {"audit_trail": ["it_provisioned: already provisioned, skipping (idempotent)"]},
+        )
 
     from .chains import username_chain
 
     details = state.get("new_hire_details") or {}
     try:
+        log.info("[HANDLER] it_provisioned  selecting username from details=%s", details)
         result = username_chain.invoke({"input": str(details)})
         prefix = chain_field(result, "username_prefix", "user")
-        return {
-            "it_provisioned": True,
-            "username_prefix": prefix,
-            "audit_trail": [f"it_provisioned: username={prefix}"],
-        }
+        log.info("[HANDLER] it_provisioned  username_prefix=%r", prefix)
+        return _log_exit(
+            "it_provisioned",
+            {
+                "it_provisioned": True,
+                "username_prefix": prefix,
+                "audit_trail": [f"it_provisioned: username={prefix}"],
+            },
+        )
     except Exception as e:
         log.error("[HANDLER] username chain error: %s", str(e))
-        return {
-            "status": "error",
-            "audit_trail": [f"it_provisioned ERROR - {str(e)}"],
-        }
+        return _log_exit(
+            "it_provisioned",
+            {
+                "status": "error",
+                "audit_trail": [f"it_provisioned ERROR - {str(e)}"],
+            },
+        )
 
 
 @handler(
@@ -184,9 +269,23 @@ def handle_await_hardware_delivered(state: OnboardingState) -> OnboardingState:
     """Same current_event_type branching as handle_await_documents_signed
     (design spec §3) — hardware_tracking_id, if supplied, already landed
     in state via aemit_event's payload merge before this handler ran."""
-    if state.get("current_event_type") == "timeout_escalation":
-        return {"audit_trail": ["await_hardware_delivered: timeout, hardware not delivered"]}
-    return {"audit_trail": ["await_hardware_delivered: hardware_delivered event received"]}
+    _log_enter("await_hardware_delivered", state)
+    event_type = state.get("current_event_type")
+    tracking = state.get("hardware_tracking_id")
+    if event_type == "timeout_escalation":
+        log.info("[HANDLER] await_hardware_delivered  branch=timeout_escalation")
+        return _log_exit(
+            "await_hardware_delivered",
+            {"audit_trail": ["await_hardware_delivered: timeout, hardware not delivered"]},
+        )
+    log.info(
+        "[HANDLER] await_hardware_delivered  branch=hardware_delivered  tracking_id=%r",
+        tracking,
+    )
+    return _log_exit(
+        "await_hardware_delivered",
+        {"audit_trail": ["await_hardware_delivered: hardware_delivered event received"]},
+    )
 
 
 @handler(
@@ -196,29 +295,47 @@ def handle_await_hardware_delivered(state: OnboardingState) -> OnboardingState:
 )
 def handle_schedule_sent(state: OnboardingState) -> OnboardingState:
     """Send the setup schedule message, once."""
+    _log_enter("schedule_sent", state)
     if state.get("schedule_sent"):
-        return {"audit_trail": ["schedule_sent: already sent, skipping (idempotent)"]}
+        log.info("[HANDLER] schedule_sent  skip — already sent (idempotent)")
+        return _log_exit(
+            "schedule_sent",
+            {"audit_trail": ["schedule_sent: already sent, skipping (idempotent)"]},
+        )
 
-    return {
-        "schedule_sent": True,
-        "output_messages": [
-            "Your hardware has been delivered and your setup schedule is confirmed."
-        ],
-        "audit_trail": ["schedule_sent: sent"],
-    }
+    log.info("[HANDLER] schedule_sent  sending setup schedule")
+    return _log_exit(
+        "schedule_sent",
+        {
+            "schedule_sent": True,
+            "output_messages": [
+                "Your hardware has been delivered and your setup schedule is confirmed."
+            ],
+            "audit_trail": ["schedule_sent: sent"],
+        },
+    )
 
 
 @handler(state=State.COMPLETE.value, waits_for_input=False, description="Mark onboarding complete")
 def handle_complete(state: OnboardingState) -> OnboardingState:
     """Notify HR that onboarding finished, once."""
+    _log_enter("complete", state)
     if state.get("hr_notified"):
-        return {"audit_trail": ["complete: HR already notified, skipping (idempotent)"]}
+        log.info("[HANDLER] complete  skip — HR already notified (idempotent)")
+        return _log_exit(
+            "complete",
+            {"audit_trail": ["complete: HR already notified, skipping (idempotent)"]},
+        )
 
-    return {
-        "hr_notified": True,
-        "output_messages": ["Onboarding complete! HR has been notified."],
-        "audit_trail": ["COMPLETE"],
-    }
+    log.info("[HANDLER] complete  notifying HR")
+    return _log_exit(
+        "complete",
+        {
+            "hr_notified": True,
+            "output_messages": ["Onboarding complete! HR has been notified."],
+            "audit_trail": ["COMPLETE"],
+        },
+    )
 
 
 @handler(
@@ -227,10 +344,20 @@ def handle_complete(state: OnboardingState) -> OnboardingState:
 def handle_escalated(state: OnboardingState) -> OnboardingState:
     """Terminal escalation state — no guard flag needed, nothing to
     idempotently protect (a run only ever reaches ESCALATED once)."""
-    return {
-        "output_messages": ["This onboarding step has been escalated to a human for follow-up."],
-        "audit_trail": ["ESCALATED"],
-    }
+    _log_enter("escalated", state)
+    log.info(
+        "[HANDLER] escalated  terminal diversion  prior_event_type=%s",
+        state.get("current_event_type"),
+    )
+    return _log_exit(
+        "escalated",
+        {
+            "output_messages": [
+                "This onboarding step has been escalated to a human for follow-up."
+            ],
+            "audit_trail": ["ESCALATED"],
+        },
+    )
 
 
 @handler(
@@ -240,13 +367,17 @@ def handle_escalated(state: OnboardingState) -> OnboardingState:
 )
 def handle_error(state: OnboardingState) -> OnboardingState:
     """Terminal error state, mirroring docprocessing's handle_error."""
+    _log_enter("error", state)
     log.error(
-        "[HANDLER] 🔴  onboarding ERROR  reason=%s",
+        "[HANDLER] onboarding ERROR  reason=%s",
         state.get("error_message", "unknown"),
     )
-    return {
-        "audit_trail": [f"ERROR: {state.get('error_message', 'unknown')}"],
-    }
+    return _log_exit(
+        "error",
+        {
+            "audit_trail": [f"ERROR: {state.get('error_message', 'unknown')}"],
+        },
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
