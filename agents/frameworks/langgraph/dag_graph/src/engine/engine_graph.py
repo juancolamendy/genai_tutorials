@@ -7,8 +7,10 @@ Provides:
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import logging
+from collections import defaultdict
 from functools import wraps
 from typing import Any, Callable, Optional
 
@@ -77,6 +79,24 @@ class EngineGraph:
     handler_map: dict[Any, Callable] = {}
     semantic_router: Optional[Any] = None
     max_history_turns: int = 10
+
+    # Set externally by the domain's build_graph() factory function after
+    # construction (e.g. graph.compiled_graph = graph.build_graph(...)) —
+    # declared as Any (not Optional[Any]) so mypy knows the attribute
+    # exists without treating every .compiled_graph.foo() call as a
+    # possible None-access; every real call site only ever runs after
+    # build_graph() has set it.
+    compiled_graph: Any = None
+
+    def __init__(self) -> None:
+        # Per-thread lock, keyed by thread_id — serializes concurrent
+        # aemit_event calls (a later phase) for the SAME thread within this
+        # process, so a duplicate/racing delivery can't interleave with an
+        # in-flight one. Correct only within a single long-lived process
+        # (the same tradeoff already accepted for SqliteCheckpointer's
+        # async serialization) — a real multi-worker deployment would need
+        # cross-process locking instead.
+        self._locks: defaultdict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
 
     def _build_routing_table(self) -> dict[Any, Any]:
         """Return {current_state: next_state} routing table. Override in subclass."""
@@ -437,6 +457,40 @@ class EngineGraph:
 
         return state
 
+    async def _auto_progress_langgraph_async(
+        self,
+        state: dict[str, Any],
+        config: dict[str, Any],
+        max_auto_iters: int = 10,
+    ) -> dict[str, Any]:
+        """Async twin of _auto_progress_langgraph — identical logic, using
+        await compiled_graph.ainvoke(...) so ainvoke() never falls back to
+        a blocking sync graph call partway through a turn."""
+        from src.engine.handler_registry import does_state_wait_for_input
+
+        iters = 0
+
+        while iters < max_auto_iters:
+            current = state.get("current_state", "init")
+
+            if current in self.terminal_states:
+                log.debug(f"[auto_progress] Stopped at terminal state {current}")
+                break
+
+            if does_state_wait_for_input(current):
+                log.debug(f"[auto_progress] Stopped at input-waiting state {current}")
+                break
+
+            log.debug(f"[auto_progress] {current} is non-blocking; continuing...")
+            call_state = {**state, "audit_trail": [], "messages": []}
+            state = await self.compiled_graph.ainvoke(call_state, config=config)
+            iters += 1
+
+        if iters >= max_auto_iters:
+            log.warning("[auto_progress] Reached max iterations (%d); stopping", max_auto_iters)
+
+        return state
+
     def invoke(
         self,
         user_id: str,
@@ -619,6 +673,146 @@ class EngineGraph:
             }
         except Exception as e:
             log.exception("[invoke] Error: %s", e)
+            return {
+                "error_message": str(e),
+                "status": "error",
+                "current_state": "error",
+                "turn_number": 0,
+                "semantic_context": {},
+                "router_confidence": 0.0,
+            }
+
+    async def ainvoke(
+        self,
+        user_id: str,
+        session_id: str,
+        input_message: str,
+        state_delta: Optional[dict[str, Any]] = None,
+        timeout_sec: float = 10.0,
+    ) -> dict[str, Any]:
+        """Async twin of invoke() — same algorithm, using
+        await compiled_graph.ainvoke(...) throughout (including
+        auto-progression), sharing _thread_id()/_prepare_input() with
+        invoke() so both agree on thread identity and input handling.
+
+        Called by aemit_event() and arun_to_completion() (later phases),
+        always with user_id="" — see invoke()'s docstring for the shared
+        argument semantics.
+        """
+        from src.engine.input_validation import InputValidationError
+
+        try:
+            escaped = self._prepare_input(input_message)
+
+            thread_id = self._thread_id(user_id, session_id)
+            config = {
+                "configurable": {
+                    "thread_id": thread_id,
+                    "router_timeout_sec": timeout_sec,
+                }
+            }
+
+            state = self._get_or_init_state(session_id, user_id=user_id)
+
+            state["input_message"] = escaped
+            current_turn_number = state.get("turn_number", 0) + 1
+            state["turn_number"] = current_turn_number
+            state["user_id"] = user_id
+            state["session_id"] = session_id
+
+            if state_delta is not None:
+                state.update(state_delta)
+
+            from src.engine.handler_registry import does_state_wait_for_input
+
+            current_state_str = state.get("current_state", "init")
+            if does_state_wait_for_input(current_state_str):
+                delta = self._dispatch_handler(self.state_enum(current_state_str), state)
+                state = {**state, **delta}
+
+            if hasattr(self, "_init_router"):
+                self._init_router()
+
+            state = await self.compiled_graph.ainvoke(state, config=config)
+
+            state["turn_number"] = current_turn_number
+
+            state = await self._auto_progress_langgraph_async(state, config)
+
+            state["turn_number"] = current_turn_number
+
+            messages = state.get("messages", [])
+            if len(messages) > self.max_history_turns:
+                dropped = len(messages) - self.max_history_turns
+                messages = messages[-self.max_history_turns:]
+                state["messages"] = messages
+                log.info(
+                    f"[ainvoke] Trimmed {dropped} old messages; keeping {self.max_history_turns}"
+                )
+
+            new_messages = [
+                HumanMessage(
+                    content=escaped,
+                    additional_kwargs={"turn_number": state["turn_number"]},
+                ),
+                AIMessage(
+                    content=f"Transitioned to {state['current_state']}",
+                    additional_kwargs={
+                        "turn_number": state["turn_number"],
+                        "state": state["current_state"],
+                        "semantic_context": {
+                            "entities": state.get("semantic_context", {}).get("entities", {}),
+                            "intents": state.get("semantic_context", {}).get("intents", []),
+                        },
+                    },
+                ),
+            ]
+            messages.extend(new_messages)
+            state["messages"] = messages
+
+            # Message/pause-point persistence stays on the sync checkpointer
+            # API here (update_state/export_session/save_pause_point are
+            # JsonCheckpointer-specific bookkeeping helpers, not part of
+            # LangGraph's core async execution path fixed in an earlier
+            # phase) — mirrors invoke()'s equivalent block exactly.
+            checkpointer = getattr(self.compiled_graph, "checkpointer", None)
+            if checkpointer:
+                try:
+                    self.compiled_graph.update_state(config, {"messages": new_messages})
+                except Exception as e:
+                    log.debug(f"[ainvoke] Could not persist new messages: {e}")
+
+            from src.engine.handler_registry import does_state_wait_for_input
+
+            if does_state_wait_for_input(state.get("current_state")):
+                checkpointer = getattr(self.compiled_graph, "checkpointer", None)
+                if checkpointer:
+                    try:
+                        session_data = checkpointer.export_session(thread_id)
+                        if session_data:
+                            checkpoint_id = session_data.get("latest_checkpoint_id")
+                            if checkpoint_id:
+                                checkpointer.save_pause_point(config, checkpoint_id)
+                                log.info(
+                                    f"[ainvoke] Auto-saved pause point "
+                                    f"{checkpoint_id} at {state['current_state']}"
+                                )
+                    except Exception as e:
+                        log.debug(f"[ainvoke] Could not auto-save pause point: {e}")
+
+            return state
+
+        except InputValidationError as e:
+            return {
+                "error_message": str(e),
+                "status": "error",
+                "current_state": None,
+                "turn_number": 0,
+                "semantic_context": {},
+                "router_confidence": 0.0,
+            }
+        except Exception as e:
+            log.exception("[ainvoke] Error: %s", e)
             return {
                 "error_message": str(e),
                 "status": "error",
