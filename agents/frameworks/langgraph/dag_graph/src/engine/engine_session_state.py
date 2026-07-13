@@ -46,6 +46,12 @@ class EngineSessionState(TypedDict, total=False):
       • router_reasoning: Optional explanation from semantic router
       • started_at: Workflow start timestamp
       • timeout_seconds: Max execution time for entire workflow
+      • current_event_source: Which kind of event resumed this turn
+        ("human" or "system"); absent until an event-gate call stamps it
+      • current_event_type: The specific event type for this turn (e.g.
+        "message", "document_signed", "timeout_escalation")
+      • output_messages: Per-turn messages a handler wants said to a human,
+        if any (reducer: operator.add)
 
     Note: max_history_turns and router_timeout_sec are NOT here — they're
     run configuration, not session data. max_history_turns lives on
@@ -129,9 +135,39 @@ class EngineSessionState(TypedDict, total=False):
     timeout_seconds: float
     """Maximum execution time for entire workflow (default: 300.0)."""
 
+    # ─ Event Extension ───────────────────────────────────────────────────
+    current_event_source: Literal["human", "system"]
+    """Which kind of event resumed this turn. Stamped fresh by aemit_event's
+    human/system branches on every turn — never carried over from a prior
+    turn. Absent on turns that never went through aemit_event (e.g. every
+    existing docprocessing call); read via
+    state.get("current_event_source", "human") so those default to
+    human-sourced."""
+
+    current_event_type: str
+    """The specific event type for this turn (e.g. "message",
+    "document_signed", "timeout_escalation"). Stamped alongside
+    current_event_source. Read via state.get("current_event_type",
+    "message") when absent."""
+
+    output_messages: Annotated[list[str], operator.add]
+    """Per-turn messages a handler wants said to a human, if any.
+    Reducer-backed like audit_trail: handlers return only the new
+    entry/entries, never the accumulated list. Empty by default — the
+    engine's message convention falls back to a generic "Transitioned to X"
+    message for human-sourced turns when this is empty, and stays silent
+    entirely for system-sourced turns with nothing to say."""
+
 
 def new_engine_session_state() -> EngineSessionState:
-    """Create fresh session state."""
+    """Create fresh session state.
+
+    current_event_source/current_event_type are deliberately omitted here
+    (left absent, not pre-seeded) — they are stamped fresh by aemit_event's
+    branches on every turn that goes through it, and pre-seeding a value
+    here would be indistinguishable from a stale value carried over from a
+    turn that never actually set it.
+    """
     return EngineSessionState(
         current_state="init",
         proposed_next="init",
@@ -152,4 +188,5 @@ def new_engine_session_state() -> EngineSessionState:
         router_reasoning=None,
         started_at=time.time(),
         timeout_seconds=300.0,
+        output_messages=[],
     )
