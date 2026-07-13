@@ -5,6 +5,7 @@ Implements BaseCheckpointSaver protocol for seamless integration with LangGraph.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import sqlite3
@@ -24,6 +25,17 @@ log = logging.getLogger(__name__)
 
 # Global connection for in-memory database
 _memory_conn: Optional[sqlite3.Connection] = None
+
+# Serializes every async checkpoint operation across all SqliteCheckpointer
+# instances in this process. Required because :memory: mode shares one
+# module-level connection across every instance/thread_id, and
+# sqlite3.Connection objects are not safe for concurrent access from
+# multiple threads even with check_same_thread=False — that flag only
+# disables the same-thread assertion, it adds no concurrency safety. A
+# single process-wide lock is the same "correct only within one process"
+# tradeoff already accepted for aemit_event's per-thread lock, applied at
+# the connection level instead of the thread_id level.
+_async_io_lock = asyncio.Lock()
 
 
 class SqliteCheckpointer(BaseCheckpointSaver):
@@ -268,6 +280,33 @@ class SqliteCheckpointer(BaseCheckpointSaver):
         except Exception as e:
             log.error(f"Failed to load checkpoint tuple: {e}", exc_info=True)
             return None
+
+    async def aget_tuple(self, config: RunnableConfig) -> CheckpointTuple | None:
+        """Async counterpart of get_tuple(), serialized via _async_io_lock.
+
+        BaseCheckpointSaver's default aget_tuple() is `raise
+        NotImplementedError` in installed langgraph (no sync-to-thread
+        fallback) — confirmed by running compiled_graph.ainvoke() against
+        this class before this method existed.
+        """
+        async with _async_io_lock:
+            return await asyncio.to_thread(self.get_tuple, config)
+
+    async def aget(self, config: RunnableConfig) -> Checkpoint | None:
+        """Async counterpart of get(), serialized via _async_io_lock."""
+        async with _async_io_lock:
+            return await asyncio.to_thread(self.get, config)
+
+    async def aput(
+        self,
+        config: RunnableConfig,
+        checkpoint: Checkpoint,
+        metadata: CheckpointMetadata,
+        new_versions: Any,
+    ) -> RunnableConfig:
+        """Async counterpart of put(), serialized via _async_io_lock."""
+        async with _async_io_lock:
+            return await asyncio.to_thread(self.put, config, checkpoint, metadata, new_versions)
 
     def list(
         self,
