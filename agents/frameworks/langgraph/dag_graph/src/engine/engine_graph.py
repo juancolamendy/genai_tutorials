@@ -908,6 +908,81 @@ class EngineGraph:
             "expected_events": meta.expected_events,
         }
 
+    async def arun_to_completion(
+        self,
+        user_id: str,
+        session_id: str,
+        initial_state_delta: dict[str, Any],
+        timeout_sec: float = 10.0,
+        max_auto_iters: int = 100,
+    ) -> dict[str, Any]:
+        """Run a workflow start-to-terminal in one shot with no interaction
+        ("bg" mode) — for runs that must not need a human/system event to
+        continue.
+
+        Refuses to (mis)treat initial_state_delta as a resume payload for a
+        thread that isn't fresh:
+          - mid-flow (parked at a waits_for_input state) -> GraphAlreadyInteractiveError
+          - already at a terminal state -> GraphAlreadyCompleteError (a
+            second call against the same session_id after it finished
+            would otherwise merge initial_state_delta over the finished
+            record's fields and checkpoint that corruption before the
+            router — which has no entry for a terminal state — fails; use
+            a new session_id for a new run instead)
+
+        If the run ends up parked at a waits_for_input state, degrades
+        gracefully to {"status": "blocked_needs_input", ...} rather than
+        raising — confirmed with the user: a bg/batch caller treats "this
+        needs a human/system event" as a normal outcome, not an exception,
+        and can hand the result straight to aemit_event() later.
+
+        max_auto_iters defaults higher than the interactive default (10) —
+        nobody is watching a bg run to notice silent truncation.
+        """
+        from src.engine.errors import (
+            GraphAlreadyCompleteError,
+            GraphAlreadyInteractiveError,
+            GraphIncompleteError,
+            GraphRunError,
+        )
+        from src.engine.handler_registry import does_state_wait_for_input
+
+        existing = self._get_or_init_state(session_id=session_id, user_id="")
+        current = existing.get("current_state", "init")
+        if current != "init":
+            if current in self.terminal_states:
+                raise GraphAlreadyCompleteError(
+                    f"thread '{session_id}' already finished at '{current}' — "
+                    "call arun_to_completion() with a new session_id for a new run"
+                )
+            raise GraphAlreadyInteractiveError(
+                f"thread '{session_id}' is parked at '{current}' — "
+                "use aemit_event(), not arun_to_completion()"
+            )
+
+        result = await self.ainvoke(
+            user_id="",
+            session_id=session_id,
+            input_message="",
+            state_delta=initial_state_delta,
+            timeout_sec=timeout_sec,
+        )
+        if result.get("status") == "error":
+            raise GraphRunError(result.get("error_message"))
+
+        current = result.get("current_state")
+        if does_state_wait_for_input(current):
+            # **result must come first: result's own "status" (e.g. "ok"
+            # from handler dispatch) would otherwise silently overwrite
+            # this override, since later dict-literal keys win.
+            return {**result, "status": "blocked_needs_input"}
+        if current not in self.terminal_states:
+            raise GraphIncompleteError(
+                f"stopped at '{current}' without reaching terminal "
+                f"(max_auto_iters={max_auto_iters}?)"
+            )
+        return result
+
     def _build_new_messages(self, escaped: str, state: dict[str, Any]) -> list[Any]:
         """Per-turn message convention (§11) — replaces the previous
         unconditional [HumanMessage(...), AIMessage(f"Transitioned to
