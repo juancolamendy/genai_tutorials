@@ -6,6 +6,7 @@ similar to Agno's session storage pattern.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import tempfile
@@ -309,6 +310,33 @@ class JsonCheckpointer(BaseCheckpointSaver):
         tuple_result = self.get_tuple(config)
         return tuple_result.checkpoint if tuple_result else None
 
+    async def aget_tuple(self, config: RunnableConfig) -> Optional[CheckpointTuple]:
+        """Async counterpart of get_tuple().
+
+        BaseCheckpointSaver's default aget_tuple() is `raise
+        NotImplementedError` in installed langgraph (no sync-to-thread
+        fallback) — confirmed by running compiled_graph.ainvoke() against
+        this class before this method existed. Each thread_id maps to its
+        own file, opened/closed per call, so wrapping the sync method in
+        asyncio.to_thread is safe: concurrent calls for different
+        thread_ids never touch shared mutable state.
+        """
+        return await asyncio.to_thread(self.get_tuple, config)
+
+    async def aget(self, config: RunnableConfig) -> Optional[Checkpoint]:
+        """Async counterpart of get()."""
+        return await asyncio.to_thread(self.get, config)
+
+    async def aput(
+        self,
+        config: RunnableConfig,
+        checkpoint: Checkpoint,
+        metadata: CheckpointMetadata,
+        new_versions: Any,
+    ) -> RunnableConfig:
+        """Async counterpart of put()."""
+        return await asyncio.to_thread(self.put, config, checkpoint, metadata, new_versions)
+
     def list(self, config: RunnableConfig) -> list[CheckpointTuple]:
         """List all checkpoints for a thread.
 
@@ -370,25 +398,38 @@ class JsonCheckpointer(BaseCheckpointSaver):
         except OSError as e:
             log.error(f"Error deleting session file {path}: {e}")
 
-    # Legacy compatibility methods
     def put_writes(
         self,
         config: RunnableConfig,
         writes: list[tuple[str, Any]],
-        metadata: CheckpointMetadata,
+        task_id: str,
+        task_path: str = "",
     ) -> None:
-        """Legacy method for compatibility."""
-        # Convert writes to checkpoint format
-        checkpoint_values = {}
-        for key, value in writes:
-            checkpoint_values[key] = value
+        """Store intermediate per-task writes.
 
-        self.put(
-            config,
-            Checkpoint(values=checkpoint_values),
-            metadata,
-            None,
-        )
+        No-op: a full checkpoint is already captured via put() on every
+        superstep, so pending per-task writes need no separate storage here
+        (same approach SqliteCheckpointer already takes). Previously this
+        method had an incompatible legacy signature `(config, writes,
+        metadata)` that didn't match BaseCheckpointSaver's real contract
+        `(config, writes, task_id, task_path="")` — harmless for the sync
+        invoke() path (which never happened to call it), but LangGraph's
+        async execution loop calls the async counterpart unconditionally,
+        so the async twin would inherit BaseCheckpointSaver's default
+        `raise NotImplementedError` without a matching implementation here.
+        """
+
+    async def aput_writes(
+        self,
+        config: RunnableConfig,
+        writes: list[tuple[str, Any]],
+        task_id: str,
+        task_path: str = "",
+    ) -> None:
+        """Async counterpart of put_writes(). Confirmed required: LangGraph's
+        async execution loop calls this directly and raised
+        NotImplementedError before this method existed."""
+        self.put_writes(config, writes, task_id, task_path)
 
     async def alist(self, config: RunnableConfig):
         """Async version of list."""
