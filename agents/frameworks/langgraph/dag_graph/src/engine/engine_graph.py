@@ -90,13 +90,19 @@ class EngineGraph:
 
     def __init__(self) -> None:
         # Per-thread lock, keyed by thread_id — serializes concurrent
-        # aemit_event calls (a later phase) for the SAME thread within this
-        # process, so a duplicate/racing delivery can't interleave with an
-        # in-flight one. Correct only within a single long-lived process
-        # (the same tradeoff already accepted for SqliteCheckpointer's
-        # async serialization) — a real multi-worker deployment would need
+        # aemit_event calls for the SAME thread within this process, so a
+        # duplicate/racing delivery can't interleave with an in-flight one.
+        # Correct only within a single long-lived process (the same
+        # tradeoff already accepted for SqliteCheckpointer's async
+        # serialization) — a real multi-worker deployment would need
         # cross-process locking instead.
         self._locks: defaultdict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
+        # Lazily constructed on first use by aemit_event (mirrors
+        # DefaultSemanticRouter._get_llm()'s lazy-load pattern) — a domain's
+        # build_graph() may assign its own EventLedger(ledger_dir=...)
+        # before that, matching how compiled_graph/semantic_router are set
+        # externally after construction.
+        self._ledger: Optional[Any] = None
 
     def _build_routing_table(self) -> dict[Any, Any]:
         """Return {current_state: next_state} routing table. Override in subclass."""
@@ -822,6 +828,106 @@ class EngineGraph:
                 "router_confidence": 0.0,
             }
 
+    async def aemit_event(
+        self,
+        thread_id: str,
+        source: str,
+        event_type: str,
+        payload: Optional[dict[str, Any]] = None,
+        event_id: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """The unified event gate — both a human chat message and a
+        system/webhook/timeout event flow through here.
+
+        thread_id IS identity (never source): ainvoke() is always called
+        with user_id="" from here, so a human turn and a system turn for
+        the same thread_id land in the same checkpointed session, never
+        two.
+
+        Returns a dict with a "status" key distinguishable by callers:
+        "ok", "duplicate", "ignored", "not_waiting", "already_terminal",
+        or "waiting" (from _describe_wait — a human message against a
+        wait_kind="system_event" state, read-only, state untouched).
+        """
+        if source == "system" and not event_id:
+            raise ValueError("system-sourced events must supply event_id")
+
+        if self._ledger is None:
+            from src.engine.event_ledger import EventLedger
+
+            self._ledger = EventLedger()
+
+        async with self._locks[thread_id]:
+            already_seen = False
+            if source == "system" and event_id is not None:
+                already_seen = await self._ledger.is_processed(event_id)
+            if already_seen:
+                return {"status": "duplicate", "event_id": event_id}
+
+            from src.engine.handler_registry import does_state_wait_for_input, get_handler_metadata
+
+            state = self._get_or_init_state(session_id=thread_id, user_id="")
+            current = state.get("current_state", "init")
+            meta = get_handler_metadata(current)
+
+            if current in self.terminal_states:
+                if event_id:
+                    await self._ledger.mark_processed(event_id)
+                return {"status": "already_terminal", "current_state": current}
+            if not does_state_wait_for_input(current):
+                return {"status": "not_waiting", "current_state": current}
+
+            if source == "human":
+                if meta and meta.wait_kind == "system_event":
+                    return self._describe_wait(state, meta)
+                result = await self.ainvoke(
+                    user_id="",
+                    session_id=thread_id,
+                    input_message=(payload or {}).get("text", ""),
+                    state_delta={"current_event_source": "human", "current_event_type": "message"},
+                )
+                return {"status": "ok", **result}
+
+            # source == "system"
+            expected = meta.expected_events or [] if meta else []
+            legal = meta and meta.wait_kind != "human" and event_type in expected
+            if not legal:
+                # Consume the delivery so a legitimate retry of a
+                # since-moved-past event gets reclassified as "ignored"
+                # rather than retried forever.
+                if event_id:
+                    await self._ledger.mark_processed(event_id)
+                return {"status": "ignored", "current_state": current, "event_type": event_type}
+
+            result = await self.ainvoke(
+                user_id="",
+                session_id=thread_id,
+                input_message="",
+                state_delta={
+                    **(payload or {}),
+                    "current_event_source": "system",
+                    "current_event_type": event_type,
+                },
+            )
+            # Marked AFTER success, not before: a crash between mark and
+            # invoke would otherwise silently swallow a provider's retry
+            # with no recovery path. A retry landing in that gap here just
+            # gets correctly reclassified as "ignored" next time (state
+            # already moved past that event), not reprocessed.
+            if event_id:
+                await self._ledger.mark_processed(event_id)
+            return {"status": "ok", **result}
+
+    def _describe_wait(self, state: dict[str, Any], meta: Any) -> dict[str, Any]:
+        """Read-only reply for a human message against a wait_kind="system_event"
+        state — state stays untouched, but the caller gets more than silence."""
+        return {
+            "status": "waiting",
+            "current_state": state.get("current_state"),
+            "wait_kind": meta.wait_kind,
+            "expected_events": meta.expected_events,
+        }
+
     def _thread_id(self, user_id: str, session_id: str) -> str:
         """Compute the checkpointer thread_id for (user_id, session_id).
 
@@ -888,19 +994,46 @@ class EngineGraph:
             if hasattr(self.compiled_graph, "checkpointer") and self.compiled_graph.checkpointer:
                 config = {"configurable": {"thread_id": thread_id}}
 
-                # Check for pause point first
+                # Check for pause point first — but only trust it if it's
+                # still the latest checkpoint. save_pause_point() is only
+                # called when a turn ends AT a wait state (see invoke()'s
+                # "AUTO-SAVE PAUSE POINT" block); a turn that resumes past
+                # it and auto-progresses all the way to a non-wait terminal
+                # state (e.g. onboarding's AWAIT_* -> a terminal COMPLETE
+                # that never itself pauses) never records a new pause
+                # point, leaving the OLD one in place — pointing at a state
+                # the thread has since moved past. latest_checkpoint_id is
+                # unconditionally updated on every put(), so comparing
+                # against it is how a stale pause point gets detected
+                # (found while making aemit_event's already_terminal check
+                # actually observable — this bug predates this design and
+                # already latently affects any invoke()-only thread that
+                # reaches completion via auto-progress from a pause point).
                 pause_checkpoint_id = self.compiled_graph.checkpointer.get_pause_point(config)
                 if pause_checkpoint_id:
-                    log.info(
-                        f"[invoke] Found pause point {pause_checkpoint_id}; "
-                        "resuming from there"
+                    checkpointer = self.compiled_graph.checkpointer
+                    export_session = getattr(checkpointer, "export_session", None)
+                    session_data = export_session(thread_id) if export_session else None
+                    latest_checkpoint_id = (session_data or {}).get("latest_checkpoint_id")
+                    pause_point_is_current = (
+                        latest_checkpoint_id is None or latest_checkpoint_id == pause_checkpoint_id
                     )
-                    config["configurable"]["checkpoint_id"] = pause_checkpoint_id
-                    checkpoint_tuple = self.compiled_graph.checkpointer.get_tuple(config)
-                    if checkpoint_tuple:
-                        pause_state = self._extract_state_from_checkpoint(checkpoint_tuple)
-                        if pause_state is not None:
-                            return {**pause_state, "audit_trail": [], "messages": []}
+                    if pause_point_is_current:
+                        log.info(
+                            f"[invoke] Found pause point {pause_checkpoint_id}; "
+                            "resuming from there"
+                        )
+                        config["configurable"]["checkpoint_id"] = pause_checkpoint_id
+                        checkpoint_tuple = self.compiled_graph.checkpointer.get_tuple(config)
+                        if checkpoint_tuple:
+                            pause_state = self._extract_state_from_checkpoint(checkpoint_tuple)
+                            if pause_state is not None:
+                                return {**pause_state, "audit_trail": [], "messages": []}
+                    else:
+                        log.info(
+                            f"[invoke] Pause point {pause_checkpoint_id} is stale "
+                            f"(latest is {latest_checkpoint_id}); using latest instead"
+                        )
 
                 # Fallback to latest checkpoint if no pause point
                 checkpoint_tuple = self.compiled_graph.checkpointer.get_tuple(config)
