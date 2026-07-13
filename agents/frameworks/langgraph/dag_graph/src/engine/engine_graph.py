@@ -157,8 +157,11 @@ class EngineGraph:
         """
         current = self._get_current_state(state)
 
-        # Try semantic router first (if available)
-        if self.semantic_router is not None:
+        # Try semantic router first (if available) — but never for a
+        # system-sourced turn. An LLM can never decide a system-event
+        # transition: this is structural, not a prompt-level instruction,
+        # so it holds regardless of whether a semantic_router is attached.
+        if self.semantic_router is not None and state.get("current_event_source") != "system":
             try:
                 # Extract arguments for semantic router
                 current_state = state.get("current_state", "init")
@@ -605,26 +608,14 @@ class EngineGraph:
                     f"[invoke] Trimmed {dropped} old messages; keeping {self.max_history_turns}"
                 )
 
-            # New messages for this turn (user input + turn result)
-            new_messages = [
-                HumanMessage(
-                    content=escaped,
-                    additional_kwargs={"turn_number": state["turn_number"]},
-                ),
-                AIMessage(
-                    content=f"Transitioned to {state['current_state']}",
-                    additional_kwargs={
-                        "turn_number": state["turn_number"],
-                        "state": state["current_state"],
-                        "semantic_context": {
-                            "entities": state.get("semantic_context", {}).get("entities", {}),
-                            "intents": state.get("semantic_context", {}).get("intents", []),
-                        },
-                    },
-                ),
-            ]
-            messages.extend(new_messages)
-            state["messages"] = messages
+            # New messages for this turn, per the output_messages convention
+            # (§11) — see _build_new_messages(). A system-sourced turn with
+            # nothing to say produces new_messages == [], leaving messages
+            # completely untouched below.
+            new_messages = self._build_new_messages(escaped, state)
+            if new_messages:
+                messages.extend(new_messages)
+                state["messages"] = messages
 
             # Persist the new messages now. Nothing does this automatically:
             # unlike audit_trail (written by graph nodes, so every node's
@@ -639,7 +630,7 @@ class EngineGraph:
             # This must run BEFORE the pause-point save below, so the pause
             # point marks the checkpoint that actually includes them.
             checkpointer = getattr(self.compiled_graph, "checkpointer", None)
-            if checkpointer:
+            if checkpointer and new_messages:
                 try:
                     self.compiled_graph.update_state(config, {"messages": new_messages})
                 except Exception as e:
@@ -756,25 +747,14 @@ class EngineGraph:
                     f"[ainvoke] Trimmed {dropped} old messages; keeping {self.max_history_turns}"
                 )
 
-            new_messages = [
-                HumanMessage(
-                    content=escaped,
-                    additional_kwargs={"turn_number": state["turn_number"]},
-                ),
-                AIMessage(
-                    content=f"Transitioned to {state['current_state']}",
-                    additional_kwargs={
-                        "turn_number": state["turn_number"],
-                        "state": state["current_state"],
-                        "semantic_context": {
-                            "entities": state.get("semantic_context", {}).get("entities", {}),
-                            "intents": state.get("semantic_context", {}).get("intents", []),
-                        },
-                    },
-                ),
-            ]
-            messages.extend(new_messages)
-            state["messages"] = messages
+            # New messages for this turn, per the output_messages convention
+            # (§11) — see _build_new_messages(). A system-sourced turn with
+            # nothing to say produces new_messages == [], leaving messages
+            # completely untouched below.
+            new_messages = self._build_new_messages(escaped, state)
+            if new_messages:
+                messages.extend(new_messages)
+                state["messages"] = messages
 
             # Message/pause-point persistence stays on the sync checkpointer
             # API here (update_state/export_session/save_pause_point are
@@ -782,7 +762,7 @@ class EngineGraph:
             # LangGraph's core async execution path fixed in an earlier
             # phase) — mirrors invoke()'s equivalent block exactly.
             checkpointer = getattr(self.compiled_graph, "checkpointer", None)
-            if checkpointer:
+            if checkpointer and new_messages:
                 try:
                     self.compiled_graph.update_state(config, {"messages": new_messages})
                 except Exception as e:
@@ -927,6 +907,50 @@ class EngineGraph:
             "wait_kind": meta.wait_kind,
             "expected_events": meta.expected_events,
         }
+
+    def _build_new_messages(self, escaped: str, state: dict[str, Any]) -> list[Any]:
+        """Per-turn message convention (§11) — replaces the previous
+        unconditional [HumanMessage(...), AIMessage(f"Transitioned to
+        {state}")] append on every turn, shared by invoke() and ainvoke().
+
+        A handler's output_messages (if any) become AI messages; otherwise
+        a human-sourced turn falls back to the generic status message it
+        always got (backward compatible: no existing handler sets
+        output_messages, so every docprocessing turn still hits this
+        branch, producing the same message it does today). A
+        system-sourced turn with nothing to say produces no messages at
+        all — no meaningless empty-turn noise in the checkpoint.
+        """
+        turn = state["turn_number"]
+        current_state = state["current_state"]
+
+        new_messages: list[Any] = []
+        if escaped:
+            new_messages.append(
+                HumanMessage(content=escaped, additional_kwargs={"turn_number": turn})
+            )
+
+        outs = state.get("output_messages") or []
+        if outs:
+            kwargs = {"turn_number": turn, "state": current_state}
+            new_messages.extend(AIMessage(content=m, additional_kwargs=kwargs) for m in outs)
+        elif state.get("current_event_source", "human") == "human":
+            new_messages.append(
+                AIMessage(
+                    content=f"Transitioned to {current_state}",
+                    additional_kwargs={
+                        "turn_number": turn,
+                        "state": current_state,
+                        "semantic_context": {
+                            "entities": state.get("semantic_context", {}).get("entities", {}),
+                            "intents": state.get("semantic_context", {}).get("intents", []),
+                        },
+                    },
+                )
+            )
+        # else: system-sourced turn with nothing to say — messages untouched.
+
+        return new_messages
 
     def _thread_id(self, user_id: str, session_id: str) -> str:
         """Compute the checkpointer thread_id for (user_id, session_id).
@@ -1074,6 +1098,44 @@ class EngineGraph:
             log.debug(f"[invoke] State extraction failed: {e}")
 
         return None
+
+    def get_active_sessions(self) -> list[dict[str, Any]]:
+        """Enumerate sessions as [{"thread_id": ..., "state": {...}}].
+
+        checkpointer.get_sessions() (JsonCheckpointer-specific) returns raw
+        session-file dicts — {"thread_id", "checkpoints": {checkpoint_id:
+        {"checkpoint", "metadata", ...}}, "latest_checkpoint_id",
+        "pause_checkpoint_id"?, ...} — with no top-level "state" key.
+        Callers like a timeout sweep need the actual state dict, not that
+        internal shape, so this reuses the same checkpoint-unwrapping logic
+        _get_or_init_state() already relies on rather than making every
+        caller reach into the checkpointer's file format directly.
+        """
+        from langgraph.checkpoint.base import CheckpointTuple
+
+        checkpointer = getattr(self.compiled_graph, "checkpointer", None)
+        get_sessions = getattr(checkpointer, "get_sessions", None)
+        if get_sessions is None:
+            return []
+
+        results = []
+        for session in get_sessions():
+            checkpoints = session.get("checkpoints") or {}
+            checkpoint_id = session.get("pause_checkpoint_id") or session.get(
+                "latest_checkpoint_id"
+            )
+            cp_entry = checkpoints.get(checkpoint_id) if checkpoint_id else None
+            if not cp_entry:
+                continue
+            checkpoint_tuple = CheckpointTuple(
+                config={},
+                checkpoint=cp_entry.get("checkpoint", {}),
+                metadata=cp_entry.get("metadata", {}),
+            )
+            state = self._extract_state_from_checkpoint(checkpoint_tuple)
+            if state is not None:
+                results.append({"thread_id": session["thread_id"], "state": state})
+        return results
 
     def _new_session_state(self) -> dict[str, Any]:
         """Create fresh session state. Override in subclass if needed."""
