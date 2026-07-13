@@ -6,6 +6,10 @@
 # sessions
 .doc_sessions/
 .onboarding_sessions
+.triage_artifacts
+.triage_sessions
+.triage_worktrees
+.triage_sessions_ledger
 
 # Python
 __pycache__/
