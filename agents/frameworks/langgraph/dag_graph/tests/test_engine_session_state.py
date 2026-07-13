@@ -27,6 +27,11 @@ def test_new_session_state_initializes_output_messages_empty():
     assert state["output_messages"] == []
 
 
+def test_new_session_state_initializes_handler_status_ok():
+    state = new_engine_session_state()
+    assert state["handler_status"] == "ok"
+
+
 def test_new_session_state_does_not_set_current_event_source():
     """current_event_source is stamped fresh by aemit_event's branches on
     every turn (never carried over from a prior turn), so a freshly

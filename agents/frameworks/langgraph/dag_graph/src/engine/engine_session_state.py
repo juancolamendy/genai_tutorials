@@ -80,6 +80,13 @@ class EngineSessionState(TypedDict, total=False):
     and by handler dispatch when the state entered is the domain's ERROR state.
     Individual handlers never set this themselves."""
 
+    handler_status: Literal["ok", "error"]
+    """Per-handler business outcome for guardrail diversion. Fallible handlers
+    stamp "error" on caught business failures (e.g. LLM/tool exceptions) and
+    "ok" on success. A domain guardrail (check_handler_status) reading this
+    can divert to ERROR — do not use session status for that; dispatch resets
+    status to "ok" on every non-ERROR handler."""
+
     guardrail_ok: bool
     """Guardrail validation result. True if proposed_next passed guardrails."""
 
@@ -175,6 +182,7 @@ def new_engine_session_state() -> EngineSessionState:
         error_message=None,
         error_type=None,
         status="ok",
+        handler_status="ok",
         guardrail_ok=True,
         fallback_depth=0,
         audit_trail=["init session state"],

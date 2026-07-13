@@ -120,10 +120,41 @@ def test_it_provisioned_sets_guard_flag_once():
         result = handle_it_provisioned(state)
     assert result["it_provisioned"] is True
     assert result["username_prefix"] == "jdoe"
+    assert result["handler_status"] == "ok"
 
     already_provisioned_state = {**state, "it_provisioned": True}
     second_result = handle_it_provisioned(already_provisioned_state)
     assert "already provisioned" in second_result["audit_trail"][0]
+
+
+def test_it_provisioned_stamps_handler_status_error_on_chain_failure():
+    state = {**new_onboarding_session_state(), "new_hire_details": {"full_name": "Jane Doe"}}
+    with patch("src.onboarding.chains.username_chain") as mock_chain:
+        mock_chain.invoke.side_effect = RuntimeError("llm down")
+        result = handle_it_provisioned(state)
+    assert result["handler_status"] == "error"
+    assert "llm down" in result["error_message"]
+    assert "it_provisioned" not in result
+
+
+def test_check_handler_status_diverts_to_error():
+    from src.onboarding.guardrails import check_handler_status
+    from src.onboarding.state_transitions import State
+
+    ok = check_handler_status({**new_onboarding_session_state(), "handler_status": "ok"})
+    assert ok.passed is True
+
+    bad = check_handler_status(
+        {
+            **new_onboarding_session_state(),
+            "handler_status": "error",
+            "error_message": "boom",
+        }
+    )
+    assert bad.passed is False
+    assert bad.fallback == State.ERROR
+    assert bad.reason == "boom"
+
 
 
 def test_escalated_produces_output_message():

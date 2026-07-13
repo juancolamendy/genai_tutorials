@@ -62,6 +62,22 @@ def check_not_timeout_escalation(state: OnboardingState) -> GuardrailResult:
     return GuardrailResult(passed=True)
 
 
+def check_handler_status(state: OnboardingState) -> GuardrailResult:
+    """Divert to ERROR when the previous handler stamped handler_status="error".
+
+    Business failures are caught in the handler (not via session status — that
+    field is overwritten by _dispatch_handler). Run this check FIRST on the
+    happy-path successor of any fallible handler.
+    """
+    if state.get("handler_status") == "error":
+        return GuardrailResult(
+            passed=False,
+            reason=state.get("error_message") or "handler failed",
+            fallback=State.ERROR,
+        )
+    return GuardrailResult(passed=True)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # GUARDRAIL REGISTRY
 # ─────────────────────────────────────────────────────────────────────────────
@@ -74,14 +90,21 @@ guardrails: Dict[State, GuardrailFn] = {
     # required fields — a normal multi-turn clarifying conversation would
     # otherwise get killed to ERROR even though nothing is actually looping.
     State.COLLECT: make_guardrail(check_transition_allowed),
-    # check_new_hire_details_complete runs FIRST so its COLLECT fallback
-    # short-circuits check_transition_allowed on an ordinary incomplete turn.
-    State.WELCOME_SENT: make_guardrail(check_new_hire_details_complete, check_transition_allowed),
-    State.AWAIT_DOCUMENTS_SIGNED: make_guardrail(check_transition_allowed),
+    # check_handler_status first: collect LLM/tool failure → ERROR, not the
+    # incomplete-details self-loop. Then details-complete → COLLECT loop.
+    State.WELCOME_SENT: make_guardrail(
+        check_handler_status,
+        check_new_hire_details_complete,
+        check_transition_allowed,
+    ),
+    State.AWAIT_DOCUMENTS_SIGNED: make_guardrail(check_handler_status, check_transition_allowed),
     # check_not_timeout_escalation runs FIRST so it short-circuits
     # check_transition_allowed when a timeout resume diverts to ESCALATED.
     State.IT_PROVISIONED: make_guardrail(check_not_timeout_escalation, check_transition_allowed),
-    State.AWAIT_HARDWARE_DELIVERED: make_guardrail(check_transition_allowed),
+    # username_chain failure in IT_PROVISIONED is detected here on the way in.
+    State.AWAIT_HARDWARE_DELIVERED: make_guardrail(
+        check_handler_status, check_transition_allowed
+    ),
     State.SCHEDULE_SENT: make_guardrail(check_not_timeout_escalation, check_transition_allowed),
     State.COMPLETE: make_guardrail(check_transition_allowed),
     State.ESCALATED: make_guardrail(check_transition_allowed),
@@ -92,5 +115,6 @@ __all__ = [
     "check_transition_allowed",
     "check_new_hire_details_complete",
     "check_not_timeout_escalation",
+    "check_handler_status",
     "guardrails",
 ]

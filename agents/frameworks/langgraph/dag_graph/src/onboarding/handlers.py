@@ -100,54 +100,58 @@ def handle_collect(state: OnboardingState) -> OnboardingState:
         result = collect_agent.invoke(
             {"messages": [HumanMessage(content=input_message)]}
         )
-        agent_messages = result.get("messages", [])
-
-        tool_result = next(
-            (m for m in reversed(agent_messages) if isinstance(m, ToolMessage)),
-            None,
+    except Exception as e:
+        log.error("[HANDLER] collect agent failed: %s", e)
+        return _log_exit(
+            "collect",
+            {
+                "handler_status": "error",
+                "error_message": str(e),
+                "audit_trail": [f"collect failed: {e}"],
+            },
         )
-        if tool_result is not None:
-            details = (
-                json.loads(tool_result.content)
-                if isinstance(tool_result.content, str)
-                else tool_result.content
-            )
-            log.info(
-                "[HANDLER] collect  tool=submit_new_hire  details=%s",
-                {k: details.get(k) for k in ("full_name", "role", "start_date")},
-            )
-            return _log_exit(
-                "collect",
-                {
-                    "new_hire_details": details,
-                    "audit_trail": [f"collect: details submitted for {details.get('full_name')}"],
-                },
-            )
 
-        last_ai = next(
-            (m for m in reversed(agent_messages) if isinstance(m, AIMessage) and m.content),
-            None,
+    agent_messages = result.get("messages", [])
+
+    tool_result = next(
+        (m for m in reversed(agent_messages) if isinstance(m, ToolMessage)),
+        None,
+    )
+    if tool_result is not None:
+        details = (
+            json.loads(tool_result.content)
+            if isinstance(tool_result.content, str)
+            else tool_result.content
         )
         log.info(
-            "[HANDLER] collect  no tool call yet — clarifying (ai=%r)",
-            (last_ai.content[:80] if last_ai else None),
+            "[HANDLER] collect  tool=submit_new_hire  details=%s",
+            {k: details.get(k) for k in ("full_name", "role", "start_date")},
         )
         return _log_exit(
             "collect",
             {
-                "output_messages": [last_ai.content] if last_ai else [],
-                "audit_trail": ["collect: awaiting more details"],
+                "handler_status": "ok",
+                "new_hire_details": details,
+                "audit_trail": [f"collect: details submitted for {details.get('full_name')}"],
             },
         )
-    except Exception as e:
-        log.error("[HANDLER] collect agent error: %s", str(e))
-        return _log_exit(
-            "collect",
-            {
-                "status": "error",
-                "audit_trail": [f"collect ERROR - {str(e)}"],
-            },
-        )
+
+    last_ai = next(
+        (m for m in reversed(agent_messages) if isinstance(m, AIMessage) and m.content),
+        None,
+    )
+    log.info(
+        "[HANDLER] collect  no tool call yet — clarifying (ai=%r)",
+        (last_ai.content[:80] if last_ai else None),
+    )
+    return _log_exit(
+        "collect",
+        {
+            "handler_status": "ok",
+            "output_messages": [last_ai.content] if last_ai else [],
+            "audit_trail": ["collect: awaiting more details"],
+        },
+    )
 
 
 @handler(state=State.WELCOME_SENT.value, waits_for_input=False, description="Send welcome message")
@@ -228,34 +232,40 @@ def handle_it_provisioned(state: OnboardingState) -> OnboardingState:
         log.info("[HANDLER] it_provisioned  skip — already provisioned (idempotent)")
         return _log_exit(
             "it_provisioned",
-            {"audit_trail": ["it_provisioned: already provisioned, skipping (idempotent)"]},
+            {
+                "handler_status": "ok",
+                "audit_trail": ["it_provisioned: already provisioned, skipping (idempotent)"],
+            },
         )
 
     from .chains import username_chain
 
     details = state.get("new_hire_details") or {}
+    log.info("[HANDLER] it_provisioned  selecting username from details=%s", details)
     try:
-        log.info("[HANDLER] it_provisioned  selecting username from details=%s", details)
         result = username_chain.invoke({"input": str(details)})
         prefix = chain_field(result, "username_prefix", "user")
-        log.info("[HANDLER] it_provisioned  username_prefix=%r", prefix)
-        return _log_exit(
-            "it_provisioned",
-            {
-                "it_provisioned": True,
-                "username_prefix": prefix,
-                "audit_trail": [f"it_provisioned: username={prefix}"],
-            },
-        )
     except Exception as e:
-        log.error("[HANDLER] username chain error: %s", str(e))
+        log.error("[HANDLER] username chain failed: %s", e)
         return _log_exit(
             "it_provisioned",
             {
-                "status": "error",
-                "audit_trail": [f"it_provisioned ERROR - {str(e)}"],
+                "handler_status": "error",
+                "error_message": str(e),
+                "audit_trail": [f"it_provisioned failed: {e}"],
             },
         )
+
+    log.info("[HANDLER] it_provisioned  username_prefix=%r", prefix)
+    return _log_exit(
+        "it_provisioned",
+        {
+            "handler_status": "ok",
+            "it_provisioned": True,
+            "username_prefix": prefix,
+            "audit_trail": [f"it_provisioned: username={prefix}"],
+        },
+    )
 
 
 @handler(
