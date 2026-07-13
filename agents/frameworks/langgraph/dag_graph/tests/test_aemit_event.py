@@ -13,7 +13,7 @@ wait_kind="either" (default) park state.
 import importlib
 import uuid
 from enum import Enum
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -328,3 +328,35 @@ async def test_human_event_against_system_only_state_returns_describe_wait():
     # State must be untouched — still parked at AWAIT_SYS, not dispatched.
     reloaded = graph._get_or_init_state(session_id=thread_id, user_id="")
     assert reloaded["current_state"] == _TestState.AWAIT_SYS.value
+
+
+@pytest.mark.asyncio
+async def test_failed_ainvoke_does_not_mark_ledger():
+    """Mark only after a successful turn — a status=error result must leave
+    the event_id unmarked so a provider retry can recover."""
+    graph = _build_test_graph()
+    thread_id = str(uuid.uuid4())
+    await _park_at_await_sys(graph, thread_id)
+
+    with patch.object(
+        graph,
+        "ainvoke",
+        new_callable=AsyncMock,
+        return_value={
+            "status": "error",
+            "error_message": "boom",
+            "current_state": "error",
+            "turn_number": 0,
+            "semantic_context": {},
+            "router_confidence": 0.0,
+        },
+    ):
+        result = await graph.aemit_event(
+            thread_id=thread_id,
+            source="system",
+            event_type="thing_happened",
+            event_id="evt-fail",
+        )
+
+    assert result["status"] == "error"
+    assert await graph._ledger.is_processed("evt-fail") is False

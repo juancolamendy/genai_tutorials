@@ -14,7 +14,6 @@ from uuid import uuid4
 import pytest
 from langchain_core.messages import AIMessage, ToolMessage
 
-from src.engine.event_ledger import EventLedger
 from src.engine.handler_registry import get_handler_metadata
 from src.onboarding.graph import build_graph as _build_onboarding_graph
 from src.onboarding.state_transitions import State
@@ -62,17 +61,9 @@ def _mock_username_chain():
 
 
 def build_graph(sessions_dir):
-    """Wraps onboarding's build_graph() with a unique per-test EventLedger
-    directory. The default (build_graph() alone) lazily creates an
-    EventLedger pointed at ".event_ledger" — a real, persistent directory
-    on disk shared across every test run in this process AND across
-    separate pytest invocations, so hardcoded event_ids (e.g. "evt-signed")
-    would collide with marks left by a PRIOR run and register as false
-    "duplicate"s. Confirmed by execution: rerunning this file without this
-    fix failed every test with an unexpected "duplicate" status."""
-    graph = _build_onboarding_graph(sessions_dir=sessions_dir)
-    graph._ledger = EventLedger(ledger_dir=f"{sessions_dir}_ledger")
-    return graph
+    """Unique per-test sessions_dir (and thus colocated ledger dir from
+    onboarding.build_graph) — avoids event_id collisions across runs."""
+    return _build_onboarding_graph(sessions_dir=sessions_dir)
 
 
 async def _kickoff_and_collect(graph, thread_id):

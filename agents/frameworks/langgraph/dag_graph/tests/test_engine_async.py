@@ -352,3 +352,130 @@ async def test_get_active_sessions_enumerates_multiple_threads():
 
     sessions = graph.get_active_sessions()
     assert len(sessions) == 2
+
+
+@pytest.mark.asyncio
+async def test_get_active_sessions_prefers_latest_when_pause_is_stale():
+    """Mirrors _get_or_init_state's stale-pause check: after a thread
+    resumes past a pause point to a terminal state, enumeration must
+    report the latest state — not the abandoned park."""
+    from src.engine.event_ledger import EventLedger
+    from src.engine.engine_session_state import EngineSessionState
+
+    class _StalePauseState(str, Enum):
+        INIT = "stale_pause_init"
+        AWAIT = "stale_pause_await"
+        DONE = "stale_pause_done"
+        ERROR = "stale_pause_error"
+
+    @handler(
+        state=_StalePauseState.AWAIT.value,
+        waits_for_input=True,
+        wait_kind="system_event",
+        expected_events=["go"],
+    )
+    def _handle_await(state):
+        return {"audit_trail": ["await handled"]}
+
+    @handler(state=_StalePauseState.DONE.value, waits_for_input=False)
+    def _handle_done(state):
+        return {"audit_trail": ["done"]}
+
+    @handler(state=_StalePauseState.ERROR.value, waits_for_input=False)
+    def _handle_error(state):
+        return {}
+
+    class _StalePauseGraph(EngineGraph):
+        state_enum = _StalePauseState
+        terminal_states = {_StalePauseState.DONE, _StalePauseState.ERROR}
+
+        def __init__(self):
+            super().__init__()
+            self.handler_map = {
+                _StalePauseState.AWAIT: _handle_await,
+                _StalePauseState.DONE: _handle_done,
+                _StalePauseState.ERROR: _handle_error,
+            }
+
+        def _build_routing_table(self):
+            return {
+                _StalePauseState.INIT: _StalePauseState.AWAIT,
+                _StalePauseState.AWAIT: _StalePauseState.DONE,
+            }
+
+        def _get_current_state(self, state):
+            return _StalePauseState(state.get("current_state", _StalePauseState.INIT.value))
+
+        def _get_proposed_state(self, state):
+            return _StalePauseState(state.get("proposed_next", _StalePauseState.AWAIT.value))
+
+        def _get_guardrails(self):
+            return {}
+
+        def _new_session_state(self):
+            return {
+                **new_engine_session_state(),
+                "current_state": _StalePauseState.INIT.value,
+                "proposed_next": _StalePauseState.AWAIT.value,
+            }
+
+    graph = _StalePauseGraph()
+    sessions_dir = f"/tmp/test_stale_pause_{uuid4()}"
+    checkpointer = JsonCheckpointer(sessions_dir=sessions_dir)
+    graph.compiled_graph = graph.build_graph(EngineSessionState, checkpointer=checkpointer)
+    graph._ledger = EventLedger(ledger_dir=f"{sessions_dir}_ledger")
+
+    thread_id = str(uuid4())
+    parked = await graph.ainvoke(user_id="", session_id=thread_id, input_message="")
+    assert parked["current_state"] == _StalePauseState.AWAIT.value
+
+    done = await graph.aemit_event(
+        thread_id=thread_id, source="system", event_type="go", event_id="evt-go"
+    )
+    assert done["status"] == "ok"
+    assert done["current_state"] == _StalePauseState.DONE.value
+
+    sessions = {s["thread_id"]: s["state"] for s in graph.get_active_sessions()}
+    assert sessions[thread_id]["current_state"] == _StalePauseState.DONE.value
+
+
+@pytest.mark.asyncio
+async def test_get_or_init_state_clears_output_messages():
+    """output_messages is reducer-backed like audit_trail/messages — loading
+    a prior turn's accumulated list without resetting would feed it back into
+    the reducer and into _build_new_messages on the next turn."""
+    graph = _build_msgtest_graph()
+    session_id = str(uuid4())
+    result = await graph.ainvoke(
+        user_id="",
+        session_id=session_id,
+        input_message="",
+        state_delta={"current_event_source": "system", "current_event_type": "custom_greeting"},
+    )
+    assert any(m.content == "custom greeting message" for m in result["messages"])
+    # Checkpoint still holds the prior turn's reducer value:
+    assert result.get("output_messages") == ["custom greeting message"]
+
+    loaded = graph._get_or_init_state(session_id=session_id, user_id="")
+    assert loaded.get("output_messages") == []
+
+
+@pytest.mark.asyncio
+async def test_ainvoke_forwards_max_auto_iters_to_auto_progress():
+    graph = _build_msgtest_graph()
+    session_id = str(uuid4())
+
+    async def _fake_auto_progress(state, config, max_auto_iters=10):
+        assert max_auto_iters == 3
+        return state
+
+    with patch.object(graph, "_auto_progress_langgraph_async", side_effect=_fake_auto_progress):
+        result = await graph.ainvoke(
+            user_id="",
+            session_id=session_id,
+            input_message="hi",
+            state_delta={},
+            max_auto_iters=3,
+        )
+
+    assert result["status"] == "ok"

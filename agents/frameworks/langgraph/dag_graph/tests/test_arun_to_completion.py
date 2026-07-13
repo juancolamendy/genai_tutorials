@@ -16,6 +16,7 @@ is actually for).
 import importlib
 import uuid
 from enum import Enum
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -195,3 +196,50 @@ async def test_fresh_session_id_after_completion_starts_a_new_run():
         user_id="", session_id=session_id_2, initial_state_delta={}
     )
     assert result["status"] == "blocked_needs_input"
+
+
+@pytest.mark.asyncio
+async def test_arun_to_completion_forwards_max_auto_iters_to_ainvoke():
+    """max_auto_iters must reach ainvoke (and thus auto-progress), not only
+    appear in GraphIncompleteError message text. Default is 10."""
+    graph = _build_rtc_graph()
+    session_id = str(uuid.uuid4())
+
+    with patch.object(graph, "ainvoke", new_callable=AsyncMock) as mock_ainvoke:
+        mock_ainvoke.return_value = {
+            "status": "ok",
+            "current_state": _RtcState.WAITING.value,
+            "turn_number": 1,
+            "semantic_context": {},
+            "router_confidence": 0.0,
+            "messages": [],
+        }
+        await graph.arun_to_completion(
+            user_id="",
+            session_id=session_id,
+            initial_state_delta={},
+            max_auto_iters=7,
+        )
+
+    assert mock_ainvoke.await_args.kwargs["max_auto_iters"] == 7
+
+
+@pytest.mark.asyncio
+async def test_arun_to_completion_default_max_auto_iters_is_10():
+    graph = _build_rtc_graph()
+    session_id = str(uuid.uuid4())
+
+    with patch.object(graph, "ainvoke", new_callable=AsyncMock) as mock_ainvoke:
+        mock_ainvoke.return_value = {
+            "status": "ok",
+            "current_state": _RtcState.WAITING.value,
+            "turn_number": 1,
+            "semantic_context": {},
+            "router_confidence": 0.0,
+            "messages": [],
+        }
+        await graph.arun_to_completion(
+            user_id="", session_id=session_id, initial_state_delta={}
+        )
+
+    assert mock_ainvoke.await_args.kwargs["max_auto_iters"] == 10

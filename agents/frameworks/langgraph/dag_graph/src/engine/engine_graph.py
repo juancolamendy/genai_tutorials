@@ -424,11 +424,11 @@ class EngineGraph:
         until hitting a state with waits_for_input=True or a terminal state.
 
         The state passed into each compiled_graph.invoke() call here has
-        audit_trail/messages reset to their identity ([]) first — the state
-        we're holding is always the (already checkpointed) result of a
-        prior invoke() call on this same thread, so LangGraph already has
-        the true accumulated value; feeding it back in full would
-        double-count it against what's already persisted. See
+        audit_trail/messages/output_messages reset to their identity ([])
+        first — the state we're holding is always the (already checkpointed)
+        result of a prior invoke() call on this same thread, so LangGraph
+        already has the true accumulated value; feeding it back in full
+        would double-count it against what's already persisted. See
         _get_or_init_state's docstring for the same reasoning applied there.
 
         Args:
@@ -457,7 +457,12 @@ class EngineGraph:
 
             # Continue: run state machine one more time
             log.debug(f"[auto_progress] {current} is non-blocking; continuing...")
-            call_state = {**state, "audit_trail": [], "messages": []}
+            call_state = {
+                **state,
+                "audit_trail": [],
+                "messages": [],
+                "output_messages": [],
+            }
             state = self.compiled_graph.invoke(call_state, config=config)
             iters += 1
 
@@ -491,7 +496,12 @@ class EngineGraph:
                 break
 
             log.debug(f"[auto_progress] {current} is non-blocking; continuing...")
-            call_state = {**state, "audit_trail": [], "messages": []}
+            call_state = {
+                **state,
+                "audit_trail": [],
+                "messages": [],
+                "output_messages": [],
+            }
             state = await self.compiled_graph.ainvoke(call_state, config=config)
             iters += 1
 
@@ -686,6 +696,7 @@ class EngineGraph:
         input_message: str,
         state_delta: Optional[dict[str, Any]] = None,
         timeout_sec: float = 10.0,
+        max_auto_iters: int = 10,
     ) -> dict[str, Any]:
         """Async twin of invoke() — same algorithm, using
         await compiled_graph.ainvoke(...) throughout (including
@@ -734,7 +745,9 @@ class EngineGraph:
 
             state["turn_number"] = current_turn_number
 
-            state = await self._auto_progress_langgraph_async(state, config)
+            state = await self._auto_progress_langgraph_async(
+                state, config, max_auto_iters=max_auto_iters
+            )
 
             state["turn_number"] = current_turn_number
 
@@ -825,7 +838,7 @@ class EngineGraph:
         two.
 
         Returns a dict with a "status" key distinguishable by callers:
-        "ok", "duplicate", "ignored", "not_waiting", "already_terminal",
+        "ok", "error", "duplicate", "ignored", "not_waiting", "already_terminal",
         or "waiting" (from _describe_wait — a human message against a
         wait_kind="system_event" state, read-only, state untouched).
         """
@@ -866,6 +879,8 @@ class EngineGraph:
                     input_message=(payload or {}).get("text", ""),
                     state_delta={"current_event_source": "human", "current_event_type": "message"},
                 )
+                if result.get("status") == "error":
+                    return {"status": "error", **result}
                 return {"status": "ok", **result}
 
             # source == "system"
@@ -893,7 +908,11 @@ class EngineGraph:
             # invoke would otherwise silently swallow a provider's retry
             # with no recovery path. A retry landing in that gap here just
             # gets correctly reclassified as "ignored" next time (state
-            # already moved past that event), not reprocessed.
+            # already moved past that event), not reprocessed. ainvoke()
+            # returns status="error" instead of raising, so treat that as
+            # failure too — marking would permanently block recovery.
+            if result.get("status") == "error":
+                return {"status": "error", **result}
             if event_id:
                 await self._ledger.mark_processed(event_id)
             return {"status": "ok", **result}
@@ -914,7 +933,7 @@ class EngineGraph:
         session_id: str,
         initial_state_delta: dict[str, Any],
         timeout_sec: float = 10.0,
-        max_auto_iters: int = 100,
+        max_auto_iters: int = 10,
     ) -> dict[str, Any]:
         """Run a workflow start-to-terminal in one shot with no interaction
         ("bg" mode) — for runs that must not need a human/system event to
@@ -936,8 +955,8 @@ class EngineGraph:
         needs a human/system event" as a normal outcome, not an exception,
         and can hand the result straight to aemit_event() later.
 
-        max_auto_iters defaults higher than the interactive default (10) —
-        nobody is watching a bg run to notice silent truncation.
+        max_auto_iters defaults to 10 (same as interactive ainvoke) and is
+        forwarded into ainvoke → _auto_progress_langgraph_async.
         """
         from src.engine.errors import (
             GraphAlreadyCompleteError,
@@ -966,6 +985,7 @@ class EngineGraph:
             input_message="",
             state_delta=initial_state_delta,
             timeout_sec=timeout_sec,
+            max_auto_iters=max_auto_iters,
         )
         if result.get("status") == "error":
             raise GraphRunError(result.get("error_message"))
@@ -1067,17 +1087,18 @@ class EngineGraph:
         Auto-loads from pause point if available, otherwise tries latest checkpoint.
 
         A state loaded from a checkpoint has its reducer-backed fields
-        (audit_trail, messages) reset to their identity (empty list) before
-        being returned. This matters because invoke() feeds the result of
-        this method into compiled_graph.invoke() shortly after: LangGraph
-        merges whatever we pass for a reducer-backed channel against what
-        it has ALREADY persisted for this thread — it does not treat our
-        input as a replacement. Everything in a just-loaded checkpoint's
-        audit_trail/messages is, by definition, already persisted, so
-        feeding it back in full would double-count it. Any handler that
-        runs directly on this state before the graph does (see invoke()'s
-        resume-at-blocking-state step) must therefore also only ever set
-        these fields to new entries, never a full accumulated copy.
+        (audit_trail, messages, output_messages) reset to their identity
+        (empty list) before being returned. This matters because invoke()
+        feeds the result of this method into compiled_graph.invoke() shortly
+        after: LangGraph merges whatever we pass for a reducer-backed
+        channel against what it has ALREADY persisted for this thread — it
+        does not treat our input as a replacement. Everything in a
+        just-loaded checkpoint's audit_trail/messages/output_messages is, by
+        definition, already persisted, so feeding it back in full would
+        double-count it. Any handler that runs directly on this state before
+        the graph does (see invoke()'s resume-at-blocking-state step) must
+        therefore also only ever set these fields to new entries, never a
+        full accumulated copy.
 
         Args:
             session_id: Session identifier
@@ -1127,7 +1148,12 @@ class EngineGraph:
                         if checkpoint_tuple:
                             pause_state = self._extract_state_from_checkpoint(checkpoint_tuple)
                             if pause_state is not None:
-                                return {**pause_state, "audit_trail": [], "messages": []}
+                                return {
+                                    **pause_state,
+                                    "audit_trail": [],
+                                    "messages": [],
+                                    "output_messages": [],
+                                }
                     else:
                         log.info(
                             f"[invoke] Pause point {pause_checkpoint_id} is stale "
@@ -1143,7 +1169,12 @@ class EngineGraph:
                             "[invoke] Loaded state from latest checkpoint "
                             f"with turn_number={state.get('turn_number', 0)}"
                         )
-                        return {**state, "audit_trail": [], "messages": []}
+                        return {
+                            **state,
+                            "audit_trail": [],
+                            "messages": [],
+                            "output_messages": [],
+                        }
         except Exception as e:
             log.debug(f"[invoke] Checkpoint load failed ({e}); creating fresh state")
 
@@ -1196,8 +1227,18 @@ class EngineGraph:
         results = []
         for session in get_sessions():
             checkpoints = session.get("checkpoints") or {}
-            checkpoint_id = session.get("pause_checkpoint_id") or session.get(
-                "latest_checkpoint_id"
+            # Same stale-pause rule as _get_or_init_state: only trust
+            # pause_checkpoint_id when it is still the latest checkpoint.
+            pause_checkpoint_id = session.get("pause_checkpoint_id")
+            latest_checkpoint_id = session.get("latest_checkpoint_id")
+            pause_point_is_current = (
+                pause_checkpoint_id is not None
+                and (latest_checkpoint_id is None or latest_checkpoint_id == pause_checkpoint_id)
+            )
+            checkpoint_id = (
+                pause_checkpoint_id
+                if pause_point_is_current
+                else latest_checkpoint_id
             )
             cp_entry = checkpoints.get(checkpoint_id) if checkpoint_id else None
             if not cp_entry:

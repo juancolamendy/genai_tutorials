@@ -8,7 +8,6 @@ from uuid import uuid4
 
 import pytest
 
-from src.engine.event_ledger import EventLedger
 from src.engine.handler_registry import get_handler_metadata
 from src.onboarding import cli
 from src.onboarding.graph import build_graph as _build_onboarding_graph
@@ -27,11 +26,9 @@ def _ensure_onboarding_handlers_registered():
 
 
 def _build_graph(sessions_dir):
-    """See tests/test_onboarding_flow.py for why a unique ledger dir is
-    required — the default is a persistent shared directory on disk."""
-    graph = _build_onboarding_graph(sessions_dir=sessions_dir)
-    graph._ledger = EventLedger(ledger_dir=f"{sessions_dir}_ledger")
-    return graph
+    """Unique per-test sessions_dir (and thus colocated ledger from
+    onboarding.build_graph)."""
+    return _build_onboarding_graph(sessions_dir=sessions_dir)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

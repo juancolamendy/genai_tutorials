@@ -86,9 +86,14 @@ def build_graph(sessions_dir: str = ".onboarding_sessions") -> Graph:
         aemit_event()/arun_to_completion()
 
     Note: no semantic_router option here — onboarding is code-routed only.
+    EventLedger is colocated with sessions_dir so one-shot CLI processes
+    sharing --sessions-dir also share dedupe state (not CWD .event_ledger).
     """
+    from src.engine.event_ledger import EventLedger
+
     checkpointer = JsonCheckpointer(sessions_dir=sessions_dir)
 
     graph = Graph()
     graph.compiled_graph = graph.build_graph(OnboardingState, checkpointer=checkpointer)
+    graph._ledger = EventLedger(ledger_dir=f"{sessions_dir}_ledger")
     return graph
