@@ -128,3 +128,51 @@ def test_handler_decorator_returns_original_function():
     decorated = handler(state="test", waits_for_input=False)(my_handler)
     assert decorated is my_handler
     assert decorated({"test": "data"}) == {"test": "data"}
+
+
+def test_handler_decorator_wait_kind_and_expected_events_default():
+    """No-kwarg @handler call sites (e.g. docprocessing/handlers.py) must keep
+    working unchanged: wait_kind defaults to "either", expected_events to None."""
+    clear_metadata()
+
+    @handler(state="legacy_state", waits_for_input=True, description="Legacy call site")
+    def legacy_handler(state):
+        return state
+
+    meta = get_handler_metadata("legacy_state")
+    assert meta is not None
+    assert meta.wait_kind == "either"
+    assert meta.expected_events is None
+
+
+def test_handler_decorator_registers_wait_kind_system_event():
+    """@handler can declare wait_kind="system_event" with expected_events."""
+    clear_metadata()
+
+    @handler(
+        state="await_thing",
+        waits_for_input=True,
+        wait_kind="system_event",
+        expected_events=["thing_happened", "timeout_escalation"],
+    )
+    def await_handler(state):
+        return state
+
+    meta = get_handler_metadata("await_thing")
+    assert meta is not None
+    assert meta.wait_kind == "system_event"
+    assert meta.expected_events == ["thing_happened", "timeout_escalation"]
+
+
+def test_handler_decorator_registers_wait_kind_human():
+    """@handler can declare wait_kind="human" explicitly."""
+    clear_metadata()
+
+    @handler(state="collect", waits_for_input=True, wait_kind="human")
+    def collect_handler(state):
+        return state
+
+    meta = get_handler_metadata("collect")
+    assert meta is not None
+    assert meta.wait_kind == "human"
+    assert meta.expected_events is None
