@@ -28,6 +28,23 @@ check_transition_allowed = make_transition_guardrail(State, is_transition_allowe
 # ONBOARDING-SPECIFIC CHECKS
 # ─────────────────────────────────────────────────────────────────────────────
 
+def check_new_hire_details_complete(state: OnboardingState) -> GuardrailResult:
+    """Gate for COLLECT -> WELCOME_SENT: the router always proposes
+    WELCOME_SENT from COLLECT (code routing, no LLM in the transition
+    decision — design spec §2.3), so this guardrail is what actually
+    implements COLLECT's self-loop ("collect --> collect: guardrail
+    fallback (details incomplete)", design spec §3) — falls back to
+    COLLECT, not ERROR, since incomplete details on an ordinary turn is
+    expected, not a failure.
+    """
+    details = state.get("new_hire_details") or {}
+    if all(details.get(k) for k in ("full_name", "role", "start_date")):
+        return GuardrailResult(passed=True)
+    return GuardrailResult(
+        passed=False, reason="new hire details incomplete", fallback=State.COLLECT
+    )
+
+
 def check_not_timeout_escalation(state: OnboardingState) -> GuardrailResult:
     """Diverts to ESCALATED when a park state resumed via a timeout event
     rather than the happy event (design spec §8). Zero new engine
@@ -57,7 +74,9 @@ guardrails: Dict[State, GuardrailFn] = {
     # required fields — a normal multi-turn clarifying conversation would
     # otherwise get killed to ERROR even though nothing is actually looping.
     State.COLLECT: make_guardrail(check_transition_allowed),
-    State.WELCOME_SENT: make_guardrail(check_transition_allowed),
+    # check_new_hire_details_complete runs FIRST so its COLLECT fallback
+    # short-circuits check_transition_allowed on an ordinary incomplete turn.
+    State.WELCOME_SENT: make_guardrail(check_new_hire_details_complete, check_transition_allowed),
     State.AWAIT_DOCUMENTS_SIGNED: make_guardrail(check_transition_allowed),
     # check_not_timeout_escalation runs FIRST so it short-circuits
     # check_transition_allowed when a timeout resume diverts to ESCALATED.
@@ -71,6 +90,7 @@ guardrails: Dict[State, GuardrailFn] = {
 
 __all__ = [
     "check_transition_allowed",
+    "check_new_hire_details_complete",
     "check_not_timeout_escalation",
     "guardrails",
 ]
