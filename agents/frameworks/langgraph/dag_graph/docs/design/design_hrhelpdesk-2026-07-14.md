@@ -18,7 +18,8 @@ Extend the engine with **generic conversational (chatbot) primitives**, then imp
 | Topic state fields | `ChatEngineSessionState` middle layer (not on linear `EngineSessionState`). |
 | Router audit field | **No `router_last`** — use `router_confidence` / `semantic_context` / `audit_trail`. |
 | HITL | No `interrupt()` in v1; end-and-reenter parks. |
-| Out of scope v1 | FastAPI, Postgres/AsyncPostgresSaver, real RAG/APIs, streaming, LangSmith Platform, routing-eval CI gate. |
+| Async streaming | **In scope for engine** — add streaming entry points parallel to `ainvoke` / `aemit_event` that use graph `.astream()` so callers can emit LLM output text incrementally when needed. Helpdesk CLI may stay turn-based; the API is for chatbot/UI consumers. |
+| Out of scope v1 | FastAPI, Postgres/AsyncPostgresSaver, real RAG/APIs, LangSmith Platform, routing-eval CI gate. |
 
 ---
 
@@ -42,6 +43,7 @@ Extend the engine with **generic conversational (chatbot) primitives**, then imp
 | `get_model(role)` | Role-based model selection for `make_chain` / `make_llm_agent` |
 | `_resolve_proposed_next` (overridable) | Hub fan-out without hard-coding hub into the base router |
 | `_is_system_event_legal` (overridable) | Predicate-based system-event legality (parallel open items) |
+| `astream` / `aemit_event_stream` (names TBD) | Async streaming entry points parallel to `ainvoke` / `aemit_event` |
 
 Linear workflows (onboarding, triage, docprocessing) keep using `EngineSessionState` unchanged.
 
@@ -63,9 +65,25 @@ Supervisor = outer `EngineGraph`. Workers = per-topic `make_llm_agent` graphs. N
 
 ### Production-report alignment (adopt / defer)
 
-**Adopt:** lean typed state; checkpoint by thread; specialized workers + controllable routing; loop/call caps; IDs not document blobs in state.  
-**Defer:** Postgres/Redis, `astream`, LangSmith Platform, `interrupt()` HITL.  
+**Adopt:** lean typed state; checkpoint by thread; specialized workers + controllable routing; loop/call caps; IDs not document blobs in state; async token streaming via graph `.astream()` as a first-class engine entry point.  
+**Defer:** Postgres/Redis, LangSmith Platform, `interrupt()` HITL.  
 **Reject for v1:** monolithic chatbot↔ToolNode ReAct with all tools on every turn.
+
+### Async streaming (engine entry points)
+
+Add streaming counterparts to the existing turn APIs so chatbot consumers can yield LLM output text as it is produced:
+
+| Blocking / result API | Streaming API (new) |
+|---|---|
+| `ainvoke(...)` | e.g. `astream(...)` — same session/input contract; yields chunks from compiled graph `.astream()` |
+| `aemit_event(...)` | e.g. `aemit_event_stream(...)` — same funnel (lock, dedupe, legality); streams user-visible tokens/updates for that turn |
+
+Requirements:
+
+- Same durability, ledger, and legality semantics as the non-streaming path (streaming is a delivery mode, not a second state machine).
+- Prefer `stream_mode` that can surface LLM tokens (e.g. `messages`) and/or node updates; filter to user-facing nodes so router/internal steps are not dumped as chat text.
+- Final checkpointed state must match what `ainvoke` / `aemit_event` would have produced for the same input.
+- Helpdesk CLI may keep using non-streaming `chat` for Option A demos; tests cover at least one streaming path on the engine.
 
 ---
 
@@ -216,7 +234,7 @@ Handlers intercept tool calls/results (onboarding `submit_new_hire` pattern) and
 - Message hygiene module/helpers
 - Ledger generalization (`event_ledger.py` or rename with alias)
 - `chains.py`: `get_model(role)` integration
-- `engine_graph.py`: overridable next-state + system-event legality hooks
+- `engine_graph.py`: overridable next-state + system-event legality hooks; `astream` / `aemit_event_stream` entry points
 
 ### Domain package `src/hrhelpdesk/`
 
@@ -248,7 +266,7 @@ Sessions: `.hrhelpdesk_sessions` (+ ledger sibling).
 - Duplicate ticket/booking keys → exactly once
 - Illegal/unknown events → ignored
 - `topic_timeout` clears slots + notifies once
-- Engine unit tests: chat state helpers, ledger namespaces, message segment reset
+- Engine unit tests: chat state helpers, ledger namespaces, message segment reset, streaming entry point yields chunks and final state matches non-streaming path
 
 ### NFRs (tutorial-scaled)
 
@@ -258,7 +276,7 @@ Sessions: `.hrhelpdesk_sessions` (+ ledger sibling).
 
 ### Follow-ups (not v1)
 
-FastAPI `/chat` + webhooks; AsyncPostgresSaver; real providers; `astream`; LangSmith; routing-eval dataset (≥150 utterances) as deploy gate; `interrupt()` approver topics.
+FastAPI `/chat` + webhooks (can consume engine stream APIs); AsyncPostgresSaver; real providers; LangSmith; routing-eval dataset (≥150 utterances) as deploy gate; `interrupt()` approver topics.
 
 ---
 
