@@ -28,51 +28,33 @@
 
 ---
 
-## Phase 1 — Chat session state + message hygiene + ledger namespaces
+## Phase 1 — Chat session state + message hygiene + ledger namespaces ✅
 
 **Files:** `engine_session_state.py`, `message_hygiene.py`, `event_ledger.py`, tests
 
-- [ ] Add `ChatEngineSessionState` + `new_chat_session_state()` (schema_version=1, active_topic=None, topic_started_at=None, topic_data={})
-- [ ] `trim_messages(messages, max_n=12)`, `segment_reset_messages(messages, summary)` returning RemoveMessage ops + summary AIMessage
-- [ ] `event_key(event_id)`, `effect_key(thread_id, kind, *parts)` helpers; existing EventLedger callers unchanged (they pass opaque ids; helpdesk prefixes keys)
-- [ ] Tests green; commit
+- [x] Add `ChatEngineSessionState` + `new_chat_session_state()` (schema_version=1, active_topic=None, topic_started_at=None, topic_data={})
+- [x] `trim_messages(messages, max_n=12)`, `segment_reset_messages(messages, summary)` returning RemoveMessage ops + summary AIMessage
+- [x] `event_key(event_id)`, `effect_key(thread_id, kind, *parts)` helpers; existing EventLedger callers unchanged (they pass opaque ids; helpdesk prefixes keys)
+- [x] Tests green; commit
 
-## Phase 2 — get_model + routing/legality hooks + astream
+## Phase 2 — get_model + routing/legality hooks + astream ✅
 
 **Files:** `chains.py`, `engine_graph.py`, tests
 
-- [ ] `get_model(role: str) -> str` mapping router/topic → model ids (env-overridable)
-- [ ] `_resolve_proposed_next(state, config)` default = current semantic/code router body; domains override for hub logic
-- [ ] `_is_system_event_legal(state, event_type, payload)` default = today's `expected_events` check; `aemit_event` uses hook
-- [ ] `astream(...)` / `aemit_event_stream(...)` — same contracts as ainvoke/aemit_event; yield `{"type":"token"|"result"|"status", ...}`; use `compiled_graph.astream`; final state matches non-stream path
-- [ ] Tests; commit
+- [x] `get_model(role: str) -> str` mapping router/topic → model ids (env-overridable)
+- [x] `_resolve_proposed_next(state, config)` default = current semantic/code router body; domains override for hub logic
+- [x] `_is_system_event_legal(state, event_type, payload)` default = today's `expected_events` check; `aemit_event` uses hook
+- [x] `astream(...)` / `aemit_event_stream(...)` — same contracts as ainvoke/aemit_event; yield `{"type":"token"|"result"|"status", ...}`; use `compiled_graph.astream`; final state matches non-stream path
+- [x] Tests; commit
 
-## Phase 3 — hrhelpdesk skeleton (state machine + graph shell)
+## Phase 3–5 — hrhelpdesk package ✅
 
-**Files:** `src/hrhelpdesk/{state_transitions,session_state,guardrails,graph,__init__}.py`
+**Files:** `src/hrhelpdesk/*`, `tests/test_hrhelpdesk_flow.py`
 
-- [ ] States: ROUTE, HUB_CLARIFY, TOPIC_FAQ, TOPIC_ESCALATE, TOPIC_BOOKING, NOTIFY_USER, IDLE, ERROR
-- [ ] HelpdeskState, build_graph, legality override, routing override stubs
-- [ ] Commit
-
-## Phase 4 — providers, chains, handlers, guardrails
-
-**Files:** `providers.py`, `chains.py`, `handlers.py`, `guardrails.py`
-
-- [ ] Fake RAG / ticket / desk providers
-- [ ] Router + escape `make_chain`; FAQ/escalate/booking `make_llm_agent` with scoped tools
-- [ ] Handlers: route logic in ROUTE/overrides; topic handlers; notify; close topic via message hygiene
-- [ ] Guardrails: booking self-loop; clarify → idle; etc.
-- [ ] Tests with mocked chains/agents; commit
-
-## Phase 5 — sweep, CLI streaming, golden tests, README
-
-**Files:** `sweep.py`, `cli.py`, `README.md`, `tests/test_hrhelpdesk_*.py`
-
-- [ ] Sweep topic_timeout 48h; ticket reminder stub
-- [ ] CLI chat/serve use `aemit_event_stream`, print token generations
-- [ ] Golden tests per design §5
-- [ ] README; commit
+- [x] States, HelpdeskState, build_graph, legality + routing overrides
+- [x] Fake providers; router/escape chains; topic `make_llm_agent` specialists
+- [x] Handlers, guardrails, sweep, streaming CLI, README
+- [x] Golden tests (mocked LLM); commit
 
 ---
 
