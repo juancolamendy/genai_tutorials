@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from src.engine.engine_graph import EngineGraph
+from src.engine.chat_engine_graph import ChatEngineGraph
 from src.engine.handler_registry import get_handler_metadata
 from src.engine.json_checkpointer import JsonCheckpointer
 
@@ -14,12 +14,23 @@ from .session_state import HelpdeskState, new_helpdesk_session_state
 from .state_transitions import State, happy_path, terminal_states
 
 
-class Graph(EngineGraph):
-    """HR helpdesk hub + sticky-topic workflow."""
+class Graph(ChatEngineGraph):
+    """HR helpdesk hub + sticky-topic workflow on ChatEngineGraph."""
 
     state_enum = State
     terminal_states = terminal_states
     handler_map = handler_map
+
+    idle_state = State.IDLE
+    clarify_state = State.HUB_CLARIFY
+    notify_state = State.NOTIFY_USER
+    confidence_threshold = 0.7
+    unclear_topic = "unclear"
+    topic_to_state = {
+        "faq": State.TOPIC_FAQ,
+        "escalate": State.TOPIC_ESCALATE,
+        "booking": State.TOPIC_BOOKING,
+    }
 
     def _build_routing_table(self) -> dict[Any, Any]:
         return happy_path
@@ -41,51 +52,6 @@ class Graph(EngineGraph):
 
     def _new_session_state(self) -> dict[str, Any]:
         return new_helpdesk_session_state()
-
-    def _resolve_proposed_next(
-        self, state: dict[str, Any], config: Any = None
-    ) -> dict[str, Any]:
-        """Hub fan-out from typed fields — never from message text."""
-        current = self._get_current_state(state)
-
-        if state.get("current_event_source") == "system":
-            if state.get("current_state") != State.NOTIFY_USER.value:
-                proposal = State.NOTIFY_USER
-                return {
-                    "proposed_next": proposal.value,
-                    "audit_trail": [f"router: system → {proposal.value}"],
-                }
-            proposal = State.IDLE
-            return {
-                "proposed_next": proposal.value,
-                "audit_trail": [f"router: post-notify → {proposal.value}"],
-            }
-
-        if state.get("pending_clarify"):
-            proposal = State.HUB_CLARIFY
-            return {
-                "proposed_next": proposal.value,
-                "audit_trail": [f"router: clarify → {proposal.value}"],
-            }
-
-        active = state.get("active_topic")
-        topic_map = {
-            "faq": State.TOPIC_FAQ,
-            "escalate": State.TOPIC_ESCALATE,
-            "booking": State.TOPIC_BOOKING,
-        }
-        if active in topic_map:
-            proposal = topic_map[active]
-            return {
-                "proposed_next": proposal.value,
-                "audit_trail": [f"router: topic {active} → {proposal.value}"],
-            }
-
-        proposal = State.IDLE
-        return {
-            "proposed_next": proposal.value,
-            "audit_trail": [f"router: hub park {current} → {proposal.value}"],
-        }
 
     def _is_system_event_legal(
         self,

@@ -26,7 +26,7 @@ class State(str, Enum):
 # STATE TRANSITIONS
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Code-router fallback only — live fan-out is Graph._resolve_proposed_next.
+# Code-router fallback only — live fan-out is ChatEngineGraph._resolve_proposed_next.
 happy_path: dict[State, State] = {
     State.HUB_CLARIFY: State.IDLE,
     State.TOPIC_FAQ: State.IDLE,

@@ -1,9 +1,7 @@
 """Tests for ChatEngineSessionState (chatbot sticky-lane fields)."""
 
-from src.engine.engine_session_state import (
-    new_chat_session_state,
-    new_engine_session_state,
-)
+from src.engine.chat_engine_session_state import new_chat_session_state
+from src.engine.engine_session_state import new_engine_session_state
 
 
 def test_new_chat_session_state_includes_lane_fields():

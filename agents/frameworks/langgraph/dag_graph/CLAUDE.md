@@ -9,8 +9,9 @@
   `src/hrhelpdesk/`, …): Business state, handlers, guardrails, and chains for one workflow.
   Domains override `EngineGraph` hooks (`_build_routing_table`, `_resolve_proposed_next`,
   `_is_system_event_legal`, `_get_guardrails`, …) rather than forking engine code.
-- Chatbot (hub + sticky-topic) domains use `ChatEngineSessionState` /
-  `new_chat_session_state()`, not the linear `EngineSessionState`.
+- Chatbot (hub + sticky-topic) domains subclass `ChatEngineGraph` and use
+  `ChatEngineSessionState` / `new_chat_session_state()` (see `chat_engine_graph.py` /
+  `chat_engine_session_state.py`), not linear `EngineGraph` + `EngineSessionState`.
 
 ## Running tests / type checks
 

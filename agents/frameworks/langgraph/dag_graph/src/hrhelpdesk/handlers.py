@@ -8,6 +8,7 @@ from typing import Any
 
 from langchain_core.messages import HumanMessage
 
+from src.engine.chat_engine_graph import ChatEngineGraph, TopicDecision
 from src.engine.event_ledger import effect_key
 from src.engine.handler_registry import handler
 from src.engine.utils import (
@@ -35,6 +36,11 @@ from .state_transitions import State
 log = logging.getLogger(__name__)
 
 ROUTER_CONFIDENCE_THRESHOLD = 0.7
+
+# Typed-field fan-out helper (same threshold as Graph); avoids importing Graph
+# from handlers (circular: graph → handlers → graph).
+_topic_fanout = ChatEngineGraph()
+_topic_fanout.confidence_threshold = ROUTER_CONFIDENCE_THRESHOLD
 
 _ledger: Any = None
 
@@ -154,29 +160,16 @@ def _route_human_message(
             "audit_trail": [f"{source}: router failed: {exc}"],
         }
 
-    topic = router_out.topic.value
-    confidence = router_out.confidence
-    base: dict[str, Any] = {
-        "router_confidence": confidence,
-        "semantic_context": {"router_topic": topic},
-        "pending_clarify": False,
-        "handler_status": "ok",
-    }
-
-    if topic == "unclear" or confidence < ROUTER_CONFIDENCE_THRESHOLD:
-        base["pending_clarify"] = True
-        base["active_topic"] = None
-        base["topic_data"] = {}
+    decision = TopicDecision(
+        topic=router_out.topic.value,
+        confidence=router_out.confidence,
+    )
+    base = _topic_fanout.topic_decision_to_delta(decision, source=source)
+    if base.get("pending_clarify"):
         base["output_messages"] = [CLARIFY_PROMPT]
-        base["audit_trail"] = [f"{source}: routed to clarify"]
         return base
 
-    base["active_topic"] = topic
-    base["topic_started_at"] = datetime.now(timezone.utc).isoformat()
-    base["topic_data"] = {}
-    base["audit_trail"] = [f"{source}: routed to {topic}"]
-
-    if topic == "booking":
+    if decision.topic == "booking":
         booking_delta = _process_booking_turn({**state, **base}, input_message)
         base.update(booking_delta)
     return base
@@ -370,19 +363,16 @@ def handle_topic_booking(state: HelpdeskState) -> HelpdeskState:
                         **cleared,
                     },
                 )
-            topic = router_out.topic.value
-            confidence = router_out.confidence
-            cleared["router_confidence"] = confidence
-            cleared["semantic_context"] = {"router_topic": topic}
-            if topic == "unclear" or confidence < ROUTER_CONFIDENCE_THRESHOLD:
-                cleared["pending_clarify"] = True
-                cleared["output_messages"] = [
-                    "I'm not sure I understood. Would you like FAQ, escalate, or book a desk?"
-                ]
-            else:
-                cleared["active_topic"] = topic
-                cleared["topic_started_at"] = datetime.now(timezone.utc).isoformat()
-                cleared["topic_data"] = {}
+            decision = TopicDecision(
+                topic=router_out.topic.value,
+                confidence=router_out.confidence,
+            )
+            routed = _topic_fanout.topic_decision_to_delta(
+                decision, source="topic_booking"
+            )
+            cleared.update(routed)
+            if cleared.get("pending_clarify"):
+                cleared["output_messages"] = [CLARIFY_PROMPT]
             cleared["audit_trail"] = ["topic_booking: escape — re-routed"]
             return log_handler_exit("topic_booking", cleared)
     except Exception as exc:

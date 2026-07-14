@@ -15,7 +15,8 @@
 ## File map
 
 ### Engine (modify / create)
-- `src/engine/engine_session_state.py` — add `ChatEngineSessionState`, `new_chat_session_state()`
+- `src/engine/chat_engine_session_state.py` — `ChatEngineSessionState`, `new_chat_session_state()`
+- `src/engine/chat_engine_graph.py` — `ChatEngineGraph` (topic + confidence fan-out)
 - `src/engine/utils.py` — trim + segment reset helpers
 - `src/engine/event_ledger.py` — namespace helpers (`event_key`, `effect_key`); keep `EventLedger` API
 - `src/engine/chains.py` — `get_model(role)`, optional stream helper for agents

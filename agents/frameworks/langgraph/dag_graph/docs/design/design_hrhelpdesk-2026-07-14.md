@@ -15,7 +15,7 @@ Extend the engine with **generic conversational (chatbot) primitives**, then imp
 | Ledger | **Generalize** existing ledger into one keyed store; namespace keys (`event:…`, `effect:…`); keep `EventLedger` alias. |
 | Message reset | Engine helper for **any** chatbot workflow (trim + segment reset with summary). |
 | Topology | Approach 1 — hub/topic as `EngineGraph` states; specialists via `make_llm_agent`. |
-| Topic state fields | `ChatEngineSessionState` middle layer (not on linear `EngineSessionState`). |
+| Topic state fields | `ChatEngineSessionState` (`chat_engine_session_state.py`); graph fan-out via `ChatEngineGraph`. |
 | Router audit field | **No `router_last`** — use `router_confidence` / `semantic_context` / `audit_trail`. |
 | HITL | No `interrupt()` in v1; end-and-reenter parks. |
 | Async streaming | **In scope** — engine streaming entry points parallel to `ainvoke` / `aemit_event` (graph `.astream()`). Helpdesk CLI exercises them by printing LLM generations as they stream (no FastAPI). |
@@ -41,7 +41,7 @@ Extend the engine with **generic conversational (chatbot) primitives**, then imp
 | Message helpers (`utils.py`) | Trim prompt window; segment reset + one-line summary |
 | Generalized keyed ledger | Delivery IDs and write-effect idempotency keys |
 | `get_model(role)` | Role-based model selection for `make_chain` / `make_llm_agent` |
-| `_resolve_proposed_next` (overridable) | Hub fan-out without hard-coding hub into the base router |
+| `ChatEngineGraph._resolve_proposed_next` | Hub fan-out from typed fields (topic / clarify / system) |
 | `_is_system_event_legal` (overridable) | Predicate-based system-event legality (parallel open items) |
 | `astream` / `aemit_event_stream` (names TBD) | Async streaming entry points parallel to `ainvoke` / `aemit_event` |
 
@@ -232,7 +232,8 @@ Handlers intercept tool calls/results (onboarding `submit_new_hire` pattern) and
 
 ### Engine touch points
 
-- `engine_session_state.py` (or `chat_session_state.py`): `ChatEngineSessionState`, constructors
+- `chat_engine_session_state.py`: `ChatEngineSessionState`, constructors
+- `chat_engine_graph.py`: `ChatEngineGraph` (topic + confidence → typed fields → `proposed_next`)
 - `utils.py`: message trim / segment-reset helpers
 - Ledger generalization (`event_ledger.py` or rename with alias)
 - `chains.py`: `get_model(role)` integration

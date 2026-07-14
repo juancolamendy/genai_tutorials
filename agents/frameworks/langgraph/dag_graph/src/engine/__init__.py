@@ -19,11 +19,9 @@ from .engine_graph import (
     EngineGraph,
     safe_node,
 )
-from .engine_session_state import (
-    ChatEngineSessionState,
-    EngineSessionState,
-    new_chat_session_state,
-)
+from .chat_engine_graph import ChatEngineGraph, TopicDecision
+from .chat_engine_session_state import ChatEngineSessionState, new_chat_session_state
+from .engine_session_state import EngineSessionState
 from .event_ledger import EventLedger, effect_key, event_key
 from .json_checkpointer import JsonCheckpointer
 from .utils import (
@@ -50,6 +48,8 @@ __all__ = [
     "ChatEngineSessionState",
     "new_chat_session_state",
     "EngineGraph",
+    "ChatEngineGraph",
+    "TopicDecision",
     "safe_node",
     "make_chain",
     "get_chain",
