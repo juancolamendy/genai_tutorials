@@ -2,9 +2,12 @@
 
 # Generic engine utilities (framework-agnostic, reusable across projects)
 from .chains import (
+    ainvoke_agent,
     chain_field,
+    get_agent,
     get_chain,
     make_chain,
+    make_llm_agent,
     make_llm_chain,
     render_as_xml,
 )
@@ -27,6 +30,9 @@ __all__ = [
     "safe_node",
     "make_chain",
     "get_chain",
+    "make_llm_agent",
+    "get_agent",
+    "ainvoke_agent",
     "make_llm_chain",
     "render_as_xml",
     "chain_field",

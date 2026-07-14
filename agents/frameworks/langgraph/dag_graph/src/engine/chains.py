@@ -1,19 +1,23 @@
-"""Generic chain factory and LLM step builder using LangChain LCEL.
+"""Generic chain/agent factory and LLM step builder using LangChain LCEL.
 
 Provides:
   • make_chain() — cached LCEL chain factory
   • make_llm_chain() — wrap an LLM + prompt-builder into a chain
+  • make_llm_agent() — cached tool-calling agent factory (create_agent)
+  • ainvoke_agent() — async invoke a registered agent
   • render_as_xml() — generic list-of-dicts → XML block renderer
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Optional, Type
+from typing import Any, Callable, Optional, Sequence, Type
 
 from dotenv import load_dotenv
+from langchain.agents import create_agent
 from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import HumanMessage
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
@@ -27,6 +31,9 @@ DEFAULT_MODEL = "anthropic:claude-haiku-4-5-20251001"
 
 # Process-level chain cache — each chain is created once.
 _chain_registry: dict[str, Any] = {}
+
+# Process-level agent cache — each agent is created once.
+_agent_registry: dict[str, Any] = {}
 
 # Global LLM instance
 _llm: Optional[BaseChatModel] = None
@@ -55,6 +62,7 @@ def make_chain(
     system_prompt: str,
     output_schema: Optional[Type[BaseModel]] = None,
     model_id: str = DEFAULT_MODEL,
+    user_prompt: str = "{input}",
 ) -> Any:
     """Return a cached LCEL chain using the configured chat model.
 
@@ -63,11 +71,11 @@ def make_chain(
 
     Args:
         name: Chain identifier for caching
-        description: Chain purpose (for logging)
         system_prompt: System message for the model
         output_schema: Optional Pydantic model for structured output
         model_id: Chat model ID in "provider:model" format
             (e.g. "anthropic:claude-haiku-4-5-20251001")
+        user_prompt: User message template (default "{input}")
 
     Returns:
         LCEL chain (prompt | llm | parser)
@@ -80,7 +88,7 @@ def make_chain(
     # Create prompt template
     prompt = ChatPromptTemplate.from_messages([
         ("system", system_prompt),
-        ("user", "{input}"),
+        ("user", user_prompt),
     ])
 
     # Choose parser based on output schema
@@ -155,6 +163,86 @@ def make_llm_chain(
         return chain.invoke({})
 
     return _executor
+
+
+# ── Agent factory ─────────────────────────────────────────────────────────────
+def make_llm_agent(
+    name: str,
+    system_prompt: str,
+    output_schema: Optional[Type[BaseModel]] = None,
+    model_id: str = DEFAULT_MODEL,
+    tools: Optional[Sequence[Any]] = None,
+) -> Any:
+    """Return a cached tool-calling agent built with ``create_agent``.
+
+    Calling this twice with the same ``name`` returns the same instance so no
+    duplicate agent graphs are created across the codebase.
+
+    In current LangChain, ``create_agent`` returns a ``CompiledStateGraph``
+    (not an ``AgentExecutor``). Use ``ainvoke_agent`` / ``agent.ainvoke`` to run
+    it; when ``output_schema`` is set, the result includes
+    ``structured_response``.
+
+    Args:
+        name: Agent identifier for caching
+        system_prompt: Top-level instructions, constraints, and personality
+        output_schema: Optional Pydantic model bound as ``response_format``
+        model_id: Chat model ID in "provider:model" format
+            (e.g. "anthropic:claude-haiku-4-5-20251001")
+        tools: Optional sequence of tools the agent may call
+
+    Returns:
+        Compiled agent graph (``create_agent`` result)
+    """
+    if name in _agent_registry:
+        return _agent_registry[name]
+
+    agent = create_agent(
+        model=model_id,
+        tools=list(tools) if tools else None,
+        system_prompt=system_prompt,
+        response_format=output_schema,
+        name=name,
+    )
+    _agent_registry[name] = agent
+    log.debug("[engine] registered agent '%s'", name)
+    return agent
+
+
+def get_agent(name: str) -> Any:
+    """Retrieve a registered agent by name; raises KeyError if not found."""
+    if name not in _agent_registry:
+        raise KeyError(f"Agent '{name}' has not been registered.")
+    return _agent_registry[name]
+
+
+async def ainvoke_agent(
+    name: str,
+    user_prompt: str,
+    *,
+    messages: Optional[list[Any]] = None,
+) -> Any:
+    """Async-invoke a registered agent with a user prompt (or message list).
+
+    Equivalent to the older ``AgentExecutor.ainvoke`` pattern: looks up the
+    agent from ``_agent_registry`` and calls ``ainvoke`` on the compiled graph.
+
+    Args:
+        name: Registered agent name (from ``make_llm_agent``)
+        user_prompt: User message content (used when ``messages`` is omitted)
+        messages: Optional full messages list. Each item may be a LangChain
+            message, a ``(role, content)`` tuple, or a
+            ``{"role": ..., "content": ...}`` dict. When omitted, a single
+            human message is built from ``user_prompt``.
+
+    Returns:
+        Agent result dict. With ``output_schema``, includes
+        ``structured_response``.
+    """
+    agent = get_agent(name)
+    if messages is None:
+        messages = [HumanMessage(content=user_prompt)]
+    return await agent.ainvoke({"messages": messages})
 
 
 # ── Prompt helpers ────────────────────────────────────────────────────────────
