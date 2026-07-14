@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from src.engine.chains import chain_field, get_model, make_chain, make_llm_agent
 
-from . import providers
+from . import services
 
 # ─────────────────────────────────────────────────────────────────────────────
 # OUTPUT SCHEMAS
@@ -95,19 +95,19 @@ def run_escape(text: str) -> EscapeOutput:
 @tool
 def create_ticket_tool(subject: str, body: str) -> str:
     """Create an HR support ticket. Call once the issue is understood."""
-    return providers.create_ticket(subject, body)
+    return services.create_ticket(subject, body)
 
 
 @tool
 def check_desk_availability(date: str, location: str) -> bool:
     """Check whether a desk is available on the given date and location."""
-    return providers.check_desk_availability(date, location)
+    return services.check_desk_availability(date, location)
 
 
 @tool
 def confirm_booking(date: str, location: str, seat_pref: str) -> str:
     """Confirm a desk booking once date, location, and seat preference are known."""
-    return providers.confirm_booking(date, location, seat_pref)
+    return services.confirm_booking(date, location, seat_pref)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

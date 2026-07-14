@@ -14,7 +14,7 @@ from langchain_core.messages import AIMessage, ToolMessage
 from src.engine.handler_registry import get_handler_metadata
 from src.hrhelpdesk.chains import EscapeOutput, RouterOutput, RouterTopic
 from src.hrhelpdesk.graph import build_graph as _build_helpdesk_graph
-from src.hrhelpdesk.providers import _booking_store, reset_providers
+from src.hrhelpdesk.services import _booking_store, reset_providers
 from src.hrhelpdesk.state_transitions import State
 
 
@@ -136,6 +136,45 @@ async def test_faq_happy_path_clears_active_topic():
     assert result["status"] == "ok"
     assert result.get("active_topic") is None
     assert any("15 days" in msg for msg in result.get("output_messages", []))
+
+
+@pytest.mark.asyncio
+async def test_hub_clarify_reroutes_user_reply_to_faq():
+    """Unclear first turn parks at hub_clarify; next reply is re-routed (not ignored)."""
+    graph = build_graph()
+    thread_id = str(uuid4())
+
+    with (
+        patch(
+            "src.hrhelpdesk.handlers.run_router",
+            side_effect=[_router("unclear", 0.4), _router("faq")],
+        ),
+        patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
+        patch("src.hrhelpdesk.handlers.faq_agent", _mock_faq_agent()),
+    ):
+        turn1 = await graph.aemit_event(
+            thread_id=thread_id,
+            source="human",
+            event_type="message",
+            payload={"text": "help"},
+        )
+        assert turn1["status"] == "ok"
+        assert turn1.get("current_state") == State.HUB_CLARIFY.value
+        assert turn1.get("pending_clarify") is True
+        assert any("FAQ" in m or "book" in m.lower() for m in turn1.get("output_messages", []))
+
+        turn2 = await graph.aemit_event(
+            thread_id=thread_id,
+            source="human",
+            event_type="message",
+            payload={"text": "policy question about PTO"},
+        )
+
+    assert turn2["status"] == "ok"
+    assert turn2.get("pending_clarify") is False
+    assert turn2.get("active_topic") is None  # FAQ one-shot closes topic
+    assert turn2.get("current_state") == State.IDLE.value
+    assert any("15 days" in msg for msg in turn2.get("output_messages", []))
 
 
 @pytest.mark.asyncio
@@ -314,7 +353,7 @@ async def test_faq_path_never_calls_booking_tools():
         patch("src.hrhelpdesk.handlers.run_router", return_value=_router("faq")),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
         patch("src.hrhelpdesk.handlers.faq_agent", _mock_faq_agent()),
-        patch("src.hrhelpdesk.providers.confirm_booking", side_effect=_forbidden_booking),
+        patch("src.hrhelpdesk.services.confirm_booking", side_effect=_forbidden_booking),
     ):
         result = await graph.aemit_event(
             thread_id=thread_id,

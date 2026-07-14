@@ -17,7 +17,7 @@ def test_new_chat_session_state_includes_lane_fields():
 def test_new_chat_session_state_defaults_to_idle_hub():
     state = new_chat_session_state()
     assert state["current_state"] == "idle"
-    assert state["proposed_next"] == "route"
+    assert state["proposed_next"] == "idle"
 
 
 def test_new_engine_session_state_does_not_include_chat_fields():

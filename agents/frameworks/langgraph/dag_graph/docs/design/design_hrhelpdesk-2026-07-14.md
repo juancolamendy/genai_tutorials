@@ -38,7 +38,7 @@ Extend the engine with **generic conversational (chatbot) primitives**, then imp
 | Addition | Purpose |
 |---|---|
 | `ChatEngineSessionState` + `new_chat_session_state()` | Shared sticky-lane fields for chatbot workflows |
-| Message hygiene helpers | Trim prompt window; segment reset + one-line summary |
+| Message helpers (`utils.py`) | Trim prompt window; segment reset + one-line summary |
 | Generalized keyed ledger | Delivery IDs and write-effect idempotency keys |
 | `get_model(role)` | Role-based model selection for `make_chain` / `make_llm_agent` |
 | `_resolve_proposed_next` (overridable) | Hub fan-out without hard-coding hub into the base router |
@@ -94,14 +94,15 @@ Requirements:
 
 | State | Role | waits_for_input |
 |---|---|---|
-| `ROUTE` | Deterministic entry / re-entry after topic close | no |
+| `IDLE` | Hub park + human-turn routing (escape / semantic route) | yes (human / either) |
 | `HUB_CLARIFY` | Disambiguate when unclear / low confidence | yes (human) |
-| `TOPIC_FAQ` | Policy Q&A specialist | yes (human); one-shot then close |
-| `TOPIC_ESCALATE` | Ticket specialist | yes (human); one-shot then close |
+| `TOPIC_FAQ` | Policy Q&A specialist | no (one-shot then close → IDLE) |
+| `TOPIC_ESCALATE` | Ticket specialist | no (one-shot then close → IDLE) |
 | `TOPIC_BOOKING` | Sticky desk booking | yes (human); self-loop until done/escape |
 | `NOTIFY_USER` | Render legal system events into chat | no |
-| `IDLE` | Hub park between conversational turns | yes (human) |
 | `ERROR` | Terminal failure | — |
+
+> Note: a separate `ROUTE` node was dropped — hub routing lives on `IDLE` + `Graph._resolve_proposed_next`.
 
 ### Per-turn routing (domain policy)
 
@@ -232,7 +233,7 @@ Handlers intercept tool calls/results (onboarding `submit_new_hire` pattern) and
 ### Engine touch points
 
 - `engine_session_state.py` (or `chat_session_state.py`): `ChatEngineSessionState`, constructors
-- Message hygiene module/helpers
+- `utils.py`: message trim / segment-reset helpers
 - Ledger generalization (`event_ledger.py` or rename with alias)
 - `chains.py`: `get_model(role)` integration
 - `engine_graph.py`: overridable next-state + system-event legality hooks; `astream` / `aemit_event_stream` entry points

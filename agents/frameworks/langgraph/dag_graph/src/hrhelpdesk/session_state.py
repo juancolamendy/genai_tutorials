@@ -19,7 +19,7 @@ def new_helpdesk_session_state() -> HelpdeskState:
     """Return a fresh HelpdeskState parked at IDLE with hub routing queued."""
     chat_state = new_chat_session_state(
         current_state=State.IDLE.value,
-        proposed_next=State.ROUTE.value,
+        proposed_next=State.IDLE.value,
     )
     helpdesk_state: HelpdeskState = {
         **chat_state,

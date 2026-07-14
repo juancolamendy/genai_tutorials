@@ -1,4 +1,4 @@
-"""In-memory fake providers for policy KB, tickets, and desk booking."""
+"""In-memory fake services for policy KB, tickets, and desk booking."""
 
 from __future__ import annotations
 

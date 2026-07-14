@@ -14,7 +14,7 @@ from src.hrhelpdesk.chains import (
 )
 from src.hrhelpdesk.graph import Graph, build_graph
 from src.hrhelpdesk.guardrails import guardrails
-from src.hrhelpdesk.providers import (
+from src.hrhelpdesk.services import (
     check_desk_availability,
     confirm_booking,
     create_ticket,

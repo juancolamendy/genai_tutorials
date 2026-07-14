@@ -222,7 +222,7 @@ class ChatEngineSessionState(EngineSessionState):
 def new_chat_session_state(
     *,
     current_state: str = "idle",
-    proposed_next: str = "route",
+    proposed_next: str = "idle",
 ) -> ChatEngineSessionState:
     """Create fresh chat session state with sticky-lane fields initialized."""
     base = new_engine_session_state()

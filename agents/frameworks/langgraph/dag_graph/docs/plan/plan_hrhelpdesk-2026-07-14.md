@@ -16,7 +16,7 @@
 
 ### Engine (modify / create)
 - `src/engine/engine_session_state.py` — add `ChatEngineSessionState`, `new_chat_session_state()`
-- `src/engine/message_hygiene.py` — **create** trim + segment reset helpers
+- `src/engine/utils.py` — trim + segment reset helpers
 - `src/engine/event_ledger.py` — namespace helpers (`event_key`, `effect_key`); keep `EventLedger` API
 - `src/engine/chains.py` — `get_model(role)`, optional stream helper for agents
 - `src/engine/engine_graph.py` — `_resolve_proposed_next`, `_is_system_event_legal`, `astream`, `aemit_event_stream`
@@ -24,13 +24,13 @@
 
 ### Domain (create)
 - `src/hrhelpdesk/` — full package per design §5
-- `tests/test_chat_session_state.py`, `test_message_hygiene.py`, `test_event_ledger_namespaces.py`, `test_engine_astream.py`, `test_hrhelpdesk_*.py`
+- `tests/test_chat_session_state.py`, `test_engine_utils.py`, `test_event_ledger_namespaces.py`, `test_engine_astream.py`, `test_hrhelpdesk_*.py`
 
 ---
 
 ## Phase 1 — Chat session state + message hygiene + ledger namespaces ✅
 
-**Files:** `engine_session_state.py`, `message_hygiene.py`, `event_ledger.py`, tests
+**Files:** `engine_session_state.py`, `utils.py`, `event_ledger.py`, tests
 
 - [x] Add `ChatEngineSessionState` + `new_chat_session_state()` (schema_version=1, active_topic=None, topic_started_at=None, topic_data={})
 - [x] `trim_messages(messages, max_n=12)`, `segment_reset_messages(messages, summary)` returning RemoveMessage ops + summary AIMessage
@@ -60,6 +60,6 @@
 
 ## Success criteria
 
-- `pytest tests/test_chat_session_state.py tests/test_message_hygiene.py tests/test_event_ledger.py tests/test_engine_astream.py tests/test_hrhelpdesk*.py` green
+- `pytest tests/test_chat_session_state.py tests/test_engine_utils.py tests/test_event_ledger.py tests/test_engine_astream.py tests/test_hrhelpdesk*.py` green
 - Existing onboarding/triage/docprocessing tests still pass
 - CLI can stream a mocked FAQ reply to stdout

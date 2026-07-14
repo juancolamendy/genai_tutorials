@@ -1,9 +1,13 @@
-"""Tests for conversational message hygiene helpers."""
+"""Tests for engine conversational utils (trim / segment reset / helpers)."""
 
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from src.engine.message_hygiene import (
+from src.engine.utils import (
     close_topic_delta,
+    content_hash,
+    find_tool_call,
+    find_tool_message,
+    last_ai_content,
     segment_reset_messages,
     trim_messages,
 )
@@ -37,3 +41,23 @@ def test_close_topic_delta_clears_lane_fields():
     assert delta["topic_data"] == {}
     assert delta["topic_started_at"] is None
     assert len(delta["messages"]) == 2
+
+
+def test_content_hash_is_stable_and_short():
+    assert content_hash("a", "b") == content_hash("a", "b")
+    assert len(content_hash("a")) == 16
+
+
+def test_last_ai_content_and_tool_helpers():
+    msgs = [
+        HumanMessage(content="hi"),
+        AIMessage(
+            content="thinking",
+            tool_calls=[{"name": "create_ticket_tool", "args": {"subject": "x"}, "id": "1"}],
+        ),
+        ToolMessage(content="ok", tool_call_id="1", name="create_ticket_tool"),
+        AIMessage(content="done"),
+    ]
+    assert last_ai_content(msgs) == "done"
+    assert find_tool_call(msgs, "create_ticket_tool")["args"]["subject"] == "x"
+    assert find_tool_message(msgs, "create_ticket_tool").content == "ok"

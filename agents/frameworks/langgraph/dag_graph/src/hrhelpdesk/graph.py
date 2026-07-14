@@ -28,7 +28,7 @@ class Graph(EngineGraph):
         return State(state.get("current_state", State.IDLE.value))
 
     def _get_proposed_state(self, state: dict[str, Any]) -> State:
-        return State(state.get("proposed_next", State.ROUTE.value))
+        return State(state.get("proposed_next", State.IDLE.value))
 
     def _get_guardrails(self) -> dict[Any, Callable]:
         return guardrails
