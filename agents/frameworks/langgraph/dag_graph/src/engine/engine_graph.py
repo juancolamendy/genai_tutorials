@@ -139,21 +139,14 @@ class EngineGraph:
     # GENERIC NODES (used by all subclasses)
     # ─────────────────────────────────────────────────────────────────────────
 
-    def _router_node(
+    def _resolve_proposed_next(
         self, state: dict[str, Any], config: Optional[RunnableConfig] = None
     ) -> dict[str, Any]:
-        """Route: current_state → proposed_next via semantic or code router.
+        """Compute the router delta (proposed_next + optional semantic fields).
 
-        If semantic_router is available, uses LLM routing. Otherwise falls back
-        to pure code routing via routing table.
-
-        Args:
-            state: State dict with current_state set
-            config: LangGraph invocation config; configurable.router_timeout_sec
-                overrides the semantic router's default LLM call timeout
-
-        Returns:
-            Updated state with proposed_next set
+        Default: semantic router when attached (never for system events), else
+        the code routing table. Chatbot domains may override for hub fan-out
+        / sticky-topic policy without forking the whole router node.
         """
         current = self._get_current_state(state)
 
@@ -163,13 +156,13 @@ class EngineGraph:
         # so it holds regardless of whether a semantic_router is attached.
         if self.semantic_router is not None and state.get("current_event_source") != "system":
             try:
-                # Extract arguments for semantic router
                 current_state = state.get("current_state", "init")
                 input_message = state.get("input_message", "")
                 history = state.get("messages", [])
-                timeout_sec = (config or {}).get("configurable", {}).get("router_timeout_sec", 10.0)
+                timeout_sec = (config or {}).get("configurable", {}).get(
+                    "router_timeout_sec", 10.0
+                )
 
-                # Get allowed next states from state machine
                 allowed_states = self._get_allowed_states(current)
 
                 router_decision = self.semantic_router.route(
@@ -189,7 +182,6 @@ class EngineGraph:
                     router_decision.confidence,
                 )
 
-                # Store semantic context in state
                 semantic_state = {
                     "proposed_next": proposal_val,
                     "semantic_context": {
@@ -203,16 +195,16 @@ class EngineGraph:
                     ],
                 }
 
-                # Add reasoning if available
                 if router_decision.reasoning:
                     semantic_state["router_reasoning"] = router_decision.reasoning
 
                 return semantic_state
 
             except Exception as e:
-                log.warning("[ROUTER] semantic routing failed (%s); falling back to code router", e)
+                log.warning(
+                    "[ROUTER] semantic routing failed (%s); falling back to code router", e
+                )
 
-        # Fallback: code-based routing via routing table
         routing_table = self._build_routing_table()
         if current not in routing_table:
             raise ValueError(f"Current state {current} not in routing table")
@@ -226,6 +218,31 @@ class EngineGraph:
             "proposed_next": proposal_val,
             "audit_trail": [f"router: code {current} → {proposal}"],
         }
+
+    def _is_system_event_legal(
+        self,
+        state: dict[str, Any],
+        event_type: str,
+        payload: Optional[dict[str, Any]] = None,
+    ) -> bool:
+        """Return True if this system event may apply against ``state``.
+
+        Default: park-state ``expected_events`` check (onboarding/triage).
+        Chatbot domains override with predicate maps (open tickets, sticky
+        topics, etc.) so legality is not limited to a single step enum.
+        """
+        from src.engine.handler_registry import get_handler_metadata
+
+        current = state.get("current_state", "init")
+        meta = get_handler_metadata(current)
+        expected = meta.expected_events or [] if meta else []
+        return bool(meta and meta.wait_kind != "human" and event_type in expected)
+
+    def _router_node(
+        self, state: dict[str, Any], config: Optional[RunnableConfig] = None
+    ) -> dict[str, Any]:
+        """Route: current_state → proposed_next via ``_resolve_proposed_next``."""
+        return self._resolve_proposed_next(state, config)
 
     def _guardrail_node(self, state: dict[str, Any]) -> dict[str, Any]:
         """Validate proposed_next; apply fallback if needed.
@@ -821,6 +838,295 @@ class EngineGraph:
                 "router_confidence": 0.0,
             }
 
+    async def astream(
+        self,
+        user_id: str,
+        session_id: str,
+        input_message: str,
+        state_delta: Optional[dict[str, Any]] = None,
+        timeout_sec: float = 10.0,
+        max_auto_iters: int = 10,
+    ):
+        """Async streaming twin of ``ainvoke``.
+
+        Yields dict chunks:
+          • ``{"type": "token", "text": str, "node": str|None}`` — LLM / AI text
+          • ``{"type": "result", "state": dict}`` — final state (same shape as ainvoke)
+
+        Uses ``compiled_graph.astream`` with ``stream_mode=["messages", "values"]``.
+        Durability and post-turn message persistence match ``ainvoke``.
+        """
+        from src.engine.input_validation import InputValidationError
+
+        try:
+            escaped = self._prepare_input(input_message)
+            thread_id = self._thread_id(user_id, session_id)
+            config = {
+                "configurable": {
+                    "thread_id": thread_id,
+                    "router_timeout_sec": timeout_sec,
+                }
+            }
+
+            state = self._get_or_init_state(session_id, user_id=user_id)
+            state["input_message"] = escaped
+            current_turn_number = state.get("turn_number", 0) + 1
+            state["turn_number"] = current_turn_number
+            state["user_id"] = user_id
+            state["session_id"] = session_id
+            if state_delta is not None:
+                state.update(state_delta)
+
+            from src.engine.handler_registry import does_state_wait_for_input
+
+            current_state_str = state.get("current_state", "init")
+            tokens_emitted = False
+            if does_state_wait_for_input(current_state_str):
+                delta = self._dispatch_handler(self.state_enum(current_state_str), state)
+                state = {**state, **delta}
+
+            if hasattr(self, "_init_router"):
+                self._init_router()
+
+            last_state = state
+            async for item in self.compiled_graph.astream(
+                state,
+                config=config,
+                stream_mode=["messages", "values"],
+            ):
+                # LangGraph may yield (mode, chunk) tuples when multiple modes
+                # are requested, or bare chunks depending on version.
+                if isinstance(item, tuple) and len(item) == 2:
+                    mode, chunk = item
+                else:
+                    mode, chunk = "values", item
+
+                if mode == "messages":
+                    msg, metadata = chunk if isinstance(chunk, tuple) else (chunk, {})
+                    text = getattr(msg, "content", None)
+                    if isinstance(text, str) and text:
+                        tokens_emitted = True
+                        yield {
+                            "type": "token",
+                            "text": text,
+                            "node": (metadata or {}).get("langgraph_node"),
+                        }
+                    elif isinstance(text, list):
+                        for part in text:
+                            if isinstance(part, dict) and part.get("type") == "text":
+                                part_text = part.get("text", "")
+                                if part_text:
+                                    tokens_emitted = True
+                                    yield {
+                                        "type": "token",
+                                        "text": part_text,
+                                        "node": (metadata or {}).get("langgraph_node"),
+                                    }
+                elif mode == "values" and isinstance(chunk, dict):
+                    last_state = chunk
+
+            last_state["turn_number"] = current_turn_number
+            last_state = await self._auto_progress_langgraph_async(
+                last_state, config, max_auto_iters=max_auto_iters
+            )
+            last_state["turn_number"] = current_turn_number
+
+            messages = last_state.get("messages", [])
+            if len(messages) > self.max_history_turns:
+                messages = messages[-self.max_history_turns :]
+                last_state["messages"] = messages
+
+            new_messages = self._build_new_messages(escaped, last_state)
+            if new_messages:
+                messages = list(last_state.get("messages", []))
+                messages.extend(new_messages)
+                last_state["messages"] = messages
+            # Fallback: surface assistant text when the graph stream had no
+            # message-mode tokens (typical for handlers that only set
+            # output_messages).
+            if not tokens_emitted:
+                for text in last_state.get("output_messages") or []:
+                    if text:
+                        yield {
+                            "type": "token",
+                            "text": str(text),
+                            "node": last_state.get("current_state"),
+                        }
+                        tokens_emitted = True
+                if not tokens_emitted:
+                    for m in new_messages or []:
+                        if isinstance(m, AIMessage) and m.content:
+                            yield {
+                                "type": "token",
+                                "text": str(m.content),
+                                "node": last_state.get("current_state"),
+                            }
+
+            checkpointer = getattr(self.compiled_graph, "checkpointer", None)
+            if checkpointer and new_messages:
+                try:
+                    self.compiled_graph.update_state(config, {"messages": new_messages})
+                except Exception as e:
+                    log.debug("[astream] Could not persist new messages: %s", e)
+
+            if does_state_wait_for_input(last_state.get("current_state")):
+                if checkpointer:
+                    try:
+                        session_data = checkpointer.export_session(thread_id)
+                        if session_data:
+                            checkpoint_id = session_data.get("latest_checkpoint_id")
+                            if checkpoint_id:
+                                checkpointer.save_pause_point(config, checkpoint_id)
+                    except Exception as e:
+                        log.debug("[astream] Could not auto-save pause point: %s", e)
+
+            yield {"type": "result", "state": last_state}
+
+        except InputValidationError as e:
+            yield {
+                "type": "result",
+                "state": {
+                    "error_message": str(e),
+                    "status": "error",
+                    "current_state": None,
+                    "turn_number": 0,
+                    "semantic_context": {},
+                    "router_confidence": 0.0,
+                },
+            }
+        except Exception as e:
+            log.exception("[astream] Error: %s", e)
+            yield {
+                "type": "result",
+                "state": {
+                    "error_message": str(e),
+                    "status": "error",
+                    "current_state": "error",
+                    "turn_number": 0,
+                    "semantic_context": {},
+                    "router_confidence": 0.0,
+                },
+            }
+
+    async def aemit_event_stream(
+        self,
+        thread_id: str,
+        source: str,
+        event_type: str,
+        payload: Optional[dict[str, Any]] = None,
+        event_id: Optional[str] = None,
+    ):
+        """Streaming twin of ``aemit_event`` (same funnel; yields token/result chunks).
+
+        Non-ok funnel outcomes (duplicate, ignored, waiting, …) yield a single
+        ``{"type": "status", ...}`` chunk. Successful human/system turns yield
+        the same token stream as ``astream``, ending with
+        ``{"type": "result", "state": ..., "status": "ok"}``.
+        """
+        if source == "system" and not event_id:
+            raise ValueError("system-sourced events must supply event_id")
+
+        if self._ledger is None:
+            from src.engine.event_ledger import EventLedger
+
+            self._ledger = EventLedger()
+
+        from src.engine.event_ledger import event_key as _event_key
+
+        ledger_id = _event_key(event_id) if event_id else None
+
+        async with self._locks[thread_id]:
+            if source == "system" and ledger_id is not None:
+                if await self._ledger.is_processed(ledger_id):
+                    yield {"type": "status", "status": "duplicate", "event_id": event_id}
+                    return
+
+            from src.engine.handler_registry import does_state_wait_for_input, get_handler_metadata
+
+            state = self._get_or_init_state(session_id=thread_id, user_id="")
+            current = state.get("current_state", "init")
+            meta = get_handler_metadata(current)
+
+            if current in self.terminal_states:
+                if ledger_id:
+                    await self._ledger.mark_processed(ledger_id)
+                yield {
+                    "type": "status",
+                    "status": "already_terminal",
+                    "current_state": current,
+                }
+                return
+            if not does_state_wait_for_input(current):
+                yield {
+                    "type": "status",
+                    "status": "not_waiting",
+                    "current_state": current,
+                }
+                return
+
+            if source == "human":
+                if meta and meta.wait_kind == "system_event":
+                    yield {"type": "status", **self._describe_wait(state, meta)}
+                    return
+                final_state = None
+                async for chunk in self.astream(
+                    user_id="",
+                    session_id=thread_id,
+                    input_message=(payload or {}).get("text", ""),
+                    state_delta={
+                        "current_event_source": "human",
+                        "current_event_type": "message",
+                    },
+                ):
+                    if chunk.get("type") == "result":
+                        final_state = chunk["state"]
+                    else:
+                        yield chunk
+                if final_state is None:
+                    yield {"type": "status", "status": "error"}
+                    return
+                if final_state.get("status") == "error":
+                    yield {"type": "result", "status": "error", "state": final_state}
+                    return
+                yield {"type": "result", "status": "ok", "state": final_state}
+                return
+
+            if not self._is_system_event_legal(state, event_type, payload):
+                if ledger_id:
+                    await self._ledger.mark_processed(ledger_id)
+                yield {
+                    "type": "status",
+                    "status": "ignored",
+                    "current_state": current,
+                    "event_type": event_type,
+                }
+                return
+
+            final_state = None
+            async for chunk in self.astream(
+                user_id="",
+                session_id=thread_id,
+                input_message="",
+                state_delta={
+                    **(payload or {}),
+                    "current_event_source": "system",
+                    "current_event_type": event_type,
+                },
+            ):
+                if chunk.get("type") == "result":
+                    final_state = chunk["state"]
+                else:
+                    yield chunk
+            if final_state is None:
+                yield {"type": "status", "status": "error"}
+                return
+            if final_state.get("status") == "error":
+                yield {"type": "result", "status": "error", "state": final_state}
+                return
+            if ledger_id:
+                await self._ledger.mark_processed(ledger_id)
+            yield {"type": "result", "status": "ok", "state": final_state}
+
     async def aemit_event(
         self,
         thread_id: str,
@@ -850,10 +1156,14 @@ class EngineGraph:
 
             self._ledger = EventLedger()
 
+        from src.engine.event_ledger import event_key as _event_key
+
+        ledger_id = _event_key(event_id) if event_id else None
+
         async with self._locks[thread_id]:
             already_seen = False
-            if source == "system" and event_id is not None:
-                already_seen = await self._ledger.is_processed(event_id)
+            if source == "system" and ledger_id is not None:
+                already_seen = await self._ledger.is_processed(ledger_id)
             if already_seen:
                 return {"status": "duplicate", "event_id": event_id}
 
@@ -864,8 +1174,8 @@ class EngineGraph:
             meta = get_handler_metadata(current)
 
             if current in self.terminal_states:
-                if event_id:
-                    await self._ledger.mark_processed(event_id)
+                if ledger_id:
+                    await self._ledger.mark_processed(ledger_id)
                 return {"status": "already_terminal", "current_state": current}
             if not does_state_wait_for_input(current):
                 return {"status": "not_waiting", "current_state": current}
@@ -883,15 +1193,13 @@ class EngineGraph:
                     return {"status": "error", **result}
                 return {"status": "ok", **result}
 
-            # source == "system"
-            expected = meta.expected_events or [] if meta else []
-            legal = meta and meta.wait_kind != "human" and event_type in expected
-            if not legal:
+            # source == "system" — legality via overridable predicate hook
+            if not self._is_system_event_legal(state, event_type, payload):
                 # Consume the delivery so a legitimate retry of a
                 # since-moved-past event gets reclassified as "ignored"
                 # rather than retried forever.
-                if event_id:
-                    await self._ledger.mark_processed(event_id)
+                if ledger_id:
+                    await self._ledger.mark_processed(ledger_id)
                 return {"status": "ignored", "current_state": current, "event_type": event_type}
 
             result = await self.ainvoke(
@@ -913,8 +1221,8 @@ class EngineGraph:
             # failure too — marking would permanently block recovery.
             if result.get("status") == "error":
                 return {"status": "error", **result}
-            if event_id:
-                await self._ledger.mark_processed(event_id)
+            if ledger_id:
+                await self._ledger.mark_processed(ledger_id)
             return {"status": "ok", **result}
 
     def _describe_wait(self, state: dict[str, Any], meta: Any) -> dict[str, Any]:

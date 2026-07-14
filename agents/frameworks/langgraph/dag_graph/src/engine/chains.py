@@ -11,6 +11,7 @@ Provides:
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Callable, Optional, Sequence, Type
 
 from dotenv import load_dotenv
@@ -28,6 +29,22 @@ load_dotenv()
 log = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "anthropic:claude-haiku-4-5-20251001"
+
+# Role → model id. Env overrides: ENGINE_MODEL_ROUTER, ENGINE_MODEL_TOPIC.
+_MODEL_BY_ROLE: dict[str, str] = {
+    "router": os.getenv("ENGINE_MODEL_ROUTER", DEFAULT_MODEL),
+    "topic": os.getenv("ENGINE_MODEL_TOPIC", DEFAULT_MODEL),
+}
+
+
+def get_model(role: str) -> str:
+    """Return the model id for a logical role (``router``, ``topic``, …).
+
+    Unknown roles fall back to ``DEFAULT_MODEL``. Domains and factories
+    should prefer roles over hard-coded model strings so router vs topic
+    models can swap independently.
+    """
+    return _MODEL_BY_ROLE.get(role, DEFAULT_MODEL)
 
 # Process-level chain cache — each chain is created once.
 _chain_registry: dict[str, Any] = {}
