@@ -40,21 +40,28 @@ terminal_states = {State.ERROR}
 
 allowed_transitions: Dict[State, Set[State]] = {
     # After the user answers the clarify prompt, fan out to a topic (or stay).
+    # NOTIFY_USER: a legal system event (e.g. ticket_resolved) can arrive while
+    # parked here — see Graph._is_system_event_legal and handle_hub_clarify's
+    # system-event short-circuit.
     State.HUB_CLARIFY: {
         State.HUB_CLARIFY,
         State.TOPIC_FAQ,
         State.TOPIC_ESCALATE,
         State.TOPIC_BOOKING,
+        State.NOTIFY_USER,
         State.IDLE,
         State.ERROR,
     },
     State.TOPIC_FAQ: {State.IDLE, State.TOPIC_BOOKING, State.ERROR},
     State.TOPIC_ESCALATE: {State.IDLE, State.TOPIC_BOOKING, State.ERROR},
+    # NOTIFY_USER: topic_timeout can arrive while genuinely parked here — see
+    # handle_topic_booking's system-event short-circuit.
     State.TOPIC_BOOKING: {
         State.IDLE,
         State.TOPIC_BOOKING,
         State.TOPIC_FAQ,
         State.TOPIC_ESCALATE,
+        State.NOTIFY_USER,
         State.ERROR,
     },
     State.NOTIFY_USER: {State.IDLE, State.ERROR},

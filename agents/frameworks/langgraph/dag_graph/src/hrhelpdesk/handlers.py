@@ -231,6 +231,18 @@ def handle_idle(state: HelpdeskState) -> HelpdeskState:
 def handle_hub_clarify(state: HelpdeskState) -> HelpdeskState:
     """Process the user's disambiguation reply — do not ignore input_message."""
     log_handler_enter("hub_clarify", state)
+    event_source = state.get("current_event_source", "human")
+
+    if event_source == "system":
+        return log_handler_exit(
+            "hub_clarify",
+            {
+                "last_event": state.get("current_event_type"),
+                "last_event_at": datetime.now(timezone.utc).isoformat(),
+                "audit_trail": [f"hub_clarify: system event {state.get('current_event_type')}"],
+            },
+        )
+
     input_message = state.get("input_message") or ""
     return log_handler_exit(
         "hub_clarify",
@@ -335,6 +347,18 @@ def handle_topic_escalate(state: HelpdeskState) -> HelpdeskState:
 )
 def handle_topic_booking(state: HelpdeskState) -> HelpdeskState:
     log_handler_enter("topic_booking", state)
+    event_source = state.get("current_event_source", "human")
+
+    if event_source == "system":
+        return log_handler_exit(
+            "topic_booking",
+            {
+                "last_event": state.get("current_event_type"),
+                "last_event_at": datetime.now(timezone.utc).isoformat(),
+                "audit_trail": [f"topic_booking: system event {state.get('current_event_type')}"],
+            },
+        )
+
     input_message = state.get("input_message") or ""
     messages = state.get("messages") or []
 

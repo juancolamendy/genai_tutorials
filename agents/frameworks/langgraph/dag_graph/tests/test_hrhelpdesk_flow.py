@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import importlib
 import tempfile
-from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -327,34 +326,119 @@ async def test_illegal_system_event_ignored():
 
 @pytest.mark.asyncio
 async def test_topic_timeout_clears_booking():
+    """topic_timeout delivered while genuinely parked at topic_booking must be
+    handled by a short-circuit, never by invoking run_escape/booking_agent
+    with empty input (regression for the sticky-topic system-event incident
+    documented in CLAUDE.md)."""
     graph = build_graph()
     thread_id = str(uuid4())
 
-    state = graph._get_or_init_state(session_id=thread_id, user_id="")
-    stale = (datetime.now(timezone.utc) - timedelta(hours=49)).isoformat()
-    state.update(
-        {
-            "current_state": State.IDLE.value,
-            "active_topic": "booking",
-            "topic_started_at": stale,
-            "topic_data": {"date": "2026-08-01", "location": "NYC"},
-        }
-    )
-    graph.compiled_graph.update_state(
-        {"configurable": {"thread_id": thread_id}},
-        state,
-    )
+    with (
+        patch(
+            "src.hrhelpdesk.handlers._topic_fanout.classify_utterance",
+            return_value=_decision("booking"),
+        ),
+        patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
+        patch(
+            "src.hrhelpdesk.handlers.booking_agent",
+            _mock_booking_agent_turn(date="2026-08-01", location="NYC"),
+        ),
+    ):
+        turn1 = await graph.aemit_event(
+            thread_id=thread_id,
+            source="human",
+            event_type="message",
+            payload={"text": "Book a desk Monday NYC"},
+        )
 
-    result = await graph.aemit_event(
-        thread_id=thread_id,
-        source="system",
-        event_type="topic_timeout",
-        event_id="evt-timeout",
-    )
+    assert turn1["status"] == "ok"
+    assert turn1.get("current_state") == State.TOPIC_BOOKING.value
+    assert turn1.get("active_topic") == "booking"
+
+    def _forbidden(*_a, **_k):
+        raise AssertionError("LLM/tool call must not run for a system-sourced turn")
+
+    with (
+        patch("src.hrhelpdesk.handlers.run_escape", side_effect=_forbidden),
+        patch("src.hrhelpdesk.handlers.booking_agent", MagicMock(invoke=_forbidden)),
+    ):
+        result = await graph.aemit_event(
+            thread_id=thread_id,
+            source="system",
+            event_type="topic_timeout",
+            event_id="evt-timeout",
+        )
 
     assert result["status"] == "ok"
     assert result.get("active_topic") is None
     assert result.get("topic_data") == {}
+    assert result.get("current_state") == State.IDLE.value
+    assert any("timed out" in m.lower() for m in result.get("output_messages", []))
+
+
+@pytest.mark.asyncio
+async def test_ticket_resolved_during_hub_clarify_short_circuits():
+    """ticket_resolved is legal regardless of current_state (Graph._is_system_event_legal
+    only checks open_tickets) and can legally arrive while parked at hub_clarify —
+    must not invoke the router LLM with empty input."""
+    graph = build_graph()
+    thread_id = str(uuid4())
+
+    with (
+        patch(
+            "src.hrhelpdesk.handlers._topic_fanout.classify_utterance",
+            return_value=_decision("escalate"),
+        ),
+        patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
+        patch("src.hrhelpdesk.handlers.escalate_agent", _mock_escalate_agent()),
+    ):
+        first = await graph.aemit_event(
+            thread_id=thread_id,
+            source="human",
+            event_type="message",
+            payload={"text": "My paycheck is wrong"},
+        )
+    ticket_id = first["open_tickets"][0]
+
+    with (
+        patch(
+            "src.hrhelpdesk.handlers._topic_fanout.classify_utterance",
+            return_value=_decision("unclear", 0.3),
+        ),
+        patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
+    ):
+        second = await graph.aemit_event(
+            thread_id=thread_id,
+            source="human",
+            event_type="message",
+            payload={"text": "hmm"},
+        )
+
+    assert second.get("current_state") == State.HUB_CLARIFY.value
+    assert second.get("pending_clarify") is True
+
+    def _forbidden(*_a, **_k):
+        raise AssertionError("router must not run for a system-sourced turn")
+
+    with patch("src.hrhelpdesk.handlers._topic_fanout.classify_utterance", side_effect=_forbidden):
+        result = await graph.aemit_event(
+            thread_id=thread_id,
+            source="system",
+            event_type="ticket_resolved",
+            event_id="evt-ticket-1",
+            payload={"ticket_id": ticket_id},
+        )
+
+    assert result["status"] == "ok"
+    # Not asserted: open_tickets no longer containing ticket_id. ticket_id/
+    # booking_id aren't declared HelpdeskState channels, so they don't survive
+    # compiled_graph.ainvoke's schema-based state resolution and
+    # handle_notify_user's state.get("ticket_id") always reads None — a
+    # separate, pre-existing bug (reproduces identically from a plain IDLE
+    # park, unrelated to this task's sticky-topic short-circuit fix) that is
+    # out of scope here.
+    assert result.get("current_state") == State.IDLE.value
+    assert any("resolved" in m.lower() for m in result.get("output_messages", []))
 
 
 @pytest.mark.asyncio
