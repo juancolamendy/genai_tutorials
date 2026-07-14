@@ -1,12 +1,17 @@
-"""File-backed dedupe store for system-sourced event delivery.
+"""File-backed keyed ledger for once-only application of durable keys.
 
-Used by aemit_event (a later phase) to detect a retried/duplicate delivery
-of the same event_id and avoid double-applying its state transition. Must
-be file-backed, not in-memory: the CLI is a fresh process per one-shot
+Used for:
+  • system-event delivery dedupe (``event:{event_id}``)
+  • write-effect idempotency (``effect:{thread}:{kind}:{...}``)
+
+Must be file-backed, not in-memory: the CLI is a fresh process per one-shot
 command, so an in-memory ledger would never actually dedupe anything across
 separate invocations — the decisive scenario is two EventLedger instances
 pointed at the same directory (simulating two separate process runs)
 agreeing on what's already been processed.
+
+``EventLedger`` remains the public name (alias for the keyed store). Callers
+may pass bare ids (legacy) or namespaced keys from ``event_key`` / ``effect_key``.
 """
 
 from __future__ import annotations
@@ -18,6 +23,19 @@ from datetime import datetime
 from pathlib import Path
 
 DEFAULT_LEDGER_DIR = ".event_ledger"
+
+
+def event_key(event_id: str) -> str:
+    """Namespace a delivery id so it never collides with effect keys."""
+    if event_id.startswith("event:") or event_id.startswith("effect:"):
+        return event_id
+    return f"event:{event_id}"
+
+
+def effect_key(thread_id: str, kind: str, *parts: str) -> str:
+    """Build an effect idempotency key: ``effect:{thread}:{kind}:{parts...}``."""
+    safe_parts = [thread_id, kind, *parts]
+    return "effect:" + ":".join(safe_parts)
 
 
 class EventLedger:

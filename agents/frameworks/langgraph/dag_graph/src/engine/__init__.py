@@ -16,8 +16,14 @@ from .engine_graph import (
     EngineGraph,
     safe_node,
 )
-from .engine_session_state import EngineSessionState
+from .engine_session_state import (
+    ChatEngineSessionState,
+    EngineSessionState,
+    new_chat_session_state,
+)
+from .event_ledger import EventLedger, effect_key, event_key
 from .json_checkpointer import JsonCheckpointer
+from .message_hygiene import close_topic_delta, segment_reset_messages, trim_messages
 from .sqlite_checkpointing import SqliteCheckpointer
 
 # Note: Domain-specific state machine, handlers, and guardrails are in src/docprocessing/
@@ -26,6 +32,8 @@ from .sqlite_checkpointing import SqliteCheckpointer
 __all__ = [
     # Generic engine (reusable across projects)
     "EngineSessionState",
+    "ChatEngineSessionState",
+    "new_chat_session_state",
     "EngineGraph",
     "safe_node",
     "make_chain",
@@ -37,6 +45,14 @@ __all__ = [
     "render_as_xml",
     "chain_field",
     "END",
+    # Chat helpers
+    "trim_messages",
+    "segment_reset_messages",
+    "close_topic_delta",
+    # Ledger
+    "EventLedger",
+    "event_key",
+    "effect_key",
     # Checkpointing
     "SqliteCheckpointer",
     "JsonCheckpointer",

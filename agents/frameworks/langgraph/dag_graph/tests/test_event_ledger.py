@@ -10,7 +10,7 @@ import uuid
 
 import pytest
 
-from src.engine.event_ledger import EventLedger
+from src.engine.event_ledger import EventLedger, effect_key, event_key
 
 
 def _ledger_dir():
@@ -58,3 +58,27 @@ async def test_event_id_with_colons_and_slashes_is_safe_for_filesystem():
     event_id = "sweep:user/1:await_documents_signed"
     await ledger.mark_processed(event_id)
     assert await ledger.is_processed(event_id) is True
+
+
+def test_event_key_namespaces_delivery_ids():
+    assert event_key("abc-123") == "event:abc-123"
+    assert event_key("event:abc-123") == "event:abc-123"
+
+
+def test_effect_key_builds_namespaced_idempotency_key():
+    assert (
+        effect_key("hd-1", "ticket", "hash99")
+        == "effect:hd-1:ticket:hash99"
+    )
+    assert (
+        effect_key("hd-1", "booking", "2026-07-14", "nyc")
+        == "effect:hd-1:booking:2026-07-14:nyc"
+    )
+
+
+@pytest.mark.asyncio
+async def test_event_and_effect_keys_do_not_collide():
+    ledger = EventLedger(ledger_dir=_ledger_dir())
+    await ledger.mark_processed(event_key("same-id"))
+    assert await ledger.is_processed(effect_key("t", "ticket", "same-id")) is False
+    assert await ledger.is_processed(event_key("same-id")) is True
