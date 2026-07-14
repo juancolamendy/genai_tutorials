@@ -18,8 +18,8 @@ Extend the engine with **generic conversational (chatbot) primitives**, then imp
 | Topic state fields | `ChatEngineSessionState` middle layer (not on linear `EngineSessionState`). |
 | Router audit field | **No `router_last`** — use `router_confidence` / `semantic_context` / `audit_trail`. |
 | HITL | No `interrupt()` in v1; end-and-reenter parks. |
-| Async streaming | **In scope for engine** — add streaming entry points parallel to `ainvoke` / `aemit_event` that use graph `.astream()` so callers can emit LLM output text incrementally when needed. Helpdesk CLI may stay turn-based; the API is for chatbot/UI consumers. |
-| Out of scope v1 | FastAPI, Postgres/AsyncPostgresSaver, real RAG/APIs, LangSmith Platform, routing-eval CI gate. |
+| Async streaming | **In scope** — engine streaming entry points parallel to `ainvoke` / `aemit_event` (graph `.astream()`). Helpdesk CLI exercises them by printing LLM generations as they stream (no FastAPI). |
+| Out of scope v1 | FastAPI (do not add), Postgres/AsyncPostgresSaver, real RAG/APIs, LangSmith Platform, routing-eval CI gate. |
 
 ---
 
@@ -69,9 +69,9 @@ Supervisor = outer `EngineGraph`. Workers = per-topic `make_llm_agent` graphs. N
 **Defer:** Postgres/Redis, LangSmith Platform, `interrupt()` HITL.  
 **Reject for v1:** monolithic chatbot↔ToolNode ReAct with all tools on every turn.
 
-### Async streaming (engine entry points)
+### Async streaming (engine + CLI)
 
-Add streaming counterparts to the existing turn APIs so chatbot consumers can yield LLM output text as it is produced:
+Add streaming counterparts to the existing turn APIs so callers can yield LLM output text as it is produced:
 
 | Blocking / result API | Streaming API (new) |
 |---|---|
@@ -83,7 +83,8 @@ Requirements:
 - Same durability, ledger, and legality semantics as the non-streaming path (streaming is a delivery mode, not a second state machine).
 - Prefer `stream_mode` that can surface LLM tokens (e.g. `messages`) and/or node updates; filter to user-facing nodes so router/internal steps are not dumped as chat text.
 - Final checkpointed state must match what `ainvoke` / `aemit_event` would have produced for the same input.
-- Helpdesk CLI may keep using non-streaming `chat` for Option A demos; tests cover at least one streaming path on the engine.
+- **Helpdesk CLI is the v1 consumer:** `chat` (and interactive `serve` turns) use the streaming path and print generations to stdout as chunks arrive. No HTTP/FastAPI layer.
+- Tests cover streaming on the engine and CLI-level generation printing (mocked model chunks acceptable).
 
 ---
 
@@ -255,7 +256,8 @@ README.md
 ### CLI
 
 Subcommands: `chat`, `event`, `sweep`, `status`, `serve`.  
-Sessions: `.hrhelpdesk_sessions` (+ ledger sibling).
+Sessions: `.hrhelpdesk_sessions` (+ ledger sibling).  
+`chat` / human turns in `serve` call `aemit_event_stream` (or equivalent) and stream assistant generations to the terminal; `event` / `sweep` may stay non-streaming (system notifies are short, deterministic).
 
 ### Golden tests (workflow correctness)
 
@@ -276,7 +278,7 @@ Sessions: `.hrhelpdesk_sessions` (+ ledger sibling).
 
 ### Follow-ups (not v1)
 
-FastAPI `/chat` + webhooks (can consume engine stream APIs); AsyncPostgresSaver; real providers; LangSmith; routing-eval dataset (≥150 utterances) as deploy gate; `interrupt()` approver topics.
+AsyncPostgresSaver; real providers; LangSmith; routing-eval dataset (≥150 utterances) as deploy gate; `interrupt()` approver topics. **Do not add FastAPI** in this tutorial track — CLI + engine stream APIs are sufficient.
 
 ---
 
