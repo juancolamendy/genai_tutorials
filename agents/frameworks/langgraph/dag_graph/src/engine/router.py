@@ -5,6 +5,8 @@ Provides:
 - RouterDecision: Output structure with decision metadata
 - BaseSemanticRouter: Abstract interface
 - DefaultSemanticRouter: Concrete implementation with common LLM logic
+- DefaultTopicRouter: Concrete implementation for topic+confidence
+  classification (chatbot hub routing, as opposed to state routing)
 """
 
 from __future__ import annotations
@@ -13,6 +15,9 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Optional
+
+from src.engine.chains import get_model, make_chain
+from src.engine.chat_engine_graph import TopicDecision
 
 log = logging.getLogger(__name__)
 
@@ -284,3 +289,88 @@ Always choose from the ALLOWED NEXT STATES."""
                 confidence=0.0,
                 reasoning=f"Error during routing: {str(e)}",
             )
+
+
+class DefaultTopicRouter:
+    """Concrete ``TopicRouter`` (structural) for LLM topic+confidence classification.
+
+    Unlike ``DefaultSemanticRouter`` (which proposes a graph *state* and rolls
+    its own LLM call), this classifies an utterance into a *topic* and reuses
+    ``engine.chains.make_chain`` — the same helper every domain's
+    ``chains.py`` already uses — instead of a second hand-rolled
+    LLM-invocation path.
+
+    Subclasses set:
+        output_schema: Pydantic model with ``topic`` (str|Enum) and
+            ``confidence`` (float) fields. Required.
+        system_prompt / get_instructions(): classification system prompt.
+        model_role: passed to ``get_model(role)`` for model selection
+            (default ``"router"``).
+        unclear_topic: topic value used when classification fails or the
+            model itself returns it (default ``"unclear"``).
+        chain_name: name passed to ``make_chain`` for its process-level
+            cache (default ``"TopicRouterChain"`` — override per subclass
+            so multiple topic routers don't collide in the shared cache).
+
+    Example:
+        class MyTopicRouter(DefaultTopicRouter):
+            output_schema = MyRouterOutput
+            chain_name = "MyTopicRouterChain"
+
+            def get_instructions(self):
+                return "Classify the message into: a | b | unclear..."
+    """
+
+    output_schema: type = None  # Subclasses MUST set this to a Pydantic model
+    system_prompt: str = ""  # or override get_instructions()
+    model_role: str = "router"
+    unclear_topic: str = "unclear"
+    chain_name: str = "TopicRouterChain"
+
+    def __init__(self) -> None:
+        if self.output_schema is None:
+            raise NotImplementedError(
+                f"Subclass {self.__class__.__name__} must set output_schema to a Pydantic model"
+            )
+        self._chain = None  # Lazy-built in _get_chain()
+
+    def get_instructions(self) -> str:
+        """Return the LLM system prompt. Subclasses override or set ``system_prompt``."""
+        return self.system_prompt
+
+    def _get_chain(self):
+        """Lazily build (and cache) the classification chain via ``make_chain``."""
+        if self._chain is None:
+            self._chain = make_chain(
+                name=self.chain_name,
+                system_prompt=self.get_instructions(),
+                output_schema=self.output_schema,
+                model_id=get_model(self.model_role),
+            )
+        return self._chain
+
+    def classify(
+        self,
+        input_message: str,
+        history: Optional[list] = None,
+    ) -> TopicDecision:
+        """Classify ``input_message`` into a ``TopicDecision``.
+
+        ``history`` is accepted for ``TopicRouter`` protocol conformance but
+        unused by this default implementation. On any failure (LLM error,
+        malformed response), falls back to ``TopicDecision(unclear_topic,
+        0.0)`` rather than raising — callers already treat unclear/low
+        confidence uniformly via ``ChatEngineGraph.should_clarify``, so a
+        swallowed error degrades to "ask the user to clarify" instead of
+        surfacing as a handler error.
+        """
+        try:
+            raw = self._get_chain().invoke({"input": input_message})
+            response = raw if isinstance(raw, self.output_schema) else self.output_schema(**raw)
+            topic = response.topic
+            topic_val = topic.value if hasattr(topic, "value") else str(topic)
+            confidence = max(0.0, min(1.0, float(response.confidence)))
+            return TopicDecision(topic=topic_val, confidence=confidence)
+        except Exception as exc:
+            log.exception("[DefaultTopicRouter] classify() failed: %s", exc)
+            return TopicDecision(topic=self.unclear_topic, confidence=0.0)
