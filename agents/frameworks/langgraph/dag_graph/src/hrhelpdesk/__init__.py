@@ -5,15 +5,14 @@ from src.hrhelpdesk.chains import (
     RouterOutput,
     RouterTopic,
     booking_agent,
-    escape_chain,
     escalate_agent,
+    escape_chain,
     faq_agent,
     run_escape,
-    run_router,
-    route_chain,
 )
 from src.hrhelpdesk.graph import Graph, build_graph
 from src.hrhelpdesk.guardrails import guardrails
+from src.hrhelpdesk.router import HelpdeskSemanticRouter
 from src.hrhelpdesk.services import (
     check_desk_availability,
     confirm_booking,
@@ -44,10 +43,9 @@ __all__ = [
     "RouterTopic",
     "RouterOutput",
     "EscapeOutput",
-    "route_chain",
     "escape_chain",
-    "run_router",
     "run_escape",
+    "HelpdeskSemanticRouter",
     "faq_agent",
     "escalate_agent",
     "booking_agent",

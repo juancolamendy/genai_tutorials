@@ -11,8 +11,9 @@ from uuid import uuid4
 import pytest
 from langchain_core.messages import AIMessage, ToolMessage
 
+from src.engine.chat_engine_graph import TopicDecision
 from src.engine.handler_registry import get_handler_metadata
-from src.hrhelpdesk.chains import EscapeOutput, RouterOutput, RouterTopic
+from src.hrhelpdesk.chains import EscapeOutput
 from src.hrhelpdesk.graph import build_graph as _build_helpdesk_graph
 from src.hrhelpdesk.services import _booking_store, reset_providers
 from src.hrhelpdesk.state_transitions import State
@@ -38,8 +39,8 @@ def build_graph():
     return _build_helpdesk_graph(sessions_dir=sessions_dir)
 
 
-def _router(topic: str, confidence: float = 0.9):
-    return RouterOutput(topic=RouterTopic(topic), confidence=confidence)
+def _decision(topic: str, confidence: float = 0.9) -> TopicDecision:
+    return TopicDecision(topic=topic, confidence=confidence)
 
 
 def _escape(escape: bool = False):
@@ -122,7 +123,10 @@ async def test_faq_happy_path_clears_active_topic():
     thread_id = str(uuid4())
 
     with (
-        patch("src.hrhelpdesk.handlers.run_router", return_value=_router("faq")),
+        patch(
+            "src.hrhelpdesk.handlers._topic_fanout.classify_utterance",
+            return_value=_decision("faq"),
+        ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
         patch("src.hrhelpdesk.handlers.faq_agent", _mock_faq_agent()),
     ):
@@ -146,8 +150,8 @@ async def test_hub_clarify_reroutes_user_reply_to_faq():
 
     with (
         patch(
-            "src.hrhelpdesk.handlers.run_router",
-            side_effect=[_router("unclear", 0.4), _router("faq")],
+            "src.hrhelpdesk.handlers._topic_fanout.classify_utterance",
+            side_effect=[_decision("unclear", 0.4), _decision("faq")],
         ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
         patch("src.hrhelpdesk.handlers.faq_agent", _mock_faq_agent()),
@@ -183,7 +187,10 @@ async def test_escalate_creates_one_ticket_ledger_dedupes():
     thread_id = str(uuid4())
 
     with (
-        patch("src.hrhelpdesk.handlers.run_router", return_value=_router("escalate")),
+        patch(
+            "src.hrhelpdesk.handlers._topic_fanout.classify_utterance",
+            return_value=_decision("escalate"),
+        ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
         patch("src.hrhelpdesk.handlers.escalate_agent", _mock_escalate_agent()),
     ):
@@ -212,7 +219,10 @@ async def test_booking_sticky_two_turn_confirm():
     thread_id = str(uuid4())
 
     with (
-        patch("src.hrhelpdesk.handlers.run_router", return_value=_router("booking")),
+        patch(
+            "src.hrhelpdesk.handlers._topic_fanout.classify_utterance",
+            return_value=_decision("booking"),
+        ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
         patch(
             "src.hrhelpdesk.handlers.booking_agent",
@@ -263,7 +273,10 @@ async def test_escape_mid_booking_reroutes():
     thread_id = str(uuid4())
 
     with (
-        patch("src.hrhelpdesk.handlers.run_router", return_value=_router("booking")),
+        patch(
+            "src.hrhelpdesk.handlers._topic_fanout.classify_utterance",
+            return_value=_decision("booking"),
+        ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
         patch(
             "src.hrhelpdesk.handlers.booking_agent",
@@ -278,7 +291,10 @@ async def test_escape_mid_booking_reroutes():
         )
 
     with (
-        patch("src.hrhelpdesk.handlers.run_router", return_value=_router("faq")),
+        patch(
+            "src.hrhelpdesk.handlers._topic_fanout.classify_utterance",
+            return_value=_decision("faq"),
+        ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(True)),
         patch("src.hrhelpdesk.handlers.faq_agent", _mock_faq_agent()),
     ):
@@ -350,7 +366,10 @@ async def test_faq_path_never_calls_booking_tools():
         raise AssertionError("booking tools must not run on FAQ path")
 
     with (
-        patch("src.hrhelpdesk.handlers.run_router", return_value=_router("faq")),
+        patch(
+            "src.hrhelpdesk.handlers._topic_fanout.classify_utterance",
+            return_value=_decision("faq"),
+        ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
         patch("src.hrhelpdesk.handlers.faq_agent", _mock_faq_agent()),
         patch("src.hrhelpdesk.services.confirm_booking", side_effect=_forbidden_booking),

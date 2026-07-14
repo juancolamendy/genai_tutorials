@@ -8,7 +8,7 @@ from typing import Any
 
 from langchain_core.messages import HumanMessage
 
-from src.engine.chat_engine_graph import ChatEngineGraph, TopicDecision
+from src.engine.chat_engine_graph import ChatEngineGraph
 from src.engine.event_ledger import effect_key
 from src.engine.handler_registry import handler
 from src.engine.utils import (
@@ -27,8 +27,8 @@ from .chains import (
     escalate_agent,
     faq_agent,
     run_escape,
-    run_router,
 )
+from .router import HelpdeskSemanticRouter
 from .services import confirm_booking, create_ticket, retrieve_policy
 from .session_state import HelpdeskState
 from .state_transitions import State
@@ -37,10 +37,11 @@ log = logging.getLogger(__name__)
 
 ROUTER_CONFIDENCE_THRESHOLD = 0.7
 
-# Typed-field fan-out helper (same threshold as Graph); avoids importing Graph
-# from handlers (circular: graph → handlers → graph).
+# Typed-field fan-out + classification helper (same config as Graph); avoids
+# importing Graph from handlers (circular: graph → handlers → graph).
 _topic_fanout = ChatEngineGraph()
 _topic_fanout.confidence_threshold = ROUTER_CONFIDENCE_THRESHOLD
+_topic_fanout.topic_router = HelpdeskSemanticRouter()
 
 _ledger: Any = None
 
@@ -148,22 +149,11 @@ def _route_human_message(
 
     Shared by IDLE (first classification) and HUB_CLARIFY (user's answer
     after a disambiguation ask). Never guesses: unclear / low confidence
-    keeps ``pending_clarify`` and re-asks.
+    keeps ``pending_clarify`` and re-asks. A router failure degrades to
+    ``unclear`` (handled inside ``HelpdeskSemanticRouter.classify``) rather
+    than surfacing as ``handler_status="error"``.
     """
-    try:
-        router_out = run_router(input_message)
-    except Exception as exc:
-        log.error("[HANDLER] router failed (%s): %s", source, exc)
-        return {
-            "handler_status": "error",
-            "error_message": str(exc),
-            "audit_trail": [f"{source}: router failed: {exc}"],
-        }
-
-    decision = TopicDecision(
-        topic=router_out.topic.value,
-        confidence=router_out.confidence,
-    )
+    decision = _topic_fanout.classify_utterance(input_message, state.get("messages"))
     base = _topic_fanout.topic_decision_to_delta(decision, source=source)
     if base.get("pending_clarify"):
         base["output_messages"] = [CLARIFY_PROMPT]
@@ -352,21 +342,7 @@ def handle_topic_booking(state: HelpdeskState) -> HelpdeskState:
         if run_escape(input_message).escape:
             cleared = close_topic_delta(messages, "User changed topic.")
             cleared["pending_clarify"] = False
-            try:
-                router_out = run_router(input_message)
-            except Exception as exc:
-                return log_handler_exit(
-                    "topic_booking",
-                    {
-                        "handler_status": "error",
-                        "error_message": str(exc),
-                        **cleared,
-                    },
-                )
-            decision = TopicDecision(
-                topic=router_out.topic.value,
-                confidence=router_out.confidence,
-            )
+            decision = _topic_fanout.classify_utterance(input_message, messages)
             routed = _topic_fanout.topic_decision_to_delta(
                 decision, source="topic_booking"
             )

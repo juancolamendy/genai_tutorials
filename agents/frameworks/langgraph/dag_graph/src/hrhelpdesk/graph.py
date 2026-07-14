@@ -10,6 +10,7 @@ from src.engine.json_checkpointer import JsonCheckpointer
 
 from .guardrails import guardrails
 from .handlers import handler_map, set_ledger
+from .router import HelpdeskSemanticRouter
 from .session_state import HelpdeskState, new_helpdesk_session_state
 from .state_transitions import State, happy_path, terminal_states
 
@@ -26,6 +27,7 @@ class Graph(ChatEngineGraph):
     notify_state = State.NOTIFY_USER
     confidence_threshold = 0.7
     unclear_topic = "unclear"
+    topic_router = HelpdeskSemanticRouter()
     topic_to_state = {
         "faq": State.TOPIC_FAQ,
         "escalate": State.TOPIC_ESCALATE,
