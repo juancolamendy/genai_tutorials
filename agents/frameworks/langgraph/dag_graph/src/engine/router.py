@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Optional
 
 from src.engine.chains import get_model, make_chain
 from src.engine.chat_engine_graph import TopicDecision
@@ -366,7 +366,13 @@ class DefaultTopicRouter:
         """
         try:
             raw = self._get_chain().invoke({"input": input_message})
-            response = raw if isinstance(raw, self.output_schema) else self.output_schema(**raw)
+            # output_schema is subclass-defined (topic/confidence fields vary
+            # per domain), so there is no static type narrower than Any to
+            # give `response` here without over-claiming a shape this base
+            # class doesn't actually know.
+            response: Any = (
+                raw if isinstance(raw, self.output_schema) else self.output_schema(**raw)
+            )
             topic = response.topic
             topic_val = topic.value if hasattr(topic, "value") else str(topic)
             confidence = max(0.0, min(1.0, float(response.confidence)))
