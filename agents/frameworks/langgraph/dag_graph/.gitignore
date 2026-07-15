@@ -14,6 +14,8 @@
 .triage_artifacts_review
 .triage_sessions_review
 .triage_sessions_review_ledger
+.hrhelpdesk_sessions_review
+.hrhelpdesk_sessions_review_ledger
 
 # Python
 __pycache__/

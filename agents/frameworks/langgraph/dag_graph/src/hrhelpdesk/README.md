@@ -17,16 +17,33 @@ Hub + semantic-router chatbot built on `ChatEngineGraph` with sticky topic lanes
 ## CLI
 
 ```bash
-uv run python -m src.hrhelpdesk.cli chat hd-emp-1 "How much PTO do I get?"
-uv run python -m src.hrhelpdesk.cli event hd-emp-1 ticket_resolved --event-id evt-1 --payload ticket_id=TICKET-1
-uv run python -m src.hrhelpdesk.cli sweep
-uv run python -m src.hrhelpdesk.cli status hd-emp-1
-uv run python -m src.hrhelpdesk.cli serve
+export SESSIONS=.hrhelpdesk_sessions
+export THREAD_ID=hd-emp-1
+
+# FAQ (one-shot → idle)
+uv run python -m src.hrhelpdesk.cli --sessions-dir "$SESSIONS" \
+  chat "$THREAD_ID" "How much PTO do I get?"
+
+# Escalate (creates a ticket), then resolve it
+uv run python -m src.hrhelpdesk.cli --sessions-dir "$SESSIONS" \
+  chat "$THREAD_ID" "My paycheck is wrong"
+uv run python -m src.hrhelpdesk.cli --sessions-dir "$SESSIONS" status "$THREAD_ID"
+# use open_tickets id from logs/state, e.g. TICKET-1
+uv run python -m src.hrhelpdesk.cli --sessions-dir "$SESSIONS" \
+  event "$THREAD_ID" ticket_resolved --event-id evt-1 --payload ticket_id=TICKET-1
+
+# Booking sticky + optional sweep (only useful after a parked booking goes stale)
+uv run python -m src.hrhelpdesk.cli --sessions-dir "$SESSIONS" \
+  chat "$THREAD_ID" "Book me a desk downtown next Tuesday"
+uv run python -m src.hrhelpdesk.cli --sessions-dir "$SESSIONS" sweep
+
+uv run python -m src.hrhelpdesk.cli --sessions-dir "$SESSIONS" serve
 ```
 
 Human turns (`chat`, `serve`) stream assistant tokens via `aemit_event_stream`.
 
 Sessions persist under `.hrhelpdesk_sessions` with a sibling `.hrhelpdesk_sessions_ledger`.
+Use the same `--sessions-dir` for every command (default matches `$SESSIONS` above).
 
 ## Sticky topics
 
