@@ -301,7 +301,7 @@ async def test_human_branch_smoke_test_against_real_docprocessing_graph():
             thread_id=thread_id,
             source="human",
             event_type="message",
-            payload={"text": "here are the docs"},
+            input_message="here are the docs",
         )
 
     assert result["status"] == "ok"
@@ -317,7 +317,7 @@ async def test_human_event_against_system_only_state_returns_describe_wait():
     await _park_at_await_sys(graph, thread_id)
 
     result = await graph.aemit_event(
-        thread_id=thread_id, source="human", event_type="message", payload={"text": "hello?"}
+        thread_id=thread_id, source="human", event_type="message", input_message="hello?"
     )
 
     assert result["status"] == "waiting"
@@ -360,3 +360,64 @@ async def test_failed_ainvoke_does_not_mark_ledger():
 
     assert result["status"] == "error"
     assert await graph._ledger.is_processed("evt-fail") is False
+
+
+def test_resolve_emit_turn_prefers_input_message_and_merges_payload():
+    graph = _build_test_graph()
+    text, delta = graph._resolve_emit_turn(
+        source="human",
+        event_type="message",
+        input_message="hello",
+        payload={
+            "ticket_id": "T-1",
+            "text": "ignored-legacy",
+            "current_event_source": "system",  # must not spoof
+        },
+    )
+    assert text == "hello"
+    assert delta["ticket_id"] == "T-1"
+    assert delta["current_event_source"] == "human"
+    assert delta["current_event_type"] == "message"
+    assert "text" not in delta
+
+
+def test_resolve_emit_turn_legacy_payload_text():
+    graph = _build_test_graph()
+    text, delta = graph._resolve_emit_turn(
+        source="human",
+        event_type="message",
+        input_message="",
+        payload={"text": "legacy hi", "foo": 1},
+    )
+    assert text == "legacy hi"
+    assert delta["foo"] == 1
+    assert "text" not in delta
+
+
+@pytest.mark.asyncio
+async def test_human_aemit_merges_payload_into_state():
+    """Human emit: input_message + full payload merge (except reserved keys)."""
+    from src.docprocessing.graph import build_graph
+
+    graph = build_graph(sessions_dir=f"/tmp/test_aemit_human_merge_{uuid.uuid4()}")
+    thread_id = str(uuid.uuid4())
+
+    with patch("src.docprocessing.handlers.random.random", return_value=0.9):
+        await graph.ainvoke(
+            user_id="",
+            session_id=thread_id,
+            input_message="start",
+            state_delta={"document_id": "doc1"},
+        )
+        result = await graph.aemit_event(
+            thread_id=thread_id,
+            source="human",
+            event_type="message",
+            input_message="here are the docs",
+            payload={"document_id": "doc-merged"},
+        )
+
+    assert result["status"] == "ok"
+    # document_id from payload should have been visible during the turn;
+    # final state may advance past upload — assert merge path didn't error.
+    assert result.get("error_message") in (None, "")

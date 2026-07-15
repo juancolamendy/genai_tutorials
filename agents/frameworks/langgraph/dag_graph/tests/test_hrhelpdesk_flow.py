@@ -133,7 +133,7 @@ async def test_faq_happy_path_clears_active_topic():
             thread_id=thread_id,
             source="human",
             event_type="message",
-            payload={"text": "How much PTO do I get?"},
+            input_message="How much PTO do I get?",
         )
 
     assert result["status"] == "ok"
@@ -159,7 +159,7 @@ async def test_clarify_reroutes_user_reply_to_faq():
             thread_id=thread_id,
             source="human",
             event_type="message",
-            payload={"text": "help"},
+            input_message="help",
         )
         assert turn1["status"] == "ok"
         assert turn1.get("current_state") == State.CLARIFY.value
@@ -170,7 +170,7 @@ async def test_clarify_reroutes_user_reply_to_faq():
             thread_id=thread_id,
             source="human",
             event_type="message",
-            payload={"text": "policy question about PTO"},
+            input_message="policy question about PTO",
         )
 
     assert turn2["status"] == "ok"
@@ -197,13 +197,13 @@ async def test_escalate_creates_one_ticket_ledger_dedupes():
             thread_id=thread_id,
             source="human",
             event_type="message",
-            payload={"text": "My paycheck is wrong"},
+            input_message="My paycheck is wrong",
         )
         second = await graph.aemit_event(
             thread_id=thread_id,
             source="human",
             event_type="message",
-            payload={"text": "My paycheck is wrong again"},
+            input_message="My paycheck is wrong again",
         )
 
     assert first["status"] == "ok"
@@ -232,7 +232,7 @@ async def test_booking_sticky_two_turn_confirm():
             thread_id=thread_id,
             source="human",
             event_type="message",
-            payload={"text": "Book a desk Monday NYC"},
+            input_message="Book a desk Monday NYC",
         )
 
     assert turn1["status"] == "ok"
@@ -257,7 +257,7 @@ async def test_booking_sticky_two_turn_confirm():
             thread_id=thread_id,
             source="human",
             event_type="message",
-            payload={"text": "Window seat please"},
+            input_message="Window seat please",
         )
 
     assert turn2["status"] == "ok"
@@ -286,7 +286,7 @@ async def test_escape_mid_booking_reroutes():
             thread_id=thread_id,
             source="human",
             event_type="message",
-            payload={"text": "Book a desk"},
+            input_message="Book a desk",
         )
 
     with (
@@ -301,7 +301,7 @@ async def test_escape_mid_booking_reroutes():
             thread_id=thread_id,
             source="human",
             event_type="message",
-            payload={"text": "Actually how much PTO?"},
+            input_message="Actually how much PTO?",
         )
 
     assert result["status"] == "ok"
@@ -348,7 +348,7 @@ async def test_topic_timeout_clears_booking():
             thread_id=thread_id,
             source="human",
             event_type="message",
-            payload={"text": "Book a desk Monday NYC"},
+            input_message="Book a desk Monday NYC",
         )
 
     assert turn1["status"] == "ok"
@@ -396,7 +396,7 @@ async def test_ticket_resolved_during_clarify_short_circuits():
             thread_id=thread_id,
             source="human",
             event_type="message",
-            payload={"text": "My paycheck is wrong"},
+            input_message="My paycheck is wrong",
         )
     ticket_id = first["open_tickets"][0]
 
@@ -411,7 +411,7 @@ async def test_ticket_resolved_during_clarify_short_circuits():
             thread_id=thread_id,
             source="human",
             event_type="message",
-            payload={"text": "hmm"},
+            input_message="hmm",
         )
 
     assert second.get("current_state") == State.CLARIFY.value
@@ -462,7 +462,7 @@ async def test_faq_path_never_calls_booking_tools():
             thread_id=thread_id,
             source="human",
             event_type="message",
-            payload={"text": "PTO policy?"},
+            input_message="PTO policy?",
         )
 
     assert result["status"] == "ok"

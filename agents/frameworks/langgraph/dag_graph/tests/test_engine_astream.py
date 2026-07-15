@@ -76,7 +76,7 @@ async def test_aemit_event_stream_human_yields_ok_result():
             thread_id=thread_id,
             source="human",
             event_type="message",
-            payload={"text": "start"},
+            input_message="start",
         )
         # Need document_id — docprocessing may need state; use ainvoke seed
     graph = build_graph(sessions_dir=sessions)
@@ -91,7 +91,7 @@ async def test_aemit_event_stream_human_yields_ok_result():
             thread_id=thread_id,
             source="human",
             event_type="message",
-            payload={"text": "here are docs"},
+            input_message="here are docs",
         ):
             if chunk.get("type") == "result":
                 result = chunk

@@ -136,7 +136,7 @@ async def test_human_chat_approve_either_path(tmp_path: Path):
         thread_id=run_id,
         source="human",
         event_type="message",
-        payload={"text": "approve"},
+        input_message="approve",
     )
 
     assert result["status"] == "ok"

@@ -78,7 +78,7 @@ async def _kickoff_and_collect(graph, thread_id):
             thread_id=thread_id,
             source="human",
             event_type="message",
-            payload={"text": "Jane Doe, Engineer, starting 2026-08-01"},
+            input_message="Jane Doe, Engineer, starting 2026-08-01",
         )
     assert result["status"] == "ok"
     assert result["current_state"] == State.AWAIT_DOCUMENTS_SIGNED.value

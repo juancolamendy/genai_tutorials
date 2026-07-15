@@ -54,7 +54,7 @@ async def _stream_human_turn(graph: Graph, thread_id: str, message: str) -> dict
         thread_id=thread_id,
         source="human",
         event_type="message",
-        payload={"text": message},
+        input_message=message,
     ):
         if chunk.get("type") == "token":
             print(chunk.get("text", ""), end="", flush=True)

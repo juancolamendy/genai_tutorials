@@ -20,6 +20,17 @@ from langgraph.graph import END, StateGraph
 
 log = logging.getLogger(__name__)
 
+# Payload keys that callers must not use to override the emit control plane.
+# ``text`` is the legacy human-utterance channel (prefer ``input_message=``).
+_EMIT_RESERVED_PAYLOAD_KEYS = frozenset(
+    {
+        "current_event_source",
+        "current_event_type",
+        "input_message",
+        "text",
+    }
+)
+
 
 # ─────────────────────────────────────────────────────────────────────────
 # ERROR HANDLING & SAFETY
@@ -1015,6 +1026,7 @@ class EngineGraph:
         event_type: str,
         payload: Optional[dict[str, Any]] = None,
         event_id: Optional[str] = None,
+        input_message: str = "",
     ):
         """Streaming twin of ``aemit_event`` (same funnel; yields token/result chunks).
 
@@ -1022,6 +1034,10 @@ class EngineGraph:
         ``{"type": "status", ...}`` chunk. Successful human/system turns yield
         the same token stream as ``astream``, ending with
         ``{"type": "result", "state": ..., "status": "ok"}``.
+
+        Turn body matches ``invoke``/``ainvoke``: ``input_message`` for text,
+        ``payload`` fully merged into state (plus event source/type stamps).
+        Legacy human turns may still pass the utterance as ``payload["text"]``.
         """
         if source == "system" and not event_id:
             raise ValueError("system-sourced events must supply event_id")
@@ -1034,6 +1050,12 @@ class EngineGraph:
         from src.engine.event_ledger import event_key as _event_key
 
         ledger_id = _event_key(event_id) if event_id else None
+        turn_text, state_delta = self._resolve_emit_turn(
+            source=source,
+            event_type=event_type,
+            input_message=input_message,
+            payload=payload,
+        )
 
         async with self._locks[thread_id]:
             if source == "system" and ledger_id is not None:
@@ -1072,11 +1094,8 @@ class EngineGraph:
                 async for chunk in self.astream(
                     user_id="",
                     session_id=thread_id,
-                    input_message=(payload or {}).get("text", ""),
-                    state_delta={
-                        "current_event_source": "human",
-                        "current_event_type": "message",
-                    },
+                    input_message=turn_text,
+                    state_delta=state_delta,
                 ):
                     if chunk.get("type") == "result":
                         final_state = chunk["state"]
@@ -1106,12 +1125,8 @@ class EngineGraph:
             async for chunk in self.astream(
                 user_id="",
                 session_id=thread_id,
-                input_message="",
-                state_delta={
-                    **(payload or {}),
-                    "current_event_source": "system",
-                    "current_event_type": event_type,
-                },
+                input_message=turn_text,
+                state_delta=state_delta,
             ):
                 if chunk.get("type") == "result":
                     final_state = chunk["state"]
@@ -1134,6 +1149,7 @@ class EngineGraph:
         event_type: str,
         payload: Optional[dict[str, Any]] = None,
         event_id: Optional[str] = None,
+        input_message: str = "",
     ) -> dict[str, Any]:
         """The unified event gate — both a human chat message and a
         system/webhook/timeout event flow through here.
@@ -1142,6 +1158,13 @@ class EngineGraph:
         with user_id="" from here, so a human turn and a system turn for
         the same thread_id land in the same checkpointed session, never
         two.
+
+        Turn body matches invoke/ainvoke:
+          • ``input_message`` — human utterance (system usually "")
+          • ``payload`` — full-merge state updates (both sources); engine
+            stamps ``current_event_source`` / ``current_event_type``
+          • legacy: ``payload["text"]`` still accepted as the utterance when
+            ``input_message`` is empty
 
         Returns a dict with a "status" key distinguishable by callers:
         "ok", "error", "duplicate", "ignored", "not_waiting", "already_terminal",
@@ -1159,6 +1182,12 @@ class EngineGraph:
         from src.engine.event_ledger import event_key as _event_key
 
         ledger_id = _event_key(event_id) if event_id else None
+        turn_text, state_delta = self._resolve_emit_turn(
+            source=source,
+            event_type=event_type,
+            input_message=input_message,
+            payload=payload,
+        )
 
         async with self._locks[thread_id]:
             already_seen = False
@@ -1186,8 +1215,8 @@ class EngineGraph:
                 result = await self.ainvoke(
                     user_id="",
                     session_id=thread_id,
-                    input_message=(payload or {}).get("text", ""),
-                    state_delta={"current_event_source": "human", "current_event_type": "message"},
+                    input_message=turn_text,
+                    state_delta=state_delta,
                 )
                 if result.get("status") == "error":
                     return {"status": "error", **result}
@@ -1205,12 +1234,8 @@ class EngineGraph:
             result = await self.ainvoke(
                 user_id="",
                 session_id=thread_id,
-                input_message="",
-                state_delta={
-                    **(payload or {}),
-                    "current_event_source": "system",
-                    "current_event_type": event_type,
-                },
+                input_message=turn_text,
+                state_delta=state_delta,
             )
             # Marked AFTER success, not before: a crash between mark and
             # invoke would otherwise silently swallow a provider's retry
@@ -1388,6 +1413,31 @@ class EngineGraph:
 
         validate_turn_input(input_message)
         return escape_for_llm(input_message)
+
+    def _resolve_emit_turn(
+        self,
+        *,
+        source: str,
+        event_type: str,
+        input_message: str = "",
+        payload: Optional[dict[str, Any]] = None,
+    ) -> tuple[str, dict[str, Any]]:
+        """Map emit args onto ``(input_message, state_delta)`` for invoke/ainvoke.
+
+        - ``input_message`` is the standard turn text (human chat).
+        - ``payload`` is fully merged into state (human and system), except
+          reserved control-plane keys which the engine always stamps.
+        - Back-compat: if ``input_message`` is empty and ``payload["text"]``
+          is set, that value is used as the turn text (legacy human channel).
+        """
+        raw = dict(payload or {})
+        text = input_message
+        if not text and raw.get("text") is not None:
+            text = str(raw.get("text") or "")
+        merge = {k: v for k, v in raw.items() if k not in _EMIT_RESERVED_PAYLOAD_KEYS}
+        merge["current_event_source"] = source
+        merge["current_event_type"] = event_type
+        return text, merge
 
     def _get_or_init_state(self, session_id: str, user_id: str = "") -> dict[str, Any]:
         """Get existing state or create fresh state for session.

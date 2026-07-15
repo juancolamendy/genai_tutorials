@@ -156,7 +156,7 @@ async def _cmd_decide(
             thread_id=thread_id,
             source="human",
             event_type="message",
-            payload={"text": decision},
+            input_message=decision,
         )
     log.info("[CLI] %s  result=%s", decision, _format_result(result))
     return f"{thread_id}: {_format_result(result)}"
@@ -167,7 +167,7 @@ async def _cmd_chat(graph: Graph, thread_id: str, message: str) -> str:
         thread_id=thread_id,
         source="human",
         event_type="message",
-        payload={"text": message},
+        input_message=message,
     )
     return f"{thread_id}: {_format_result(result)}"
 

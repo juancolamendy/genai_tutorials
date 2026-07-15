@@ -68,7 +68,7 @@ def _configure_logging(verbose: bool = False) -> None:
 async def _cmd_chat(graph: Graph, thread_id: str, message: str) -> str:
     log.info("[CLI] chat  thread=%s  message=%r", thread_id, message[:80])
     result = await graph.aemit_event(
-        thread_id=thread_id, source="human", event_type="message", payload={"text": message}
+        thread_id=thread_id, source="human", event_type="message", input_message=message
     )
     log.info("[CLI] chat  result=%s", _format_result(result))
     return _format_result(result)
