@@ -27,7 +27,7 @@ uv run python -m src.hrhelpdesk.cli --sessions-dir "$SESSIONS" \
 # Escalate (creates a ticket into open_tickets), then resolve it.
 # ticket_resolved is ILLEGAL unless that id is already in open_tickets —
 # a hardcoded TICKET-1 after only an FAQ turn yields status=ignored.
-export THREAD_ID=hd-emp-4
+export THREAD_ID=hd-emp-1
 uv run python -m src.hrhelpdesk.cli --sessions-dir "$SESSIONS" \
   chat "$THREAD_ID" "My March 1 paycheck is short \$200 — missing overtime. Please open an HR ticket with subject Payroll shortfall."
 
@@ -39,7 +39,7 @@ print('open_tickets=', s.get('open_tickets'))
 "
 
 # Use the real id from open_tickets (often TICKET-1 on a fresh process):
-export TICKET=TICKET-2
+export TICKET=TICKET-1
 uv run python -m src.hrhelpdesk.cli --sessions-dir "$SESSIONS" \
   event "$THREAD_ID" ticket_resolved --event-id "$THREAD_ID-evt-1" \
   --payload ticket_id=$TICKET
