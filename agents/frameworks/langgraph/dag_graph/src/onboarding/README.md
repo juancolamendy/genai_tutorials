@@ -2,7 +2,7 @@
 
 ## How to run
 ```bash
-export THREAD_ID=thread-10
+export THREAD_ID=thread-11
 
 uv run python -c "
 import asyncio
