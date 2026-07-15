@@ -62,3 +62,15 @@ def test_last_ai_content_and_tool_helpers():
     assert last_ai_content(msgs) == "done"
     assert find_tool_call(msgs, "create_ticket_tool")["args"]["subject"] == "x"
     assert find_tool_message(msgs, "create_ticket_tool").content == "ok"
+
+
+def test_last_ai_content_normalizes_content_blocks():
+    msgs = [
+        AIMessage(
+            content=[
+                {"type": "text", "text": "Hello ", "index": 0},
+                {"type": "text", "text": "world", "index": 1},
+            ]
+        )
+    ]
+    assert last_ai_content(msgs) == "Hello world"

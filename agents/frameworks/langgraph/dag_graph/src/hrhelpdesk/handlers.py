@@ -420,6 +420,7 @@ def handle_notify_user(state: HelpdeskState) -> HelpdeskState:
         ticket_id = state.get("ticket_id")
         open_tickets = [t for t in (state.get("open_tickets") or []) if t != ticket_id]
         delta["open_tickets"] = open_tickets
+        delta["ticket_id"] = None
         output.append(f"Good news — ticket {ticket_id} has been resolved.")
 
     elif event_type == "booking_cancelled_by_system":
@@ -431,6 +432,7 @@ def handle_notify_user(state: HelpdeskState) -> HelpdeskState:
             else:
                 bookings.append(record)
         delta["bookings"] = bookings
+        delta["booking_id"] = None
         output.append(f"Your booking {booking_id} was cancelled by the system.")
 
     elif event_type == "topic_timeout":

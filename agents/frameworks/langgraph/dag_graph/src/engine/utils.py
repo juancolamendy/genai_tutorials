@@ -108,11 +108,29 @@ def log_handler_exit(handler_name: str, delta: dict[str, Any]) -> dict[str, Any]
 # ── Agent message inspection ──────────────────────────────────────────────────
 
 def last_ai_content(messages: Sequence[Any]) -> str:
-    """Return the content of the most recent AIMessage, or empty string."""
+    """Return plain text from the most recent AIMessage, or empty string.
+
+    Normalizes provider content shapes: plain ``str`` or a list of content
+    blocks (e.g. ``[{"type": "text", "text": "..."}]``).
+    """
     for msg in reversed(messages):
         if isinstance(msg, AIMessage) and msg.content:
-            return str(msg.content)
+            return _normalize_ai_content(msg.content)
     return ""
+
+
+def _normalize_ai_content(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for part in content:
+            if isinstance(part, dict) and part.get("type") == "text":
+                parts.append(str(part.get("text", "")))
+            elif isinstance(part, str):
+                parts.append(part)
+        return "".join(parts)
+    return str(content) if content else ""
 
 
 def find_tool_message(

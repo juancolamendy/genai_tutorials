@@ -9,13 +9,20 @@ from .state_transitions import State
 
 
 class HelpdeskState(ChatEngineSessionState):
-    """HR helpdesk durable state — hub + sticky topics."""
+    """HR helpdesk durable state — hub + sticky topics.
+
+    ``ticket_id`` / ``booking_id`` are ephemeral emit-payload channels: system
+    events merge them via ``aemit_event(..., payload=...)``, and LangGraph only
+    keeps keys declared on this TypedDict through ``ainvoke``.
+    """
 
     open_tickets: List[str]
     bookings: List[Dict[str, Any]]
     last_event: Optional[str]
     last_event_at: Optional[str]
     pending_clarify: bool
+    ticket_id: Optional[str]
+    booking_id: Optional[str]
 
 
 def new_helpdesk_session_state() -> HelpdeskState:
@@ -31,6 +38,8 @@ def new_helpdesk_session_state() -> HelpdeskState:
         "last_event": None,
         "last_event_at": None,
         "pending_clarify": False,
+        "ticket_id": None,
+        "booking_id": None,
     }
     return helpdesk_state
 

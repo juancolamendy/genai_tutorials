@@ -430,15 +430,50 @@ async def test_ticket_resolved_during_clarify_short_circuits():
         )
 
     assert result["status"] == "ok"
-    # Not asserted: open_tickets no longer containing ticket_id. ticket_id/
-    # booking_id aren't declared HelpdeskState channels, so they don't survive
-    # compiled_graph.ainvoke's schema-based state resolution and
-    # handle_notify_user's state.get("ticket_id") always reads None — a
-    # separate, pre-existing bug (reproduces identically from a plain IDLE
-    # park, unrelated to this task's sticky-topic short-circuit fix) that is
-    # out of scope here.
+    assert ticket_id not in (result.get("open_tickets") or [])
+    assert any(ticket_id in m for m in result.get("output_messages", []))
     assert result.get("current_state") == State.IDLE.value
     assert any("resolved" in m.lower() for m in result.get("output_messages", []))
+
+
+@pytest.mark.asyncio
+async def test_ticket_resolved_from_idle_removes_open_ticket():
+    """ticket_id must be a HelpdeskState channel or notify reads None and
+    never removes the id from open_tickets."""
+    graph = build_graph()
+    thread_id = str(uuid4())
+
+    with (
+        patch(
+            "src.hrhelpdesk.handlers.classify_utterance",
+            return_value=_decision("escalate"),
+        ),
+        patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
+        patch("src.hrhelpdesk.handlers.escalate_agent", _mock_escalate_agent()),
+    ):
+        first = await graph.aemit_event(
+            thread_id=thread_id,
+            source="human",
+            event_type="message",
+            input_message="My paycheck is wrong — please open a ticket",
+        )
+    ticket_id = first["open_tickets"][0]
+    assert first.get("current_state") == State.IDLE.value
+
+    result = await graph.aemit_event(
+        thread_id=thread_id,
+        source="system",
+        event_type="ticket_resolved",
+        event_id="evt-ticket-idle",
+        payload={"ticket_id": ticket_id},
+    )
+
+    assert result["status"] == "ok"
+    assert ticket_id not in (result.get("open_tickets") or [])
+    assert result.get("output_messages") == [
+        f"Good news — ticket {ticket_id} has been resolved."
+    ]
+    assert result.get("current_state") == State.IDLE.value
 
 
 @pytest.mark.asyncio

@@ -43,8 +43,8 @@ export TICKET=TICKET-2
 uv run python -m src.hrhelpdesk.cli --sessions-dir "$SESSIONS" \
   event "$THREAD_ID" ticket_resolved --event-id "$THREAD_ID-evt-1" \
   --payload ticket_id=$TICKET
-# expect: status=ok and a NOTIFY_USER line that the ticket was resolved
-# (session stays at idle — this is a chatbot hub, not a linear COMPLETE)
+# expect: notify line e.g. "Good news — ticket TICKET-2 has been resolved."
+#         then status=ok current_state=idle … (hub park, not linear COMPLETE)
 
 # Booking sticky + optional sweep (sweep only acts on stale booking lanes)
 uv run python -m src.hrhelpdesk.cli --sessions-dir "$SESSIONS" \
@@ -64,7 +64,8 @@ Use the same `--sessions-dir` for every command (default matches `$SESSIONS` abo
 
 | Symptom | Cause |
 |---|---|
-| `event … ticket_resolved` → `status=ignored` | `ticket_id` not in this thread’s `open_tickets` (escalate first; use the real id) |
+| `event … ticket_resolved` → `status=ignored` | `ticket_id` not in this thread’s `open_tickets` (escalate must call `create_ticket_tool`; peek `open_tickets` before resolving) |
+| Escalate chat leaves `open_tickets=[]` | Agent asked questions instead of calling the tool — use a concrete “please open a ticket …” message; escalate is one-shot (no follow-up lane) |
 | Expected to leave `idle` after resolve | Chatbots park at `idle`; notify runs then returns home — not a linear `COMPLETE` |
 | `sweep` does nothing | Only emits `topic_timeout` for stale sticky **booking** sessions |
 

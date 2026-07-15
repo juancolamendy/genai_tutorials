@@ -586,6 +586,7 @@ class EngineGraph:
 
             # Get or initialize state (use thread_id format for consistency)
             state = self._get_or_init_state(session_id, user_id=user_id)
+            prior_output_len = self._checkpoint_output_messages_len(thread_id)
 
             # Prepare turn metadata
             state["input_message"] = escaped
@@ -634,6 +635,10 @@ class EngineGraph:
             # CRITICAL: Restore turn_number again after auto-progress
             # (additional invoke calls may reset it)
             state["turn_number"] = current_turn_number
+
+            # Reducer-backed output_messages accumulates across turns in the
+            # checkpoint; callers and _build_new_messages want this turn only.
+            state = self._clamp_output_messages_to_this_turn(state, prior_output_len)
 
             # Trim history (this runs outside the graph's node/reducer cycle,
             # directly on the accumulated list, so plain list ops are correct)
@@ -749,6 +754,7 @@ class EngineGraph:
             }
 
             state = self._get_or_init_state(session_id, user_id=user_id)
+            prior_output_len = self._checkpoint_output_messages_len(thread_id)
 
             state["input_message"] = escaped
             current_turn_number = state.get("turn_number", 0) + 1
@@ -778,6 +784,8 @@ class EngineGraph:
             )
 
             state["turn_number"] = current_turn_number
+
+            state = self._clamp_output_messages_to_this_turn(state, prior_output_len)
 
             messages = state.get("messages", [])
             if len(messages) > self.max_history_turns:
@@ -880,6 +888,7 @@ class EngineGraph:
             }
 
             state = self._get_or_init_state(session_id, user_id=user_id)
+            prior_output_len = self._checkpoint_output_messages_len(thread_id)
             state["input_message"] = escaped
             current_turn_number = state.get("turn_number", 0) + 1
             state["turn_number"] = current_turn_number
@@ -946,6 +955,8 @@ class EngineGraph:
                 last_state, config, max_auto_iters=max_auto_iters
             )
             last_state["turn_number"] = current_turn_number
+
+            last_state = self._clamp_output_messages_to_this_turn(last_state, prior_output_len)
 
             messages = last_state.get("messages", [])
             if len(messages) > self.max_history_turns:
@@ -1567,6 +1578,40 @@ class EngineGraph:
             log.debug(f"[invoke] State extraction failed: {e}")
 
         return None
+
+    def _checkpoint_output_messages_len(self, thread_id: str) -> int:
+        """Length of ``output_messages`` already persisted for ``thread_id``.
+
+        Used to slice the post-invoke reducer value down to this turn's
+        additions so ``_build_new_messages`` and API callers don't see (or
+        re-append) prior turns' texts.
+        """
+        try:
+            checkpointer = getattr(self.compiled_graph, "checkpointer", None)
+            if not checkpointer:
+                return 0
+            config = {"configurable": {"thread_id": thread_id}}
+            checkpoint_tuple = checkpointer.get_tuple(config)
+            if not checkpoint_tuple:
+                return 0
+            prior = self._extract_state_from_checkpoint(checkpoint_tuple)
+            return len((prior or {}).get("output_messages") or [])
+        except Exception as e:
+            log.debug("[invoke] prior output_messages len failed: %s", e)
+            return 0
+
+    def _clamp_output_messages_to_this_turn(
+        self, state: dict[str, Any], prior_len: int
+    ) -> dict[str, Any]:
+        """Keep only this turn's ``output_messages`` in the returned state."""
+        full = state.get("output_messages") or []
+        if prior_len <= 0:
+            return state
+        if prior_len >= len(full):
+            state["output_messages"] = []
+        else:
+            state["output_messages"] = full[prior_len:]
+        return state
 
     def get_active_sessions(self) -> list[dict[str, Any]]:
         """Enumerate sessions as [{"thread_id": ..., "state": {...}}].

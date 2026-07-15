@@ -33,6 +33,26 @@ def _format_result(result: dict[str, Any]) -> str:
     return f"status={status} current_state={current_state} active_topic={active_topic}"
 
 
+def _format_output_messages(result: dict[str, Any]) -> str:
+    """Render handler ``output_messages`` for CLI display (NOTIFY_USER, etc.)."""
+    outs = result.get("output_messages") or []
+    if not outs:
+        return ""
+    lines: list[str] = []
+    for msg in outs:
+        if isinstance(msg, list):
+            parts: list[str] = []
+            for part in msg:
+                if isinstance(part, dict) and part.get("type") == "text":
+                    parts.append(str(part.get("text", "")))
+                elif part:
+                    parts.append(str(part))
+            lines.append("".join(parts) if parts else str(msg))
+        elif msg:
+            lines.append(str(msg))
+    return "\n".join(lines)
+
+
 def _configure_logging(verbose: bool = False) -> None:
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
@@ -96,8 +116,12 @@ async def _cmd_event(
         event_id=event_id,
         payload=payload,
     )
-    log.info("[CLI] event  result=%s", _format_result(result))
-    return _format_result(result)
+    status_line = _format_result(result)
+    notify_text = _format_output_messages(result)
+    log.info("[CLI] event  result=%s", status_line)
+    if notify_text:
+        return f"{notify_text}\n{status_line}"
+    return status_line
 
 
 async def _cmd_sweep(graph: Graph) -> str:

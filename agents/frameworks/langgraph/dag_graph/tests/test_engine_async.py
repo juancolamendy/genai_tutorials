@@ -461,6 +461,31 @@ async def test_get_or_init_state_clears_output_messages():
 
 
 @pytest.mark.asyncio
+async def test_ainvoke_returns_only_this_turn_output_messages():
+    """Returned output_messages must not include prior turns' texts (CLI /
+    _build_new_messages would otherwise replay old notify copy)."""
+    graph = _build_msgtest_graph()
+    session_id = str(uuid4())
+
+    first = await graph.ainvoke(
+        user_id="",
+        session_id=session_id,
+        input_message="",
+        state_delta={"current_event_source": "system", "current_event_type": "custom_greeting"},
+    )
+    assert first.get("output_messages") == ["custom greeting message"]
+
+    second = await graph.ainvoke(
+        user_id="",
+        session_id=session_id,
+        input_message="hi",
+        state_delta={"current_event_source": "human", "current_event_type": "message"},
+    )
+    # Second turn has no handler output_messages — must not echo the first turn.
+    assert "custom greeting message" not in (second.get("output_messages") or [])
+
+
+@pytest.mark.asyncio
 async def test_ainvoke_forwards_max_auto_iters_to_auto_progress():
     graph = _build_msgtest_graph()
     session_id = str(uuid4())
