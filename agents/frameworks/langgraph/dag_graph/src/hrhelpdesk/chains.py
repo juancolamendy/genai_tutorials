@@ -1,15 +1,13 @@
-"""LLM chains and tool-calling agents for the HR helpdesk chatbot."""
+"""LLM chains for the HR helpdesk chatbot (structured output; no tool agents)."""
 
 from __future__ import annotations
 
 from enum import Enum
+from typing import Optional
 
-from langchain.tools import tool
 from pydantic import BaseModel, Field
 
-from src.engine.chains import get_model, make_chain, make_llm_agent
-
-from . import services
+from src.engine.chains import get_model, make_chain
 
 # ─────────────────────────────────────────────────────────────────────────────
 # OUTPUT SCHEMAS
@@ -28,6 +26,12 @@ class RouterOutput(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
 
 
+class FaqAnswer(BaseModel):
+    """FAQ specialist reply grounded in provided snippets."""
+
+    answer: str = Field(description="Policy answer citing source ids from the snippets")
+
+
 class EscalateDecision(BaseModel):
     """Structured escalate decision — handler alone applies side effects."""
 
@@ -41,34 +45,35 @@ class EscalateDecision(BaseModel):
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TOOLS (booking lane only — escalate uses structured output)
-# ─────────────────────────────────────────────────────────────────────────────
+class BookingDecision(BaseModel):
+    """Booking slot fill / confirm decision — handler alone calls booking services."""
 
-
-@tool
-def check_desk_availability(date: str, location: str) -> bool:
-    """Check whether a desk is available on the given date and location."""
-    return services.check_desk_availability(date, location)
-
-
-@tool
-def confirm_booking(date: str, location: str, seat_pref: str) -> str:
-    """Confirm a desk booking once date, location, and seat preference are known."""
-    return services.confirm_booking(date, location, seat_pref)
+    date: Optional[str] = Field(default=None, description="ISO date if known this turn")
+    location: Optional[str] = Field(default=None, description="Office location if known")
+    seat_pref: Optional[str] = Field(default=None, description="Seat preference if known")
+    confirm: bool = Field(
+        default=False,
+        description="True only when date, location, and seat_pref are all confirmed",
+    )
+    reply: str = Field(description="User-facing progress or confirmation text")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# SPECIALIST CHAINS / AGENTS
+# SPECIALIST CHAINS
 # ─────────────────────────────────────────────────────────────────────────────
 
-faq_agent = make_llm_agent(
-    name="HelpdeskFaqAgent",
+faq_chain = make_chain(
+    name="HelpdeskFaqChain",
     system_prompt="""You answer HR policy questions using only the provided knowledge snippets.
 
 Cite source ids in your answer. Do not invent policy. If snippets are insufficient,
-say what is missing. Never offer to book desks or create tickets.""",
-    tools=[],
+say what is missing. Never offer to book desks or create tickets.
+
+Respond ONLY with valid JSON matching this structure:
+{{
+  "answer": <str>
+}}""",
+    output_schema=FaqAnswer,
     model_id=get_model("topic"),
 )
 
@@ -98,13 +103,27 @@ Respond ONLY with valid JSON matching this structure:
     model_id=get_model("topic"),
 )
 
-booking_agent = make_llm_agent(
-    name="HelpdeskBookingAgent",
-    system_prompt="""You help employees book a desk.
+booking_chain = make_chain(
+    name="HelpdeskBookingChain",
+    system_prompt="""You help employees book a desk across multiple turns.
 
-Collect date, location, and seat preference across turns. Use check_desk_availability
-before confirming. Call confirm_booking only when all three slots are confirmed by the user.""",
-    tools=[check_desk_availability, confirm_booking],
+The user message includes currently known slots (date, location, seat_pref) and
+their latest utterance. Extract any new slot values. Set confirm=true ONLY when
+all three of date, location, and seat_pref are known and the user has confirmed
+them (do not invent missing slots).
+
+reply: ask for the next missing slot, or confirm you will book when confirm=true.
+Do not invent booking ids.
+
+Respond ONLY with valid JSON matching this structure:
+{{
+  "date": <str or null>,
+  "location": <str or null>,
+  "seat_pref": <str or null>,
+  "confirm": <bool>,
+  "reply": <str>
+}}""",
+    output_schema=BookingDecision,
     model_id=get_model("topic"),
 )
 
@@ -112,10 +131,10 @@ before confirming. Call confirm_booking only when all three slots are confirmed 
 __all__ = [
     "RouterTopic",
     "RouterOutput",
+    "FaqAnswer",
     "EscalateDecision",
-    "check_desk_availability",
-    "confirm_booking",
-    "faq_agent",
+    "BookingDecision",
+    "faq_chain",
     "escalate_chain",
-    "booking_agent",
+    "booking_chain",
 ]

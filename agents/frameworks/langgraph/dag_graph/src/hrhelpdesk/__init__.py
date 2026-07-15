@@ -6,12 +6,14 @@ from src.engine.escape_checker import (
     EscapeOutput,
 )
 from src.hrhelpdesk.chains import (
+    BookingDecision,
     EscalateDecision,
+    FaqAnswer,
     RouterOutput,
     RouterTopic,
-    booking_agent,
+    booking_chain,
     escalate_chain,
-    faq_agent,
+    faq_chain,
 )
 from src.hrhelpdesk.graph import Graph, build_graph
 from src.hrhelpdesk.guardrails import guardrails
@@ -46,15 +48,17 @@ __all__ = [
     "build_graph",
     "RouterTopic",
     "RouterOutput",
+    "FaqAnswer",
     "EscalateDecision",
+    "BookingDecision",
     "EscapeDecision",
     "EscapeOutput",
     "DefaultEscapeChecker",
     "run_escape",
     "HelpdeskSemanticRouter",
-    "faq_agent",
+    "faq_chain",
     "escalate_chain",
-    "booking_agent",
+    "booking_chain",
     "retrieve_policy",
     "create_ticket",
     "check_desk_availability",

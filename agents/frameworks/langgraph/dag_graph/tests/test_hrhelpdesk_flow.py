@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
-from langchain_core.messages import AIMessage, ToolMessage
 
 from src.engine.chat_engine_graph import TopicDecision
 from src.engine.escape_checker import EscapeDecision
@@ -46,9 +45,11 @@ def _escape(escape: bool = False):
     return EscapeDecision(escape=escape)
 
 
-def _mock_faq_agent(answer: str = "You get 15 days PTO per year. [pto-001]"):
+def _mock_faq_chain(answer: str = "You get 15 days PTO per year. [pto-001]"):
+    from src.hrhelpdesk.chains import FaqAnswer
+
     mock = MagicMock()
-    mock.invoke.return_value = {"messages": [AIMessage(content=answer)]}
+    mock.invoke.return_value = FaqAnswer(answer=answer)
     return mock
 
 
@@ -71,7 +72,7 @@ def _mock_escalate_chain(
     return mock
 
 
-def _mock_booking_agent_turn(
+def _mock_booking_chain(
     *,
     date: str | None = None,
     location: str | None = None,
@@ -79,43 +80,16 @@ def _mock_booking_agent_turn(
     confirm: bool = False,
     reply: str = "Working on your booking.",
 ):
-    messages: list = [AIMessage(content=reply)]
-    if date and location and not confirm:
-        messages = [
-            AIMessage(
-                content="",
-                tool_calls=[
-                    {
-                        "name": "check_desk_availability",
-                        "args": {"date": date, "location": location},
-                        "id": "avail-1",
-                    }
-                ],
-            ),
-            ToolMessage(content="true", name="check_desk_availability", tool_call_id="avail-1"),
-            AIMessage(content=reply),
-        ]
-    if confirm and date and location and seat_pref:
-        messages = [
-            AIMessage(
-                content="",
-                tool_calls=[
-                    {
-                        "name": "confirm_booking",
-                        "args": {
-                            "date": date,
-                            "location": location,
-                            "seat_pref": seat_pref,
-                        },
-                        "id": "book-1",
-                    }
-                ],
-            ),
-            ToolMessage(content="BOOK-1", name="confirm_booking", tool_call_id="book-1"),
-            AIMessage(content=f"Booked {date} at {location}."),
-        ]
+    from src.hrhelpdesk.chains import BookingDecision
+
     mock = MagicMock()
-    mock.invoke.return_value = {"messages": messages}
+    mock.invoke.return_value = BookingDecision(
+        date=date,
+        location=location,
+        seat_pref=seat_pref,
+        confirm=confirm,
+        reply=reply if not confirm else f"Booked {date} at {location}.",
+    )
     return mock
 
 
@@ -130,7 +104,7 @@ async def test_faq_happy_path_clears_active_topic():
             return_value=_decision("faq"),
         ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
-        patch("src.hrhelpdesk.handlers.faq_agent", _mock_faq_agent()),
+        patch("src.hrhelpdesk.handlers.faq_chain", _mock_faq_chain()),
     ):
         result = await graph.aemit_event(
             thread_id=thread_id,
@@ -156,7 +130,7 @@ async def test_clarify_reroutes_user_reply_to_faq():
             side_effect=[_decision("unclear", 0.4), _decision("faq")],
         ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
-        patch("src.hrhelpdesk.handlers.faq_agent", _mock_faq_agent()),
+        patch("src.hrhelpdesk.handlers.faq_chain", _mock_faq_chain()),
     ):
         turn1 = await graph.aemit_event(
             thread_id=thread_id,
@@ -261,8 +235,8 @@ async def test_booking_sticky_two_turn_confirm():
         ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
         patch(
-            "src.hrhelpdesk.handlers.booking_agent",
-            _mock_booking_agent_turn(date="2026-08-01", location="NYC"),
+            "src.hrhelpdesk.handlers.booking_chain",
+            _mock_booking_chain(date="2026-08-01", location="NYC"),
         ),
     ):
         turn1 = await graph.aemit_event(
@@ -281,8 +255,8 @@ async def test_booking_sticky_two_turn_confirm():
     with (
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
         patch(
-            "src.hrhelpdesk.handlers.booking_agent",
-            _mock_booking_agent_turn(
+            "src.hrhelpdesk.handlers.booking_chain",
+            _mock_booking_chain(
                 date="2026-08-01",
                 location="NYC",
                 seat_pref="window",
@@ -315,8 +289,8 @@ async def test_escape_mid_booking_reroutes():
         ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
         patch(
-            "src.hrhelpdesk.handlers.booking_agent",
-            _mock_booking_agent_turn(date="2026-08-01", location="NYC"),
+            "src.hrhelpdesk.handlers.booking_chain",
+            _mock_booking_chain(date="2026-08-01", location="NYC"),
         ),
     ):
         await graph.aemit_event(
@@ -332,7 +306,7 @@ async def test_escape_mid_booking_reroutes():
             return_value=_decision("faq"),
         ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(True)),
-        patch("src.hrhelpdesk.handlers.faq_agent", _mock_faq_agent()),
+        patch("src.hrhelpdesk.handlers.faq_chain", _mock_faq_chain()),
     ):
         result = await graph.aemit_event(
             thread_id=thread_id,
@@ -364,7 +338,7 @@ async def test_illegal_system_event_ignored():
 @pytest.mark.asyncio
 async def test_topic_timeout_clears_booking():
     """topic_timeout delivered while genuinely parked at topic_booking must be
-    handled by a short-circuit, never by invoking run_escape/booking_agent
+    handled by a short-circuit, never by invoking run_escape/booking_chain
     with empty input (regression for the sticky-topic system-event incident
     documented in CLAUDE.md)."""
     graph = build_graph()
@@ -377,8 +351,8 @@ async def test_topic_timeout_clears_booking():
         ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
         patch(
-            "src.hrhelpdesk.handlers.booking_agent",
-            _mock_booking_agent_turn(date="2026-08-01", location="NYC"),
+            "src.hrhelpdesk.handlers.booking_chain",
+            _mock_booking_chain(date="2026-08-01", location="NYC"),
         ),
     ):
         turn1 = await graph.aemit_event(
@@ -397,7 +371,7 @@ async def test_topic_timeout_clears_booking():
 
     with (
         patch("src.hrhelpdesk.handlers.run_escape", side_effect=_forbidden),
-        patch("src.hrhelpdesk.handlers.booking_agent", MagicMock(invoke=_forbidden)),
+        patch("src.hrhelpdesk.handlers.booking_chain", MagicMock(invoke=_forbidden)),
     ):
         result = await graph.aemit_event(
             thread_id=thread_id,
@@ -527,7 +501,7 @@ async def test_faq_path_never_calls_booking_tools():
             return_value=_decision("faq"),
         ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
-        patch("src.hrhelpdesk.handlers.faq_agent", _mock_faq_agent()),
+        patch("src.hrhelpdesk.handlers.faq_chain", _mock_faq_chain()),
         patch("src.hrhelpdesk.services.confirm_booking", side_effect=_forbidden_booking),
     ):
         result = await graph.aemit_event(

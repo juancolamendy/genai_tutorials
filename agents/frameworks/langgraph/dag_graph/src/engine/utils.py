@@ -1,16 +1,16 @@
 """Generic helpers for chatbot workflows and handler tooling.
 
 Includes message hygiene (trim / segment reset) plus small utilities shared
-across domain handlers (ledger sync checks, tool-call inspection, logging).
+across domain handlers (ledger sync checks, logging).
 """
 
 from __future__ import annotations
 
 import hashlib
 import logging
-from typing import Any, Optional, Sequence
+from typing import Any, Sequence
 
-from langchain_core.messages import AIMessage, BaseMessage, RemoveMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, RemoveMessage
 
 log = logging.getLogger(__name__)
 
@@ -132,24 +132,3 @@ def _normalize_ai_content(content: Any) -> str:
         return "".join(parts)
     return str(content) if content else ""
 
-
-def find_tool_message(
-    messages: Sequence[Any], tool_name: str
-) -> Optional[ToolMessage]:
-    """Return the most recent ToolMessage with the given tool name, if any."""
-    for msg in reversed(messages):
-        if isinstance(msg, ToolMessage) and msg.name == tool_name:
-            return msg
-    return None
-
-
-def find_tool_call(
-    messages: Sequence[Any], tool_name: str
-) -> Optional[dict[str, Any]]:
-    """Return the most recent tool_call dict with the given name, if any."""
-    for msg in reversed(messages):
-        if isinstance(msg, AIMessage) and msg.tool_calls:
-            for call in msg.tool_calls:
-                if call.get("name") == tool_name:
-                    return call
-    return None

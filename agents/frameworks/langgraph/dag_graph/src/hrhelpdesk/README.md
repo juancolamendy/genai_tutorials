@@ -9,7 +9,7 @@ Hub + semantic-router chatbot built on `ChatEngineGraph` with sticky topic lanes
 |---|---|
 | `graph.py` | `ChatEngineGraph` subclass — hub roles, topic map, system-event legality |
 | `handlers.py` | State handlers (hub park, topic specialists, notify) |
-| `chains.py` | Topic agents + tools (escape lives in `engine.escape_checker`) |
+| `chains.py` | Structured specialist chains (`faq` / `escalate` / `booking`) |
 | `services.py` | In-memory fake RAG, tickets, desk booking |
 | `cli.py` | `chat`, `event`, `sweep`, `status`, `serve` |
 | `sweep.py` | 48h booking timeout sweep |
@@ -125,7 +125,7 @@ One checkpoint, two responsibilities:
 
 | Layer | Job | Reads | Writes |
 |---|---|---|---|
-| **Handlers** | Understand the turn (LLM, tools, side effects) | `input_message`, history, topic data | Typed fields + `output_messages` |
+| **Handlers** | Understand the turn (LLM decision, side effects) | `input_message`, history, topic data | Typed fields + `output_messages` |
 | **Router fan-out** (`_resolve_proposed_next`) | Decide where to park next | Typed fields only | `proposed_next` |
 
 **Invariant:** transitions never read message text. Handlers may call LLMs; the graph router must not. If you want “message contains X → go to Y,” put that in a handler that sets a typed field.
@@ -165,7 +165,7 @@ One checkpoint, two responsibilities:
    else → idle
    ```
 
-5. **Side effects** — tools/ledger in handlers; legality on the graph (`_is_system_event_legal`); sweeps emit system events (don’t invent a second machine).
+5. **Side effects** — services/ledger in handlers; legality on the graph (`_is_system_event_legal`); sweeps emit system events (don’t invent a second machine).
 
 6. **User-visible text** — handler sets `output_messages` (this turn); engine builds `AIMessage`s into `messages` (history). Streaming may print live LLM tokens or fall back to `output_messages` (e.g. the hardcoded clarify prompt).
 
@@ -194,7 +194,7 @@ Helpdesk = chatbot. Onboarding/triage = pipelines. Same engine core; different s
 
 1. Parks: IDLE / CLARIFY / NOTIFY / sticky topics?
 2. Topics + `topic_to_state`
-3. Per topic: one-shot vs sticky; tools; close via `close_topic_delta`
+3. Per topic: one-shot vs sticky; structured decisions; close via `close_topic_delta`
 4. Escape checker (default or override prompt)
 5. Legal system events + notify copy
 6. Sweep thresholds if sticky can go stale

@@ -1,12 +1,8 @@
-"""Generic chain/agent factory and LLM step builder using LangChain LCEL.
+"""Generic chain factory and LLM step builder using LangChain LCEL.
 
 Provides:
   • make_chain() — cached LCEL chain factory
   • make_llm_chain() — wrap an LLM + prompt-builder into a chain
-  • make_llm_agent() — cached tool-calling agent factory (create_agent)
-  • invoke_agent() — sync invoke a registered agent
-  • ainvoke_agent() — async invoke a registered agent
-  • astream_agent() — async-stream tokens from a registered agent
   • render_as_xml() — generic list-of-dicts → XML block renderer
 """
 
@@ -14,13 +10,11 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, AsyncIterator, Callable, Optional, Sequence, Type
+from typing import Any, Callable, Optional, Type
 
 from dotenv import load_dotenv
-from langchain.agents import create_agent
 from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
@@ -48,11 +42,9 @@ def get_model(role: str) -> str:
     """
     return _MODEL_BY_ROLE.get(role, DEFAULT_MODEL)
 
+
 # Process-level chain cache — each chain is created once.
 _chain_registry: dict[str, Any] = {}
-
-# Process-level agent cache — each agent is created once.
-_agent_registry: dict[str, Any] = {}
 
 # Global LLM instance
 _llm: Optional[BaseChatModel] = None
@@ -182,184 +174,6 @@ def make_llm_chain(
         return chain.invoke({})
 
     return _executor
-
-
-# ── Agent factory ─────────────────────────────────────────────────────────────
-def make_llm_agent(
-    name: str,
-    system_prompt: str,
-    output_schema: Optional[Type[BaseModel]] = None,
-    model_id: str = DEFAULT_MODEL,
-    tools: Optional[Sequence[Any]] = None,
-) -> Any:
-    """Return a cached tool-calling agent built with ``create_agent``.
-
-    Calling this twice with the same ``name`` returns the same instance so no
-    duplicate agent graphs are created across the codebase.
-
-    In current LangChain, ``create_agent`` returns a ``CompiledStateGraph``
-    (not an ``AgentExecutor``). Use ``invoke_agent`` / ``ainvoke_agent`` /
-    ``astream_agent`` to run it; when ``output_schema`` is set, the result
-    includes ``structured_response``.
-
-    Args:
-        name: Agent identifier for caching
-        system_prompt: Top-level instructions, constraints, and personality
-        output_schema: Optional Pydantic model bound as ``response_format``
-        model_id: Chat model ID in "provider:model" format
-            (e.g. "anthropic:claude-haiku-4-5-20251001")
-        tools: Optional sequence of tools the agent may call
-
-    Returns:
-        Compiled agent graph (``create_agent`` result)
-    """
-    if name in _agent_registry:
-        return _agent_registry[name]
-
-    agent = create_agent(
-        model=model_id,
-        tools=list(tools) if tools else None,
-        system_prompt=system_prompt,
-        response_format=output_schema,
-        name=name,
-    )
-    _agent_registry[name] = agent
-    log.debug("[engine] registered agent '%s'", name)
-    return agent
-
-
-def get_agent(name: str) -> Any:
-    """Retrieve a registered agent by name; raises KeyError if not found."""
-    if name not in _agent_registry:
-        raise KeyError(f"Agent '{name}' has not been registered.")
-    return _agent_registry[name]
-
-
-def _agent_input_messages(
-    user_prompt: str,
-    messages: Optional[list[Any]],
-) -> list[Any]:
-    """Normalize agent input to a messages list."""
-    if messages is None:
-        return [HumanMessage(content=user_prompt)]
-    return messages
-
-
-def invoke_agent(
-    name: str,
-    user_prompt: str,
-    *,
-    messages: Optional[list[Any]] = None,
-) -> Any:
-    """Sync-invoke a registered agent with a user prompt (or message list).
-
-    Looks up the agent from ``_agent_registry`` and calls ``invoke`` on the
-    compiled graph.
-
-    Args:
-        name: Registered agent name (from ``make_llm_agent``)
-        user_prompt: User message content (used when ``messages`` is omitted)
-        messages: Optional full messages list. Each item may be a LangChain
-            message, a ``(role, content)`` tuple, or a
-            ``{"role": ..., "content": ...}`` dict. When omitted, a single
-            human message is built from ``user_prompt``.
-
-    Returns:
-        Agent result dict. With ``output_schema``, includes
-        ``structured_response``.
-    """
-    agent = get_agent(name)
-    return agent.invoke({"messages": _agent_input_messages(user_prompt, messages)})
-
-
-async def ainvoke_agent(
-    name: str,
-    user_prompt: str,
-    *,
-    messages: Optional[list[Any]] = None,
-) -> Any:
-    """Async-invoke a registered agent with a user prompt (or message list).
-
-    Equivalent to the older ``AgentExecutor.ainvoke`` pattern: looks up the
-    agent from ``_agent_registry`` and calls ``ainvoke`` on the compiled graph.
-
-    Args:
-        name: Registered agent name (from ``make_llm_agent``)
-        user_prompt: User message content (used when ``messages`` is omitted)
-        messages: Optional full messages list. Each item may be a LangChain
-            message, a ``(role, content)`` tuple, or a
-            ``{"role": ..., "content": ...}`` dict. When omitted, a single
-            human message is built from ``user_prompt``.
-
-    Returns:
-        Agent result dict. With ``output_schema``, includes
-        ``structured_response``.
-    """
-    agent = get_agent(name)
-    return await agent.ainvoke(
-        {"messages": _agent_input_messages(user_prompt, messages)}
-    )
-
-
-async def astream_agent(
-    name: str,
-    user_prompt: str,
-    *,
-    messages: Optional[list[Any]] = None,
-) -> AsyncIterator[dict[str, Any]]:
-    """Async-stream a registered agent, yielding token/result chunks.
-
-    Uses the compiled agent graph's ``.astream`` with
-    ``stream_mode=["messages", "values"]``. Yields:
-
-      • ``{"type": "token", "text": str, "node": str|None}`` — AI text chunks
-      • ``{"type": "result", "state": dict}`` — final agent state (same shape
-        as ``ainvoke_agent``)
-
-    Args:
-        name: Registered agent name (from ``make_llm_agent``)
-        user_prompt: User message content (used when ``messages`` is omitted)
-        messages: Optional full messages list (same contract as ``ainvoke_agent``)
-    """
-    agent = get_agent(name)
-    payload = {"messages": _agent_input_messages(user_prompt, messages)}
-    last_state: dict[str, Any] = {}
-    tokens_emitted = False
-
-    async for item in agent.astream(
-        payload,
-        stream_mode=["messages", "values"],
-    ):
-        if isinstance(item, tuple) and len(item) == 2:
-            mode, chunk = item
-        else:
-            mode, chunk = "values", item
-
-        if mode == "messages":
-            msg, metadata = chunk if isinstance(chunk, tuple) else (chunk, {})
-            text = getattr(msg, "content", None)
-            node = (metadata or {}).get("langgraph_node")
-            if isinstance(text, str) and text:
-                tokens_emitted = True
-                yield {"type": "token", "text": text, "node": node}
-            elif isinstance(text, list):
-                for part in text:
-                    if isinstance(part, dict) and part.get("type") == "text":
-                        part_text = part.get("text", "")
-                        if part_text:
-                            tokens_emitted = True
-                            yield {"type": "token", "text": part_text, "node": node}
-        elif mode == "values" and isinstance(chunk, dict):
-            last_state = chunk
-
-    # Fallback when message-mode produced no text (e.g. tool-only turns)
-    if not tokens_emitted and last_state:
-        for msg in reversed(last_state.get("messages") or []):
-            if isinstance(msg, AIMessage) and msg.content:
-                yield {"type": "token", "text": str(msg.content), "node": None}
-                break
-
-    yield {"type": "result", "state": last_state}
 
 
 # ── Prompt helpers ────────────────────────────────────────────────────────────

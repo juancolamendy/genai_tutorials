@@ -6,17 +6,13 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from langchain_core.messages import HumanMessage
-
-from src.engine.chains import chain_field
+from src.engine.chains import chain_field, render_as_xml
 from src.engine.chat_engine_graph import ChatEngineGraph
 from src.engine.event_ledger import effect_key
 from src.engine.handler_registry import handler
 from src.engine.utils import (
     close_topic_delta,
     content_hash,
-    find_tool_call,
-    last_ai_content,
     ledger_is_processed_sync,
     ledger_mark_processed_sync,
     log_handler_enter,
@@ -24,11 +20,11 @@ from src.engine.utils import (
 )
 
 from .chains import (
-    booking_agent,
+    booking_chain,
     escalate_chain,
-    faq_agent,
+    faq_chain,
 )
-from .services import confirm_booking, create_ticket, retrieve_policy
+from .services import check_desk_availability, confirm_booking, create_ticket, retrieve_policy
 from .session_state import HelpdeskState
 from .state_transitions import State
 
@@ -87,78 +83,80 @@ def _process_booking_turn(state: HelpdeskState, user_text: str) -> dict[str, Any
     topic_data = dict(state.get("topic_data") or {})
     prior_messages = state.get("messages") or []
 
+    known = {
+        "date": topic_data.get("date"),
+        "location": topic_data.get("location"),
+        "seat_pref": topic_data.get("seat_pref"),
+    }
+    chain_input = (
+        f"Known slots so far: {known}\n"
+        f"User message: {user_text}\n"
+        "Return updated slots and whether to confirm the booking."
+    )
+
     try:
-        result = booking_agent.invoke(
-            {"messages": [HumanMessage(content=user_text)]}
-        )
+        decision = booking_chain.invoke({"input": chain_input})
     except Exception as exc:
-        log.error("[HANDLER] booking agent failed: %s", exc)
+        log.error("[HANDLER] booking chain failed: %s", exc)
         return {
             "handler_status": "error",
             "error_message": str(exc),
             "audit_trail": [f"booking failed: {exc}"],
         }
 
-    agent_messages = result.get("messages", [])
+    for key in ("date", "location", "seat_pref"):
+        value = chain_field(decision, key, None)
+        if value:
+            topic_data[key] = value
+
+    date = topic_data.get("date")
+    location = topic_data.get("location")
+    seat_pref = topic_data.get("seat_pref")
+    confirm = bool(chain_field(decision, "confirm", False))
+    reply = str(chain_field(decision, "reply", "") or "")
+
     delta: dict[str, Any] = {
         "handler_status": "ok",
         "topic_data": topic_data,
-        "audit_trail": ["booking: agent turn"],
+        "audit_trail": ["booking: chain turn"],
     }
 
-    avail_call = find_tool_call(agent_messages, "check_desk_availability")
-    if avail_call:
-        args = avail_call.get("args") or {}
-        if args.get("date"):
-            topic_data["date"] = args["date"]
-        if args.get("location"):
-            topic_data["location"] = args["location"]
+    if date and location and not check_desk_availability(str(date), str(location)):
+        delta["output_messages"] = [
+            reply
+            or f"No desk is available on {date} at {location}. Try another date or location."
+        ]
+        return delta
 
-    confirm_call = find_tool_call(agent_messages, "confirm_booking")
-    if confirm_call:
-        args = confirm_call.get("args") or {}
-        date = args.get("date") or topic_data.get("date")
-        location = args.get("location") or topic_data.get("location")
-        seat_pref = args.get("seat_pref") or topic_data.get("seat_pref")
-        if date:
-            topic_data["date"] = date
-        if location:
-            topic_data["location"] = location
-        if seat_pref:
-            topic_data["seat_pref"] = seat_pref
+    if confirm and date and location and seat_pref:
+        thread_id = state.get("session_id") or ""
+        key = effect_key(thread_id, "booking", str(date), str(location))
+        bookings = list(state.get("bookings") or [])
+        if _ledger and ledger_is_processed_sync(_ledger, key):
+            log.info("[HANDLER] booking confirm skipped (ledger)")
+        else:
+            booking_id = confirm_booking(str(date), str(location), str(seat_pref))
+            bookings.append(
+                {
+                    "booking_id": booking_id,
+                    "date": date,
+                    "location": location,
+                    "seat_pref": seat_pref,
+                    "status": "confirmed",
+                }
+            )
+            if _ledger:
+                ledger_mark_processed_sync(_ledger, key)
+            delta["bookings"] = bookings
+        topic_data["booking_confirmed"] = True
+        summary = f"Desk booked for {date} at {location} ({seat_pref})."
+        delta.update(close_topic_delta(prior_messages, summary))
+        delta["topic_data"] = topic_data
+        delta["output_messages"] = [reply or summary]
+        return delta
 
-        if date and location and seat_pref:
-            thread_id = state.get("session_id") or ""
-            key = effect_key(thread_id, "booking", date, location)
-            bookings = list(state.get("bookings") or [])
-            if _ledger and ledger_is_processed_sync(_ledger, key):
-                log.info("[HANDLER] booking confirm skipped (ledger)")
-            else:
-                booking_id = confirm_booking(date, location, seat_pref)
-                bookings.append(
-                    {
-                        "booking_id": booking_id,
-                        "date": date,
-                        "location": location,
-                        "seat_pref": seat_pref,
-                        "status": "confirmed",
-                    }
-                )
-                if _ledger:
-                    ledger_mark_processed_sync(_ledger, key)
-                delta["bookings"] = bookings
-            topic_data["booking_confirmed"] = True
-            summary = f"Desk booked for {date} at {location} ({seat_pref})."
-            delta.update(close_topic_delta(prior_messages, summary))
-            delta["output_messages"] = [
-                last_ai_content(agent_messages) or summary,
-            ]
-            return delta
-
-    last_ai = last_ai_content(agent_messages)
-    if last_ai:
-        delta["output_messages"] = [last_ai]
-
+    if reply:
+        delta["output_messages"] = [reply]
     delta["topic_data"] = topic_data
     return delta
 
@@ -280,17 +278,17 @@ def handle_topic_faq(state: HelpdeskState) -> HelpdeskState:
     input_message = state.get("input_message") or ""
     messages = state.get("messages") or []
     chunks = retrieve_policy(input_message)
-    context = "\n\n".join(f"[{c['id']}] {c['text']}" for c in chunks)
-
-    prompt = (
-        f"Knowledge snippets:\n{context}\n\nUser question: {input_message}\n"
+    kb_items = [{"role": c["id"], "content": c["text"]} for c in chunks]
+    kb_block = render_as_xml("knowledge", kb_items, role_key="role", content_key="content")
+    chain_input = (
+        f"{kb_block}\n\nUser question: {input_message}\n"
         "Answer using only the snippets above and cite source ids."
     )
 
     try:
-        result = faq_agent.invoke({"messages": [HumanMessage(content=prompt)]})
+        result = faq_chain.invoke({"input": chain_input})
     except Exception as exc:
-        log.error("[HANDLER] faq agent failed: %s", exc)
+        log.error("[HANDLER] faq chain failed: %s", exc)
         return log_handler_exit(
             "topic_faq",
             {
@@ -300,7 +298,7 @@ def handle_topic_faq(state: HelpdeskState) -> HelpdeskState:
             },
         )
 
-    answer = last_ai_content(result.get("messages", [])) or "I could not find an answer."
+    answer = str(chain_field(result, "answer", "") or "I could not find an answer.")
     delta = close_topic_delta(messages, "FAQ answered.")
     delta.update(
         {
