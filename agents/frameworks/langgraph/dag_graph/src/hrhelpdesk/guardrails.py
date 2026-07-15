@@ -47,7 +47,7 @@ def check_booking_sticky(state: HelpdeskState) -> GuardrailResult:
 
 
 guardrails: Dict[State, GuardrailFn] = {
-    State.HUB_CLARIFY: make_guardrail(check_handler_status, check_transition_allowed),
+    State.CLARIFY: make_guardrail(check_handler_status, check_transition_allowed),
     State.TOPIC_FAQ: make_guardrail(check_handler_status, check_transition_allowed),
     State.TOPIC_ESCALATE: make_guardrail(check_handler_status, check_transition_allowed),
     State.TOPIC_BOOKING: make_guardrail(

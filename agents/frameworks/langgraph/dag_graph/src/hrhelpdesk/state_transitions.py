@@ -13,7 +13,7 @@ from typing import Dict, Set
 class State(str, Enum):
     """HR helpdesk hub + topic state enumeration."""
 
-    HUB_CLARIFY = "hub_clarify"
+    CLARIFY = "clarify"
     TOPIC_FAQ = "topic_faq"
     TOPIC_ESCALATE = "topic_escalate"
     TOPIC_BOOKING = "topic_booking"
@@ -28,7 +28,7 @@ class State(str, Enum):
 
 # Code-router fallback only — live fan-out is ChatEngineGraph._resolve_proposed_next.
 happy_path: dict[State, State] = {
-    State.HUB_CLARIFY: State.IDLE,
+    State.CLARIFY: State.IDLE,
     State.TOPIC_FAQ: State.IDLE,
     State.TOPIC_ESCALATE: State.IDLE,
     State.TOPIC_BOOKING: State.IDLE,
@@ -41,10 +41,10 @@ terminal_states = {State.ERROR}
 allowed_transitions: Dict[State, Set[State]] = {
     # After the user answers the clarify prompt, fan out to a topic (or stay).
     # NOTIFY_USER: a legal system event (e.g. ticket_resolved) can arrive while
-    # parked here — see Graph._is_system_event_legal and handle_hub_clarify's
+    # parked here — see Graph._is_system_event_legal and handle_clarify's
     # system-event short-circuit.
-    State.HUB_CLARIFY: {
-        State.HUB_CLARIFY,
+    State.CLARIFY: {
+        State.CLARIFY,
         State.TOPIC_FAQ,
         State.TOPIC_ESCALATE,
         State.TOPIC_BOOKING,
@@ -67,7 +67,7 @@ allowed_transitions: Dict[State, Set[State]] = {
     State.NOTIFY_USER: {State.IDLE, State.ERROR},
     State.IDLE: {
         State.NOTIFY_USER,
-        State.HUB_CLARIFY,
+        State.CLARIFY,
         State.TOPIC_FAQ,
         State.TOPIC_ESCALATE,
         State.TOPIC_BOOKING,

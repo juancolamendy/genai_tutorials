@@ -23,7 +23,7 @@ class Graph(ChatEngineGraph):
     handler_map = handler_map
 
     idle_state = State.IDLE
-    clarify_state = State.HUB_CLARIFY
+    clarify_state = State.CLARIFY
     notify_state = State.NOTIFY_USER
     confidence_threshold = 0.7
     unclear_topic = "unclear"

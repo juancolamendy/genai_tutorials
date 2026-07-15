@@ -5,7 +5,7 @@ from src.engine.chat_engine_graph import ChatEngineGraph, TopicDecision
 
 class _TinyChatGraph(ChatEngineGraph):
     idle_state = "idle"
-    clarify_state = "hub_clarify"
+    clarify_state = "clarify"
     notify_state = "notify_user"
     topic_to_state = {"faq": "topic_faq", "booking": "topic_booking"}
     confidence_threshold = 0.7
@@ -40,7 +40,7 @@ def test_resolve_proposed_next_from_typed_fields():
     clarify = g._resolve_proposed_next(
         {"current_state": "idle", "pending_clarify": True}
     )
-    assert clarify["proposed_next"] == "hub_clarify"
+    assert clarify["proposed_next"] == "clarify"
 
     system = g._resolve_proposed_next(
         {

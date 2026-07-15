@@ -142,8 +142,8 @@ async def test_faq_happy_path_clears_active_topic():
 
 
 @pytest.mark.asyncio
-async def test_hub_clarify_reroutes_user_reply_to_faq():
-    """Unclear first turn parks at hub_clarify; next reply is re-routed (not ignored)."""
+async def test_clarify_reroutes_user_reply_to_faq():
+    """Unclear first turn parks at clarify; next reply is re-routed (not ignored)."""
     graph = build_graph()
     thread_id = str(uuid4())
 
@@ -162,7 +162,7 @@ async def test_hub_clarify_reroutes_user_reply_to_faq():
             payload={"text": "help"},
         )
         assert turn1["status"] == "ok"
-        assert turn1.get("current_state") == State.HUB_CLARIFY.value
+        assert turn1.get("current_state") == State.CLARIFY.value
         assert turn1.get("pending_clarify") is True
         assert any("FAQ" in m or "book" in m.lower() for m in turn1.get("output_messages", []))
 
@@ -377,9 +377,9 @@ async def test_topic_timeout_clears_booking():
 
 
 @pytest.mark.asyncio
-async def test_ticket_resolved_during_hub_clarify_short_circuits():
+async def test_ticket_resolved_during_clarify_short_circuits():
     """ticket_resolved is legal regardless of current_state (Graph._is_system_event_legal
-    only checks open_tickets) and can legally arrive while parked at hub_clarify —
+    only checks open_tickets) and can legally arrive while parked at clarify —
     must not invoke the router LLM with empty input."""
     graph = build_graph()
     thread_id = str(uuid4())
@@ -414,7 +414,7 @@ async def test_ticket_resolved_during_hub_clarify_short_circuits():
             payload={"text": "hmm"},
         )
 
-    assert second.get("current_state") == State.HUB_CLARIFY.value
+    assert second.get("current_state") == State.CLARIFY.value
     assert second.get("pending_clarify") is True
 
     def _forbidden(*_a, **_k):

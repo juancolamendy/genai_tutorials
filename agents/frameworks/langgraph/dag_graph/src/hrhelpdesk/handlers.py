@@ -147,7 +147,7 @@ def _route_human_message(
 ) -> dict[str, Any]:
     """Semantic-route a human utterance into a lane (or stay in clarify).
 
-    Shared by IDLE (first classification) and HUB_CLARIFY (user's answer
+    Shared by IDLE (first classification) and CLARIFY (user's answer
     after a disambiguation ask). Never guesses: unclear / low confidence
     keeps ``pending_clarify`` and re-asks. A router failure degrades to
     ``unclear`` (handled inside ``HelpdeskSemanticRouter.classify``) rather
@@ -223,30 +223,30 @@ def handle_idle(state: HelpdeskState) -> HelpdeskState:
 
 
 @handler(
-    state=State.HUB_CLARIFY.value,
+    state=State.CLARIFY.value,
     waits_for_input=True,
     wait_kind="human",
     description="Re-route after unclear classification using the user's reply",
 )
-def handle_hub_clarify(state: HelpdeskState) -> HelpdeskState:
+def handle_clarify(state: HelpdeskState) -> HelpdeskState:
     """Process the user's disambiguation reply — do not ignore input_message."""
-    log_handler_enter("hub_clarify", state)
+    log_handler_enter("clarify", state)
     event_source = state.get("current_event_source", "human")
 
     if event_source == "system":
         return log_handler_exit(
-            "hub_clarify",
+            "clarify",
             {
                 "last_event": state.get("current_event_type"),
                 "last_event_at": datetime.now(timezone.utc).isoformat(),
-                "audit_trail": [f"hub_clarify: system event {state.get('current_event_type')}"],
+                "audit_trail": [f"clarify: system event {state.get('current_event_type')}"],
             },
         )
 
     input_message = state.get("input_message") or ""
     return log_handler_exit(
-        "hub_clarify",
-        _route_human_message(state, input_message, source="hub_clarify"),
+        "clarify",
+        _route_human_message(state, input_message, source="clarify"),
     )
 
 
@@ -430,7 +430,7 @@ def handle_error(state: HelpdeskState) -> HelpdeskState:
 
 
 handler_map = {
-    State.HUB_CLARIFY: handle_hub_clarify,
+    State.CLARIFY: handle_clarify,
     State.TOPIC_FAQ: handle_topic_faq,
     State.TOPIC_ESCALATE: handle_topic_escalate,
     State.TOPIC_BOOKING: handle_topic_booking,
@@ -442,7 +442,7 @@ handler_map = {
 __all__ = [
     "set_ledger",
     "handle_idle",
-    "handle_hub_clarify",
+    "handle_clarify",
     "handle_topic_faq",
     "handle_topic_escalate",
     "handle_topic_booking",

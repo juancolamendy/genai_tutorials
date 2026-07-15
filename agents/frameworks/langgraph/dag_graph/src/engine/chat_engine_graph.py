@@ -60,7 +60,7 @@ class ChatEngineGraph(EngineGraph):
     """
 
     idle_state: str = "idle"
-    clarify_state: str = "hub_clarify"
+    clarify_state: str = "clarify"
     notify_state: str = "notify_user"
     topic_to_state: dict[str, Any] = {}
     confidence_threshold: float = 0.7
