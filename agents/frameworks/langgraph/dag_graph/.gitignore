@@ -11,6 +11,9 @@
 .triage_worktrees
 .triage_sessions_ledger
 .onboarding_sessions_ledger
+.triage_artifacts_review
+.triage_sessions_review
+.triage_sessions_review_ledger
 
 # Python
 __pycache__/
