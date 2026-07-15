@@ -52,19 +52,22 @@ def _mock_faq_agent(answer: str = "You get 15 days PTO per year. [pto-001]"):
     return mock
 
 
-def _mock_escalate_agent(subject: str = "Pay issue", body: str = "Paycheck wrong"):
-    tool_call = {
-        "name": "create_ticket_tool",
-        "args": {"subject": subject, "body": body},
-        "id": "tc-1",
-    }
+def _mock_escalate_chain(
+    *,
+    subject: str = "Pay issue",
+    body: str = "Paycheck wrong",
+    should_create: bool = True,
+    reply: str = "I've filed an HR ticket for your issue.",
+):
+    from src.hrhelpdesk.chains import EscalateDecision
+
     mock = MagicMock()
-    mock.invoke.return_value = {
-        "messages": [
-            AIMessage(content="", tool_calls=[tool_call]),
-            ToolMessage(content="TICKET-1", name="create_ticket_tool", tool_call_id="tc-1"),
-        ]
-    }
+    mock.invoke.return_value = EscalateDecision(
+        should_create=should_create,
+        subject=subject,
+        body=body,
+        reply=reply,
+    )
     return mock
 
 
@@ -191,7 +194,7 @@ async def test_escalate_creates_one_ticket_ledger_dedupes():
             return_value=_decision("escalate"),
         ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
-        patch("src.hrhelpdesk.handlers.escalate_agent", _mock_escalate_agent()),
+        patch("src.hrhelpdesk.handlers.escalate_chain", _mock_escalate_chain()),
     ):
         first = await graph.aemit_event(
             thread_id=thread_id,
@@ -208,8 +211,42 @@ async def test_escalate_creates_one_ticket_ledger_dedupes():
 
     assert first["status"] == "ok"
     assert len(first.get("open_tickets", [])) == 1
+    assert any("TICKET-" in m for m in first.get("output_messages", []))
     assert second["status"] == "ok"
     assert len(second.get("open_tickets", [])) == 1
+
+
+@pytest.mark.asyncio
+async def test_escalate_create_ticket_called_once():
+    """Handler owns the side effect — create_ticket exactly once per decision."""
+    graph = build_graph()
+    thread_id = str(uuid4())
+    create_calls: list[tuple[str, str]] = []
+
+    def _tracking_create(subject: str, body: str) -> str:
+        create_calls.append((subject, body))
+        return f"TICKET-{len(create_calls)}"
+
+    with (
+        patch(
+            "src.hrhelpdesk.handlers.classify_utterance",
+            return_value=_decision("escalate"),
+        ),
+        patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
+        patch("src.hrhelpdesk.handlers.escalate_chain", _mock_escalate_chain()),
+        patch("src.hrhelpdesk.handlers.create_ticket", side_effect=_tracking_create),
+    ):
+        result = await graph.aemit_event(
+            thread_id=thread_id,
+            source="human",
+            event_type="message",
+            input_message="Please open a ticket — paycheck short $200",
+        )
+
+    assert result["status"] == "ok"
+    assert create_calls == [("Pay issue", "Paycheck wrong")]
+    assert result.get("open_tickets") == ["TICKET-1"]
+    assert any("TICKET-1" in m for m in result.get("output_messages", []))
 
 
 @pytest.mark.asyncio
@@ -390,7 +427,7 @@ async def test_ticket_resolved_during_clarify_short_circuits():
             return_value=_decision("escalate"),
         ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
-        patch("src.hrhelpdesk.handlers.escalate_agent", _mock_escalate_agent()),
+        patch("src.hrhelpdesk.handlers.escalate_chain", _mock_escalate_chain()),
     ):
         first = await graph.aemit_event(
             thread_id=thread_id,
@@ -449,7 +486,7 @@ async def test_ticket_resolved_from_idle_removes_open_ticket():
             return_value=_decision("escalate"),
         ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
-        patch("src.hrhelpdesk.handlers.escalate_agent", _mock_escalate_agent()),
+        patch("src.hrhelpdesk.handlers.escalate_chain", _mock_escalate_chain()),
     ):
         first = await graph.aemit_event(
             thread_id=thread_id,

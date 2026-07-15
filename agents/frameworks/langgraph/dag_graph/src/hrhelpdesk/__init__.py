@@ -1,15 +1,16 @@
 """HR helpdesk hub + sticky-topic chatbot package."""
 
 from src.engine.escape_checker import (
+    DefaultEscapeChecker,
     EscapeDecision,
     EscapeOutput,
-    DefaultEscapeChecker,
 )
 from src.hrhelpdesk.chains import (
+    EscalateDecision,
     RouterOutput,
     RouterTopic,
     booking_agent,
-    escalate_agent,
+    escalate_chain,
     faq_agent,
 )
 from src.hrhelpdesk.graph import Graph, build_graph
@@ -45,13 +46,14 @@ __all__ = [
     "build_graph",
     "RouterTopic",
     "RouterOutput",
+    "EscalateDecision",
     "EscapeDecision",
     "EscapeOutput",
     "DefaultEscapeChecker",
     "run_escape",
     "HelpdeskSemanticRouter",
     "faq_agent",
-    "escalate_agent",
+    "escalate_chain",
     "booking_agent",
     "retrieve_policy",
     "create_ticket",

@@ -64,8 +64,8 @@ Use the same `--sessions-dir` for every command (default matches `$SESSIONS` abo
 
 | Symptom | Cause |
 |---|---|
-| `event … ticket_resolved` → `status=ignored` | `ticket_id` not in this thread’s `open_tickets` (escalate must call `create_ticket_tool`; peek `open_tickets` before resolving) |
-| Escalate chat leaves `open_tickets=[]` | Agent asked questions instead of calling the tool — use a concrete “please open a ticket …” message; escalate is one-shot (no follow-up lane) |
+| `event … ticket_resolved` → `status=ignored` | `ticket_id` not in this thread’s `open_tickets` (escalate must create via structured decision; peek `open_tickets` before resolving) |
+| Escalate chat leaves `open_tickets=[]` | Chain returned `should_create=false` — use a concrete “please open a ticket …” message; escalate is one-shot |
 | Expected to leave `idle` after resolve | Chatbots park at `idle`; notify runs then returns home — not a linear `COMPLETE` |
 | `sweep` does nothing | Only emits `topic_timeout` for stale sticky **booking** sessions |
 

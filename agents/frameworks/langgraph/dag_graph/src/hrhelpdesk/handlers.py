@@ -8,6 +8,7 @@ from typing import Any
 
 from langchain_core.messages import HumanMessage
 
+from src.engine.chains import chain_field
 from src.engine.chat_engine_graph import ChatEngineGraph
 from src.engine.event_ledger import effect_key
 from src.engine.handler_registry import handler
@@ -24,7 +25,7 @@ from src.engine.utils import (
 
 from .chains import (
     booking_agent,
-    escalate_agent,
+    escalate_chain,
     faq_agent,
 )
 from .services import confirm_booking, create_ticket, retrieve_policy
@@ -318,9 +319,9 @@ def handle_topic_escalate(state: HelpdeskState) -> HelpdeskState:
     messages = state.get("messages") or []
 
     try:
-        result = escalate_agent.invoke({"messages": [HumanMessage(content=input_message)]})
+        decision = escalate_chain.invoke({"input": input_message})
     except Exception as exc:
-        log.error("[HANDLER] escalate agent failed: %s", exc)
+        log.error("[HANDLER] escalate chain failed: %s", exc)
         return log_handler_exit(
             "topic_escalate",
             {
@@ -330,17 +331,18 @@ def handle_topic_escalate(state: HelpdeskState) -> HelpdeskState:
             },
         )
 
-    agent_messages = result.get("messages", [])
+    should_create = bool(chain_field(decision, "should_create", False))
+    subject = str(chain_field(decision, "subject", "") or "HR issue")
+    body = str(chain_field(decision, "body", "") or input_message)
+    reply = str(chain_field(decision, "reply", "") or "")
+
     delta: dict[str, Any] = {
         "handler_status": "ok",
         "audit_trail": ["topic_escalate: processed"],
     }
+    ticket_id: str | None = None
 
-    tool_call = find_tool_call(agent_messages, "create_ticket_tool")
-    if tool_call:
-        args = tool_call.get("args") or {}
-        subject = str(args.get("subject", "HR issue"))
-        body = str(args.get("body", input_message))
+    if should_create:
         thread_id = state.get("session_id") or ""
         key = effect_key(thread_id, "ticket", content_hash(subject, body))
         open_tickets = list(state.get("open_tickets") or [])
@@ -354,10 +356,12 @@ def handle_topic_escalate(state: HelpdeskState) -> HelpdeskState:
                 ledger_mark_processed_sync(_ledger, key)
             delta["open_tickets"] = open_tickets
 
-    reply = last_ai_content(agent_messages)
     close = close_topic_delta(messages, "Ticket escalated.")
     delta.update(close)
-    if reply:
+    if ticket_id:
+        text = reply or "I've filed an HR support ticket."
+        delta["output_messages"] = [f"{text} Ticket ID: {ticket_id}."]
+    elif reply:
         delta["output_messages"] = [reply]
     return log_handler_exit("topic_escalate", delta)
 
