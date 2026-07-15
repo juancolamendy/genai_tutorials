@@ -1,6 +1,9 @@
 """Tests for ChatEngineGraph topic fan-out helpers."""
 
+from unittest.mock import MagicMock
+
 from src.engine.chat_engine_graph import ChatEngineGraph, TopicDecision
+from src.engine.escape_checker import DefaultEscapeChecker, EscapeDecision, EscapeOutput
 
 
 class _TinyChatGraph(ChatEngineGraph):
@@ -50,3 +53,26 @@ def test_resolve_proposed_next_from_typed_fields():
         }
     )
     assert system["proposed_next"] == "notify_user"
+
+
+def test_run_escape_uses_escape_checker():
+    g = _TinyChatGraph()
+    mock = MagicMock()
+    mock.check.return_value = EscapeDecision(escape=True)
+    g.escape_checker = mock
+    assert g.run_escape("switch to PTO").escape is True
+    mock.check.assert_called_once_with("switch to PTO")
+
+
+def test_default_escape_checker_failure_stays_in_lane():
+    checker = DefaultEscapeChecker()
+    checker._get_chain = MagicMock(side_effect=RuntimeError("boom"))  # type: ignore[method-assign]
+    assert checker.check("anything") == EscapeDecision(escape=False)
+
+
+def test_default_escape_checker_parses_output():
+    checker = DefaultEscapeChecker()
+    chain = MagicMock()
+    chain.invoke.return_value = EscapeOutput(escape=True)
+    checker._get_chain = MagicMock(return_value=chain)  # type: ignore[method-assign]
+    assert checker.check("cancel this").escape is True

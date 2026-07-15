@@ -9,7 +9,7 @@ Hub + semantic-router chatbot built on `EngineGraph` with sticky topic lanes
 |---|---|
 | `graph.py` | `EngineGraph` subclass — routing override, system-event legality |
 | `handlers.py` | State handlers (hub park, topic specialists, notify) |
-| `chains.py` | Router/escape chains + `make_llm_agent` specialists |
+| `chains.py` | Topic agents + tools (escape lives in `engine.escape_checker`) |
 | `services.py` | In-memory fake RAG, tickets, desk booking |
 | `cli.py` | `chat`, `event`, `sweep`, `status`, `serve` |
 | `sweep.py` | 48h booking timeout sweep |

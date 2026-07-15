@@ -26,30 +26,53 @@ from .chains import (
     booking_agent,
     escalate_agent,
     faq_agent,
-    run_escape,
 )
-from .router import HelpdeskSemanticRouter
 from .services import confirm_booking, create_ticket, retrieve_policy
 from .session_state import HelpdeskState
 from .state_transitions import State
 
 log = logging.getLogger(__name__)
 
-ROUTER_CONFIDENCE_THRESHOLD = 0.7
-
-# Typed-field fan-out + classification helper (same config as Graph); avoids
-# importing Graph from handlers (circular: graph → handlers → graph).
-_topic_fanout = ChatEngineGraph()
-_topic_fanout.confidence_threshold = ROUTER_CONFIDENCE_THRESHOLD
-_topic_fanout.topic_router = HelpdeskSemanticRouter()
-
+# Injected by build_graph() — same Graph instance that owns topic_router /
+# escape_checker / confidence_threshold (avoids a second ChatEngineGraph).
+_chat_graph: ChatEngineGraph | None = None
 _ledger: Any = None
+
+
+def set_chat_graph(graph: ChatEngineGraph) -> None:
+    """Inject the domain Graph used for classify / escape / topic deltas."""
+    global _chat_graph
+    _chat_graph = graph
 
 
 def set_ledger(ledger: Any) -> None:
     """Inject the graph's EventLedger for sync idempotency checks in handlers."""
     global _ledger
     _ledger = ledger
+
+
+def _require_chat_graph() -> ChatEngineGraph:
+    if _chat_graph is None:
+        raise RuntimeError(
+            "Helpdesk handlers require build_graph() first "
+            "(set_chat_graph was never called)."
+        )
+    return _chat_graph
+
+
+def classify_utterance(input_message: str, history: Any = None):
+    """Patchable wrapper around the bound Graph's classifier."""
+    return _require_chat_graph().classify_utterance(input_message, history)
+
+
+def topic_decision_to_delta(decision: Any, *, source: str = "chat"):
+    """Patchable wrapper around the bound Graph's topic delta helper."""
+    return _require_chat_graph().topic_decision_to_delta(decision, source=source)
+
+
+def run_escape(text: str):
+    """Patchable wrapper around the bound Graph's escape checker."""
+    return _require_chat_graph().run_escape(text)
 
 
 CLARIFY_PROMPT = (
@@ -153,8 +176,8 @@ def _route_human_message(
     ``unclear`` (handled inside ``HelpdeskSemanticRouter.classify``) rather
     than surfacing as ``handler_status="error"``.
     """
-    decision = _topic_fanout.classify_utterance(input_message, state.get("messages"))
-    base = _topic_fanout.topic_decision_to_delta(decision, source=source)
+    decision = classify_utterance(input_message, state.get("messages"))
+    base = topic_decision_to_delta(decision, source=source)
     if base.get("pending_clarify"):
         base["output_messages"] = [CLARIFY_PROMPT]
         return base
@@ -366,8 +389,8 @@ def handle_topic_booking(state: HelpdeskState) -> HelpdeskState:
         if run_escape(input_message).escape:
             cleared = close_topic_delta(messages, "User changed topic.")
             cleared["pending_clarify"] = False
-            decision = _topic_fanout.classify_utterance(input_message, messages)
-            routed = _topic_fanout.topic_decision_to_delta(
+            decision = classify_utterance(input_message, messages)
+            routed = topic_decision_to_delta(
                 decision, source="topic_booking"
             )
             cleared.update(routed)
@@ -441,6 +464,10 @@ handler_map = {
 
 __all__ = [
     "set_ledger",
+    "set_chat_graph",
+    "classify_utterance",
+    "topic_decision_to_delta",
+    "run_escape",
     "handle_idle",
     "handle_clarify",
     "handle_topic_faq",
@@ -449,5 +476,4 @@ __all__ = [
     "handle_notify_user",
     "handle_error",
     "handler_map",
-    "ROUTER_CONFIDENCE_THRESHOLD",
 ]

@@ -11,8 +11,8 @@ import pytest
 from langchain_core.messages import AIMessage, ToolMessage
 
 from src.engine.chat_engine_graph import TopicDecision
+from src.engine.escape_checker import EscapeDecision
 from src.engine.handler_registry import get_handler_metadata
-from src.hrhelpdesk.chains import EscapeOutput
 from src.hrhelpdesk.graph import build_graph as _build_helpdesk_graph
 from src.hrhelpdesk.services import _booking_store, reset_providers
 from src.hrhelpdesk.state_transitions import State
@@ -43,7 +43,7 @@ def _decision(topic: str, confidence: float = 0.9) -> TopicDecision:
 
 
 def _escape(escape: bool = False):
-    return EscapeOutput(escape=escape)
+    return EscapeDecision(escape=escape)
 
 
 def _mock_faq_agent(answer: str = "You get 15 days PTO per year. [pto-001]"):
@@ -123,7 +123,7 @@ async def test_faq_happy_path_clears_active_topic():
 
     with (
         patch(
-            "src.hrhelpdesk.handlers._topic_fanout.classify_utterance",
+            "src.hrhelpdesk.handlers.classify_utterance",
             return_value=_decision("faq"),
         ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
@@ -149,7 +149,7 @@ async def test_clarify_reroutes_user_reply_to_faq():
 
     with (
         patch(
-            "src.hrhelpdesk.handlers._topic_fanout.classify_utterance",
+            "src.hrhelpdesk.handlers.classify_utterance",
             side_effect=[_decision("unclear", 0.4), _decision("faq")],
         ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
@@ -187,7 +187,7 @@ async def test_escalate_creates_one_ticket_ledger_dedupes():
 
     with (
         patch(
-            "src.hrhelpdesk.handlers._topic_fanout.classify_utterance",
+            "src.hrhelpdesk.handlers.classify_utterance",
             return_value=_decision("escalate"),
         ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
@@ -219,7 +219,7 @@ async def test_booking_sticky_two_turn_confirm():
 
     with (
         patch(
-            "src.hrhelpdesk.handlers._topic_fanout.classify_utterance",
+            "src.hrhelpdesk.handlers.classify_utterance",
             return_value=_decision("booking"),
         ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
@@ -273,7 +273,7 @@ async def test_escape_mid_booking_reroutes():
 
     with (
         patch(
-            "src.hrhelpdesk.handlers._topic_fanout.classify_utterance",
+            "src.hrhelpdesk.handlers.classify_utterance",
             return_value=_decision("booking"),
         ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
@@ -291,7 +291,7 @@ async def test_escape_mid_booking_reroutes():
 
     with (
         patch(
-            "src.hrhelpdesk.handlers._topic_fanout.classify_utterance",
+            "src.hrhelpdesk.handlers.classify_utterance",
             return_value=_decision("faq"),
         ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(True)),
@@ -335,7 +335,7 @@ async def test_topic_timeout_clears_booking():
 
     with (
         patch(
-            "src.hrhelpdesk.handlers._topic_fanout.classify_utterance",
+            "src.hrhelpdesk.handlers.classify_utterance",
             return_value=_decision("booking"),
         ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
@@ -386,7 +386,7 @@ async def test_ticket_resolved_during_clarify_short_circuits():
 
     with (
         patch(
-            "src.hrhelpdesk.handlers._topic_fanout.classify_utterance",
+            "src.hrhelpdesk.handlers.classify_utterance",
             return_value=_decision("escalate"),
         ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
@@ -402,7 +402,7 @@ async def test_ticket_resolved_during_clarify_short_circuits():
 
     with (
         patch(
-            "src.hrhelpdesk.handlers._topic_fanout.classify_utterance",
+            "src.hrhelpdesk.handlers.classify_utterance",
             return_value=_decision("unclear", 0.3),
         ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
@@ -420,7 +420,7 @@ async def test_ticket_resolved_during_clarify_short_circuits():
     def _forbidden(*_a, **_k):
         raise AssertionError("router must not run for a system-sourced turn")
 
-    with patch("src.hrhelpdesk.handlers._topic_fanout.classify_utterance", side_effect=_forbidden):
+    with patch("src.hrhelpdesk.handlers.classify_utterance", side_effect=_forbidden):
         result = await graph.aemit_event(
             thread_id=thread_id,
             source="system",
@@ -451,7 +451,7 @@ async def test_faq_path_never_calls_booking_tools():
 
     with (
         patch(
-            "src.hrhelpdesk.handlers._topic_fanout.classify_utterance",
+            "src.hrhelpdesk.handlers.classify_utterance",
             return_value=_decision("faq"),
         ),
         patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),

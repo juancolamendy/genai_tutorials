@@ -9,7 +9,7 @@ from src.engine.handler_registry import get_handler_metadata
 from src.engine.json_checkpointer import JsonCheckpointer
 
 from .guardrails import guardrails
-from .handlers import handler_map, set_ledger
+from .handlers import handler_map, set_chat_graph, set_ledger
 from .router import HelpdeskSemanticRouter
 from .session_state import HelpdeskState, new_helpdesk_session_state
 from .state_transitions import State, happy_path, terminal_states
@@ -96,6 +96,7 @@ def build_graph(sessions_dir: str = ".hrhelpdesk_sessions") -> Graph:
     graph.compiled_graph = graph.build_graph(HelpdeskState, checkpointer=checkpointer)
     graph._ledger = EventLedger(ledger_dir=f"{sessions_dir}_ledger")
     set_ledger(graph._ledger)
+    set_chat_graph(graph)
     return graph
 
 

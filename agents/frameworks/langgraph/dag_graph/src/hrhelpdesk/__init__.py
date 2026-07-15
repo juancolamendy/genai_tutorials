@@ -1,17 +1,20 @@
 """HR helpdesk hub + sticky-topic chatbot package."""
 
-from src.hrhelpdesk.chains import (
+from src.engine.escape_checker import (
+    EscapeDecision,
     EscapeOutput,
+    DefaultEscapeChecker,
+)
+from src.hrhelpdesk.chains import (
     RouterOutput,
     RouterTopic,
     booking_agent,
     escalate_agent,
-    escape_chain,
     faq_agent,
-    run_escape,
 )
 from src.hrhelpdesk.graph import Graph, build_graph
 from src.hrhelpdesk.guardrails import guardrails
+from src.hrhelpdesk.handlers import run_escape
 from src.hrhelpdesk.router import HelpdeskSemanticRouter
 from src.hrhelpdesk.services import (
     check_desk_availability,
@@ -42,8 +45,9 @@ __all__ = [
     "build_graph",
     "RouterTopic",
     "RouterOutput",
+    "EscapeDecision",
     "EscapeOutput",
-    "escape_chain",
+    "DefaultEscapeChecker",
     "run_escape",
     "HelpdeskSemanticRouter",
     "faq_agent",

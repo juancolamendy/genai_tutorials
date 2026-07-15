@@ -7,8 +7,9 @@ proposes a next *state*). Chatbots need a different contract:
             → proposed_next graph state
 
 ``ChatEngineGraph`` owns that fan-out. Domains set ``topic_to_state``,
-``idle_state`` / ``clarify_state`` / ``notify_state``, and optionally a
-``topic_router`` that implements ``classify(input_message, history) -> TopicDecision``.
+``idle_state`` / ``clarify_state`` / ``notify_state``, optionally a
+``topic_router`` that implements ``classify(...) -> TopicDecision``, and
+optionally an ``escape_checker`` (defaults to ``DefaultEscapeChecker``).
 
 Classification may still run in handlers (today's helpdesk) via
 ``topic_decision_to_delta``; the graph router only reads typed fields and must
@@ -24,6 +25,11 @@ from typing import Any, Optional, Protocol
 from langchain_core.runnables import RunnableConfig
 
 from src.engine.engine_graph import EngineGraph
+from src.engine.escape_checker import (
+    DefaultEscapeChecker,
+    EscapeChecker,
+    EscapeDecision,
+)
 
 
 @dataclass(frozen=True)
@@ -52,6 +58,7 @@ class ChatEngineGraph(EngineGraph):
       • idle_state / clarify_state / notify_state — hub park / clarify / notify
       • confidence_threshold — below this (or topic==unclear) → clarify
       • topic_router — optional classifier (TopicRouter protocol)
+      • escape_checker — sticky-lane leave-intent (EscapeChecker protocol)
 
     ``_resolve_proposed_next`` is typed-field fan-out only (system / sticky /
     clarify / idle). It does not call an LLM on message text — that keeps the
@@ -66,6 +73,7 @@ class ChatEngineGraph(EngineGraph):
     confidence_threshold: float = 0.7
     unclear_topic: str = "unclear"
     topic_router: Optional[TopicRouter] = None
+    escape_checker: Optional[EscapeChecker] = None
 
     def _state_value(self, state_ref: Any) -> str:
         return state_ref.value if hasattr(state_ref, "value") else str(state_ref)
@@ -132,6 +140,16 @@ class ChatEngineGraph(EngineGraph):
             return TopicDecision(topic=self.unclear_topic, confidence=0.0)
         return self.topic_router.classify(input_message, history)
 
+    def _get_escape_checker(self) -> EscapeChecker:
+        """Return configured checker, lazily installing the engine default."""
+        if self.escape_checker is None:
+            self.escape_checker = DefaultEscapeChecker()
+        return self.escape_checker
+
+    def run_escape(self, text: str) -> EscapeDecision:
+        """Detect leave-intent via ``escape_checker`` (default engine prompt)."""
+        return self._get_escape_checker().check(text)
+
     def _resolve_proposed_next(
         self, state: dict[str, Any], config: Optional[RunnableConfig] = None
     ) -> dict[str, Any]:
@@ -177,4 +195,5 @@ __all__ = [
     "TopicDecision",
     "TopicRouter",
     "ChatEngineGraph",
+    "EscapeDecision",
 ]

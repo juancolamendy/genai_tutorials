@@ -21,6 +21,12 @@ from .engine_graph import (
 )
 from .chat_engine_graph import ChatEngineGraph, TopicDecision
 from .chat_engine_session_state import ChatEngineSessionState, new_chat_session_state
+from .escape_checker import (
+    DEFAULT_ESCAPE_INSTRUCTIONS,
+    DefaultEscapeChecker,
+    EscapeDecision,
+    EscapeOutput,
+)
 from .engine_session_state import EngineSessionState
 from .event_ledger import EventLedger, effect_key, event_key
 from .json_checkpointer import JsonCheckpointer
@@ -50,6 +56,10 @@ __all__ = [
     "EngineGraph",
     "ChatEngineGraph",
     "TopicDecision",
+    "EscapeDecision",
+    "EscapeOutput",
+    "DefaultEscapeChecker",
+    "DEFAULT_ESCAPE_INSTRUCTIONS",
     "safe_node",
     "make_chain",
     "get_chain",

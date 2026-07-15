@@ -7,7 +7,7 @@ from enum import Enum
 from langchain.tools import tool
 from pydantic import BaseModel, Field
 
-from src.engine.chains import get_model, make_chain, make_llm_agent
+from src.engine.chains import get_model, make_llm_agent
 
 from . import services
 
@@ -26,38 +26,6 @@ class RouterTopic(str, Enum):
 class RouterOutput(BaseModel):
     topic: RouterTopic
     confidence: float = Field(ge=0.0, le=1.0)
-
-
-class EscapeOutput(BaseModel):
-    escape: bool
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# ROUTER / ESCAPE CHAINS
-# ─────────────────────────────────────────────────────────────────────────────
-
-escape_chain = make_chain(
-    name="HelpdeskEscapeChain",
-    system_prompt="""You detect whether the user wants to leave the current topic lane.
-
-Return escape=true if they clearly want to switch topics, cancel, or start over.
-Return escape=false if they are continuing the current conversation lane.
-
-Respond ONLY with valid JSON:
-{{
-  "escape": <bool>
-}}""",
-    output_schema=EscapeOutput,
-    model_id=get_model("router"),
-)
-
-
-def run_escape(text: str) -> EscapeOutput:
-    """Invoke the escape chain (patchable in tests)."""
-    result = escape_chain.invoke({"input": text})
-    if isinstance(result, EscapeOutput):
-        return result
-    return EscapeOutput(**result)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -121,9 +89,6 @@ before confirming. Call confirm_booking only when all three slots are confirmed 
 __all__ = [
     "RouterTopic",
     "RouterOutput",
-    "EscapeOutput",
-    "escape_chain",
-    "run_escape",
     "create_ticket_tool",
     "check_desk_availability",
     "confirm_booking",
