@@ -36,13 +36,20 @@ def segment_reset_messages(
     Returns a list suitable for the ``messages`` reducer: one ``RemoveMessage``
     per existing message id, then a single summary ``AIMessage``. Messages
     without an id are skipped for removal (cannot target them safely).
+
+    The summary ``AIMessage`` is marked ``additional_kwargs.segment_reset=True``
+    so streaming entry points can skip it — it is transcript hygiene, not the
+    user-facing reply (that lives in ``output_messages``).
     """
     removals: list[Any] = []
     for msg in messages:
         msg_id = getattr(msg, "id", None)
         if msg_id:
             removals.append(RemoveMessage(id=msg_id))
-    summary_msg = AIMessage(content=summary)
+    summary_msg = AIMessage(
+        content=summary,
+        additional_kwargs={"segment_reset": True},
+    )
     return [*removals, summary_msg]
 
 

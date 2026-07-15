@@ -914,6 +914,11 @@ class EngineGraph:
 
                 if mode == "messages":
                     msg, metadata = chunk if isinstance(chunk, tuple) else (chunk, {})
+                    # Segment-reset summaries are transcript hygiene (close_topic_delta),
+                    # not the user-facing reply — skip so output_messages fallback runs.
+                    extra = getattr(msg, "additional_kwargs", None) or {}
+                    if extra.get("segment_reset"):
+                        continue
                     text = getattr(msg, "content", None)
                     if isinstance(text, str) and text:
                         tokens_emitted = True

@@ -32,6 +32,7 @@ def test_segment_reset_removes_prior_and_appends_summary():
     assert update[1].id == "a1"
     assert isinstance(update[2], AIMessage)
     assert "FAQ" in update[2].content
+    assert update[2].additional_kwargs.get("segment_reset") is True
 
 
 def test_close_topic_delta_clears_lane_fields():

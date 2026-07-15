@@ -6,16 +6,11 @@
 # sessions
 .doc_sessions/
 .onboarding_sessions
-.triage_artifacts
-.triage_sessions
-.triage_worktrees
-.triage_sessions_ledger
-.onboarding_sessions_ledger
-.triage_artifacts_review
-.triage_sessions_review
-.triage_sessions_review_ledger
-.hrhelpdesk_sessions_review
-.hrhelpdesk_sessions_review_ledger
+.triage_artifacts*
+.triage_sessions*
+.triage_worktrees*
+.onboarding_sessions*
+.hrhelpdesk_sessions*
 
 # Python
 __pycache__/
