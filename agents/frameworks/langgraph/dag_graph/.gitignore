@@ -11,6 +11,7 @@
 .triage_worktrees*
 .onboarding_sessions*
 .hrhelpdesk_sessions*
+.onboarding_sessions_ledger
 
 # Python
 __pycache__/
