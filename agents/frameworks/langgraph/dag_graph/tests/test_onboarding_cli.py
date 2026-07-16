@@ -53,22 +53,19 @@ async def test_sweep_escalates_a_stale_thread():
     with patch("src.engine.engine_session_state.time.time", return_value=eight_days_ago):
         await graph.ainvoke(user_id="", session_id=thread_id, input_message="start")
 
-    mock_agent = MagicMock()
-    from langchain_core.messages import AIMessage, ToolMessage
+    from src.onboarding.chains import NewHireDetails
 
-    agent_value = {
-        "messages": [
-            AIMessage(content="", tool_calls=[{"name": "submit_new_hire", "args": {}, "id": "1"}]),
-            ToolMessage(
-                content='{"full_name": "Jane Doe", "role": "Engineer", "start_date": "2026-08-01"}',
-                name="submit_new_hire",
-                tool_call_id="1",
-            ),
-        ]
-    }
-    mock_agent.ainvoke = AsyncMock(return_value=agent_value)
-    mock_agent.invoke.return_value = agent_value
-    with patch("src.onboarding.chains.collect_agent", mock_agent):
+    mock_collect = MagicMock()
+    mock_collect.ainvoke = AsyncMock(
+        return_value=NewHireDetails(
+            full_name="Jane Doe",
+            role="Engineer",
+            start_date="2026-08-01",
+            complete=True,
+            reply="Thanks.",
+        )
+    )
+    with patch("src.onboarding.chains.collect_chain", mock_collect):
         result = await graph.aemit_event(
             thread_id=thread_id, event_source="human", event_type="message", input_message="go"
         )
@@ -109,10 +106,14 @@ async def test_sweep_ignores_states_not_in_thresholds():
 # ─────────────────────────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_cmd_chat_calls_aemit_event_with_human_source():
+async def test_cmd_chat_calls_aemit_event_with_human_source(capsys):
     mock_graph = MagicMock()
     mock_graph.aemit_event = AsyncMock(
-        return_value={"emit_status": "ok", "current_state": "collect"}
+        return_value={
+            "emit_status": "ok",
+            "current_state": "collect",
+            "output_messages": ["I still need a start date."],
+        }
     )
 
     output = await cli._cmd_chat(mock_graph, "thread-1", "hello")
@@ -122,6 +123,7 @@ async def test_cmd_chat_calls_aemit_event_with_human_source():
     )
     assert "emit_status=ok" in output
     assert "current_state=collect" in output
+    assert "I still need a start date." in capsys.readouterr().out
 
 
 @pytest.mark.asyncio

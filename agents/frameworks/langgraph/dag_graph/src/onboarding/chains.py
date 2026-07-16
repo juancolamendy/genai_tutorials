@@ -1,27 +1,42 @@
 """Domain-specific LLM chains for the onboarding pipeline.
 
-Two states require LLM assistance (design spec §10):
-  COLLECT       — a tool-calling agent gathers new-hire details; tool
-                  execution (not model prose) performs the transition, the
-                  handler node intercepts the tool call and applies the
-                  guarded, idempotent state delta itself
-  IT_PROVISIONED — a plain, deterministic, single-shot LCEL chain selects
-                  a username prefix
+Two states require LLM assistance:
+  COLLECT        — structured extraction of new-hire details (no tool agent)
+  IT_PROVISIONED — username prefix selection
 
-All chains are created via engine.chains.make_chain (LCEL) or
-langchain.agents.create_agent (tool-calling), reusing the same cached
-Claude client pattern already established in docprocessing/chains.py.
+Both use engine.chains.make_chain (LCEL + structured output), matching
+hrhelpdesk/docprocessing.
 """
 
-from langchain.agents import create_agent
-from langchain.tools import tool
-from pydantic import BaseModel
+from __future__ import annotations
 
-from src.engine.chains import DEFAULT_MODEL, make_chain
+from typing import Optional
+
+from pydantic import BaseModel, Field
+
+from src.engine.chains import make_chain
 
 # ─────────────────────────────────────────────────────────────────────────────
 # OUTPUT SCHEMAS
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+class NewHireDetails(BaseModel):
+    """Structured collect decision — handler alone applies state deltas."""
+
+    full_name: Optional[str] = Field(default=None, description="Full name if known")
+    role: Optional[str] = Field(default=None, description="Job title / role if known")
+    start_date: Optional[str] = Field(
+        default=None, description="Start date if known (any clear format)"
+    )
+    complete: bool = Field(
+        default=False,
+        description="True only when full_name, role, and start_date are all confirmed",
+    )
+    reply: str = Field(
+        description="User-facing ask for missing fields, or short confirmation when complete"
+    )
+
 
 class UsernameSelection(BaseModel):
     """Result of IT_PROVISIONED's username prefix selection."""
@@ -31,45 +46,39 @@ class UsernameSelection(BaseModel):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# COLLECT — tool-calling agent
+# COLLECT — structured extraction
 # ─────────────────────────────────────────────────────────────────────────────
 
-@tool
-def submit_new_hire(full_name: str, role: str, start_date: str) -> dict:
-    """Submit the new hire's collected details once name, role, and start
-    date are all known. Do not call this until all three are confirmed.
-
-    Args:
-        full_name: The new hire's full name
-        role: The new hire's job title / role
-        start_date: The new hire's start date (any human-readable format)
-
-    Returns:
-        The submitted details, echoed back so the handler node can read
-        them straight off the tool call rather than re-parsing model prose.
-    """
-    return {"full_name": full_name, "role": role, "start_date": start_date}
-
-
-collect_agent = create_agent(
-    model=DEFAULT_MODEL,
-    tools=[submit_new_hire],
+collect_chain = make_chain(
+    name="CollectNewHireChain",
     system_prompt="""You are an onboarding assistant collecting details about a new hire.
 
-Your job is to gather exactly three pieces of information through natural
-conversation:
-1. Full name
-2. Role / job title
-3. Start date
+Gather exactly three pieces of information:
+1. full_name
+2. role / job title
+3. start_date
 
-Ask for whatever is still missing, one turn at a time. Once all three are
-confirmed, call submit_new_hire with them — do not call it before all
-three are known, and do not invent values the human hasn't provided.""",
+Rules:
+- Extract only values the human has clearly provided; do not invent fields.
+- Set complete=true only when all three are known and confirmed.
+- When anything is missing, set complete=false and put a short, natural
+  question in reply asking only for what is still missing.
+- When complete, reply may briefly confirm the three fields.
+
+Respond ONLY with valid JSON matching this structure:
+{{
+  "full_name": <str or null>,
+  "role": <str or null>,
+  "start_date": <str or null>,
+  "complete": <bool>,
+  "reply": <str>
+}}""",
+    output_schema=NewHireDetails,
 )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# IT_PROVISIONED — deterministic LCEL chain
+# IT_PROVISIONED — username prefix
 # ─────────────────────────────────────────────────────────────────────────────
 
 username_chain = make_chain(
@@ -91,8 +100,8 @@ Respond ONLY with valid JSON matching this structure:
 
 
 __all__ = [
+    "NewHireDetails",
     "UsernameSelection",
-    "submit_new_hire",
-    "collect_agent",
+    "collect_chain",
     "username_chain",
 ]

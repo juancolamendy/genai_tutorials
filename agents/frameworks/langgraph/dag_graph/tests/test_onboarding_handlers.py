@@ -1,5 +1,5 @@
 """Tests for onboarding state handlers and graph wiring (design spec §3,
-§9's handler-side counterpart, §2.2). collect_agent is mocked throughout —
+§9's handler-side counterpart, §2.2). collect_chain is mocked throughout —
 no real LLM calls in unit tests, matching this codebase's precedent (no
 existing test file invokes a real chain/agent directly).
 """
@@ -168,52 +168,73 @@ def test_escalated_produces_output_message():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# handle_collect — tool-calling agent, mocked
+# handle_collect — structured chain, mocked
 # ─────────────────────────────────────────────────────────────────────────────
 
-@pytest.mark.asyncio
-async def test_handle_collect_extracts_details_from_tool_call():
-    from langchain_core.messages import AIMessage, ToolMessage
+def _mock_collect_chain(
+    *,
+    full_name: str | None = None,
+    role: str | None = None,
+    start_date: str | None = None,
+    complete: bool = False,
+    reply: str = "",
+):
+    from src.onboarding.chains import NewHireDetails
 
-    value = {
-        "messages": [
-            AIMessage(content="", tool_calls=[{"name": "submit_new_hire", "args": {}, "id": "1"}]),
-            ToolMessage(
-                content='{"full_name": "Jane Doe", "role": "Engineer", "start_date": "2026-08-01"}',
-                name="submit_new_hire",
-                tool_call_id="1",
-            ),
-        ]
-    }
-    mock_agent = MagicMock()
-    mock_agent.ainvoke = AsyncMock(return_value=value)
+    value = NewHireDetails(
+        full_name=full_name,
+        role=role,
+        start_date=start_date,
+        complete=complete,
+        reply=reply,
+    )
+    mock = MagicMock()
+    mock.ainvoke = AsyncMock(return_value=value)
+    return mock
+
+
+@pytest.mark.asyncio
+async def test_handle_collect_extracts_details_when_complete():
     state = {
         **new_onboarding_session_state(),
         "input_message": "Jane Doe, Engineer, starts Aug 1 2026",
     }
 
-    with patch("src.onboarding.chains.collect_agent", mock_agent):
+    with patch(
+        "src.onboarding.chains.collect_chain",
+        _mock_collect_chain(
+            full_name="Jane Doe",
+            role="Engineer",
+            start_date="2026-08-01",
+            complete=True,
+            reply="Got it — thanks.",
+        ),
+    ):
         result = await handle_collect(state)
 
     assert result["new_hire_details"]["full_name"] == "Jane Doe"
     assert result["new_hire_details"]["role"] == "Engineer"
+    assert result["new_hire_details"]["start_date"] == "2026-08-01"
 
 
 @pytest.mark.asyncio
 async def test_handle_collect_asks_for_more_when_incomplete():
-    from langchain_core.messages import AIMessage
-
-    value = {
-        "messages": [AIMessage(content="What's your start date?")],
-    }
-    mock_agent = MagicMock()
-    mock_agent.ainvoke = AsyncMock(return_value=value)
     state = {**new_onboarding_session_state(), "input_message": "Jane Doe, Engineer"}
 
-    with patch("src.onboarding.chains.collect_agent", mock_agent):
+    with patch(
+        "src.onboarding.chains.collect_chain",
+        _mock_collect_chain(
+            full_name="Jane Doe",
+            role="Engineer",
+            complete=False,
+            reply="What's your start date?",
+        ),
+    ):
         result = await handle_collect(state)
 
-    assert "new_hire_details" not in result
+    assert result["new_hire_details"]["full_name"] == "Jane Doe"
+    assert result["new_hire_details"]["role"] == "Engineer"
+    assert "start_date" not in result["new_hire_details"]
     assert result["output_messages"] == ["What's your start date?"]
 
 
@@ -254,37 +275,26 @@ async def test_ainvoke_drives_collect_to_await_documents_signed_end_to_end():
     """
     from uuid import uuid4
 
-    from langchain_core.messages import AIMessage, ToolMessage
-
     graph = build_graph(sessions_dir=f"/tmp/test_onboarding_e2e_{uuid4()}")
     session_id = str(uuid4())
 
     turn1 = graph.invoke(user_id="user-1", session_id=session_id, input_message="start onboarding")
     assert turn1["current_state"] == State.COLLECT.value
 
-    agent_value = {
-        "messages": [
-            AIMessage(content="", tool_calls=[{"name": "submit_new_hire", "args": {}, "id": "1"}]),
-            ToolMessage(
-                content=(
-                    '{"full_name": "Jane Doe", "role": "Engineer", '
-                    '"start_date": "2026-08-01"}'
-                ),
-                name="submit_new_hire",
-                tool_call_id="1",
-            ),
-        ]
-    }
-    mock_agent = MagicMock()
-    mock_agent.ainvoke = AsyncMock(return_value=agent_value)
     mock_username_chain = MagicMock()
     mock_username_chain.ainvoke = AsyncMock(
         return_value={"username_prefix": "jdoe", "reasoning": "n/a"}
     )
 
-    with patch("src.onboarding.chains.collect_agent", mock_agent), patch(
-        "src.onboarding.chains.username_chain", mock_username_chain
-    ):
+    with patch(
+        "src.onboarding.chains.collect_chain",
+        _mock_collect_chain(
+            full_name="Jane Doe",
+            role="Engineer",
+            start_date="2026-08-01",
+            complete=True,
+        ),
+    ), patch("src.onboarding.chains.username_chain", mock_username_chain):
         turn2 = await graph.ainvoke(
             user_id="user-1",
             session_id=session_id,
@@ -297,3 +307,57 @@ async def test_ainvoke_drives_collect_to_await_documents_signed_end_to_end():
     assert turn2["current_state"] == State.AWAIT_DOCUMENTS_SIGNED.value
     assert turn2["new_hire_details"]["full_name"] == "Jane Doe"
     assert turn2["welcome_sent"] is True
+
+
+@pytest.mark.asyncio
+async def test_incomplete_collect_stays_at_collect_for_another_chat():
+    """Missing fields → COLLECT self-loop (guardrail); next chat can finish."""
+    from uuid import uuid4
+
+    graph = build_graph(sessions_dir=f"/tmp/test_onboarding_incomplete_{uuid4()}")
+    session_id = str(uuid4())
+
+    await graph.ainvoke(user_id="", session_id=session_id, input_message="start")
+
+    with patch(
+        "src.onboarding.chains.collect_chain",
+        _mock_collect_chain(
+            full_name="Jane Doe",
+            role="Engineer",
+            complete=False,
+            reply="What's your start date?",
+        ),
+    ):
+        incomplete = await graph.aemit_event(
+            thread_id=session_id,
+            event_source="human",
+            event_type="message",
+            input_message="Jane Doe, Engineer",
+        )
+
+    assert incomplete["emit_status"] == "ok"
+    assert incomplete["current_state"] == State.COLLECT.value
+    assert any("start date" in m.lower() for m in incomplete.get("output_messages", []))
+
+    mock_username_chain = MagicMock()
+    mock_username_chain.ainvoke = AsyncMock(
+        return_value={"username_prefix": "jdoe", "reasoning": "n/a"}
+    )
+    with patch(
+        "src.onboarding.chains.collect_chain",
+        _mock_collect_chain(
+            full_name="Jane Doe",
+            role="Engineer",
+            start_date="2026-08-01",
+            complete=True,
+        ),
+    ), patch("src.onboarding.chains.username_chain", mock_username_chain):
+        complete = await graph.aemit_event(
+            thread_id=session_id,
+            event_source="human",
+            event_type="message",
+            input_message="Start date 2026-08-01",
+        )
+
+    assert complete["current_state"] == State.AWAIT_DOCUMENTS_SIGNED.value
+    assert complete["new_hire_details"]["start_date"] == "2026-08-01"

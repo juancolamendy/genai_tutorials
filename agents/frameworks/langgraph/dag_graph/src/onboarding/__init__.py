@@ -1,16 +1,12 @@
 """New-hire onboarding package: mirrors docprocessing's structure, built to
 exercise the engine-event-extension design (aemit_event, arun_to_completion,
 wait_kind/expected_events).
-
-Handlers and graph wiring land in a later phase; this package currently
-exposes the state machine skeleton (state_transitions, session_state,
-guardrails, chains).
 """
 
 from src.onboarding.chains import (
+    NewHireDetails,
     UsernameSelection,
-    collect_agent,
-    submit_new_hire,
+    collect_chain,
     username_chain,
 )
 from src.onboarding.guardrails import (
@@ -41,8 +37,8 @@ __all__ = [
     "check_transition_allowed",
     "check_not_timeout_escalation",
     # LLM chains
+    "NewHireDetails",
     "UsernameSelection",
-    "submit_new_hire",
-    "collect_agent",
+    "collect_chain",
     "username_chain",
 ]

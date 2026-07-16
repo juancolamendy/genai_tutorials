@@ -2,7 +2,7 @@
 (design spec §3) entirely through aemit_event/ainvoke — the final proof
 that every phase's pieces compose correctly.
 
-collect_agent and username_chain are mocked (no real LLM calls); every
+collect_chain and username_chain are mocked (no real LLM calls); every
 other mechanism (aemit_event's gate, guardrails, handlers, the event
 ledger, auto-progression) is exercised for real.
 """
@@ -12,9 +12,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
-from langchain_core.messages import AIMessage, ToolMessage
 
 from src.engine.handler_registry import get_handler_metadata
+from src.onboarding.chains import NewHireDetails
 from src.onboarding.graph import build_graph as _build_onboarding_graph
 from src.onboarding.state_transitions import State
 
@@ -30,30 +30,27 @@ def _ensure_onboarding_handlers_registered():
         importlib.reload(onboarding_handlers)
 
 
-def _mock_collect_agent(complete=True):
-    mock_agent = MagicMock()
+def _mock_collect_chain(complete=True):
+    mock = MagicMock()
     if complete:
-        tool_call = {"name": "submit_new_hire", "args": {}, "id": "1"}
-        value = {
-            "messages": [
-                AIMessage(content="", tool_calls=[tool_call]),
-                ToolMessage(
-                    content=(
-                        '{"full_name": "Jane Doe", "role": "Engineer", '
-                        '"start_date": "2026-08-01"}'
-                    ),
-                    name="submit_new_hire",
-                    tool_call_id="1",
-                ),
-            ]
-        }
+        value = NewHireDetails(
+            full_name="Jane Doe",
+            role="Engineer",
+            start_date="2026-08-01",
+            complete=True,
+            reply="Thanks — recorded.",
+        )
     else:
-        value = {
-            "messages": [AIMessage(content="What role?")],
-        }
-    mock_agent.ainvoke = AsyncMock(return_value=value)
-    mock_agent.invoke.return_value = value
-    return mock_agent
+        value = NewHireDetails(
+            full_name="Jane Doe",
+            role=None,
+            start_date=None,
+            complete=False,
+            reply="What role?",
+        )
+    mock.ainvoke = AsyncMock(return_value=value)
+    mock.invoke.return_value = value
+    return mock
 
 
 def _mock_username_chain():
@@ -77,7 +74,7 @@ async def _kickoff_and_collect(graph, thread_id):
     turn1 = await graph.ainvoke(user_id="", session_id=thread_id, input_message="start")
     assert turn1["current_state"] == State.COLLECT.value
 
-    with patch("src.onboarding.chains.collect_agent", _mock_collect_agent()):
+    with patch("src.onboarding.chains.collect_chain", _mock_collect_chain()):
         result = await graph.aemit_event(
             thread_id=thread_id,
             event_source="human",
@@ -87,7 +84,6 @@ async def _kickoff_and_collect(graph, thread_id):
     assert result["emit_status"] == "ok"
     assert result["current_state"] == State.AWAIT_DOCUMENTS_SIGNED.value
     return result
-
 
 @pytest.mark.asyncio
 async def test_full_happy_path_through_aemit_event():
@@ -147,7 +143,10 @@ async def test_timeout_escalation_from_await_hardware_delivered():
 
     with patch("src.onboarding.chains.username_chain", _mock_username_chain()):
         signed = await graph.aemit_event(
-            thread_id=thread_id, event_source="system", event_type="document_signed", event_id="evt-s"
+            thread_id=thread_id,
+            event_source="system",
+            event_type="document_signed",
+            event_id="evt-s",
         )
     assert signed["current_state"] == State.AWAIT_HARDWARE_DELIVERED.value
 

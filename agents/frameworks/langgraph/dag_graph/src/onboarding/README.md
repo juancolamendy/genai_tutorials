@@ -12,7 +12,7 @@ for transitions (design: “No LLM output transitions state”).
 | `handlers.py` | Per-state business logic (collect, welcome, awaits, provision, …) |
 | `state_transitions.py` | `State`, `happy_path`, `allowed_transitions`, terminals |
 | `guardrails.py` | Transition + completeness checks (e.g. collect self-loop) |
-| `chains.py` | Collect agent + username chain |
+| `chains.py` | Structured collect + username chains |
 | `cli.py` | `chat`, `event`, `sweep`, `status`, `serve` |
 | `sweep.py` | Timeout escalation for document / hardware park states |
 
@@ -130,7 +130,7 @@ may keep you in `COLLECT` (incomplete details) or divert to `ESCALATED` /
 | Turn | Command | Effect |
 |---|---|---|
 | Bootstrap | `ainvoke(…, 'start')` | INIT → park at `collect` |
-| Human | `cli chat … "Jane Doe, …"` | Collect agent → if complete, auto through welcome → `await_documents_signed` |
+| Human | `cli chat … "Jane Doe, …"` | Collect chain → if incomplete, park at `collect` + ask; if complete, auto through welcome → `await_documents_signed` |
 | System | `cli event … document_signed` | Unblock docs → IT provision → park at `await_hardware_delivered` |
 | System | `cli event … hardware_delivered` | Unblock hardware → schedule → `complete` |
 | Sweep | `cli sweep` | Stale park → `timeout_escalation` → escalate path |

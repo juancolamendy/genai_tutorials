@@ -13,11 +13,8 @@ accumulated list.
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
-
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from src.engine.chains import chain_field
 from src.engine.handler_registry import handler
@@ -73,35 +70,37 @@ def _log_exit(handler_name: str, delta: dict[str, Any]) -> dict[str, Any]:
     description="Collect new-hire details via conversation",
 )
 async def handle_collect(state: OnboardingState) -> OnboardingState:
-    """Gather new-hire details through a tool-calling agent.
+    """Gather new-hire details via structured collect_chain.
 
-    Tool execution — not model prose — performs the transition: this node
-    intercepts the submit_new_hire tool call and applies the guarded,
-    idempotent state delta itself. The router always proposes WELCOME_SENT
-    next regardless of whether details are complete (code routing, no LLM
-    in the transition decision — design spec §2.3); it's
-    check_new_hire_details_complete (guardrails.py) that actually
-    implements the collect --> collect self-loop when they aren't.
+    The router always proposes WELCOME_SENT from COLLECT (code routing);
+    check_new_hire_details_complete on WELCOME_SENT implements the
+    collect → collect self-loop when details are incomplete. This handler
+    only extracts fields / reply text — it does not choose the next state.
 
     Args:
         state: OnboardingState with input_message set for this turn
 
     Returns:
-        Delta with new_hire_details if the agent called submit_new_hire
-        this turn, or output_messages asking for whatever's still missing
+        Delta with new_hire_details when complete, or output_messages asking
+        for whatever is still missing (CLI prints those; park stays COLLECT)
     """
-    from .chains import collect_agent
+    from .chains import collect_chain
 
     _log_enter("collect", state)
     input_message = state.get("input_message") or ""
-    log.info("[HANDLER] collect  input=%r", input_message[:80])
+    prior = dict(state.get("new_hire_details") or {})
+    log.info("[HANDLER] collect  input=%r  prior=%s", input_message[:80], prior)
+
+    chain_input = (
+        f"Known so far: {prior}\n"
+        f"User message: {input_message}\n"
+        "Return updated fields and whether collection is complete."
+    )
 
     try:
-        result = await collect_agent.ainvoke(
-            {"messages": [HumanMessage(content=input_message)]}
-        )
+        decision = await collect_chain.ainvoke({"input": chain_input})
     except Exception as e:
-        log.error("[HANDLER] collect agent failed: %s", e)
+        log.error("[HANDLER] collect chain failed: %s", e)
         return _log_exit(
             "collect",
             {
@@ -111,45 +110,46 @@ async def handle_collect(state: OnboardingState) -> OnboardingState:
             },
         )
 
-    agent_messages = result.get("messages", [])
+    details = dict(prior)
+    for key in ("full_name", "role", "start_date"):
+        value = chain_field(decision, key, None)
+        if value:
+            details[key] = value
 
-    tool_result = next(
-        (m for m in reversed(agent_messages) if isinstance(m, ToolMessage)),
-        None,
+    complete = bool(chain_field(decision, "complete", False)) and all(
+        details.get(k) for k in ("full_name", "role", "start_date")
     )
-    if tool_result is not None:
-        details = (
-            json.loads(tool_result.content)
-            if isinstance(tool_result.content, str)
-            else tool_result.content
-        )
+    reply = str(chain_field(decision, "reply", "") or "")
+
+    if complete:
         log.info(
-            "[HANDLER] collect  tool=submit_new_hire  details=%s",
+            "[HANDLER] collect  complete  details=%s",
             {k: details.get(k) for k in ("full_name", "role", "start_date")},
         )
-        return _log_exit(
-            "collect",
-            {
-                "handler_status": "ok",
-                "new_hire_details": details,
-                "audit_trail": [f"collect: details submitted for {details.get('full_name')}"],
-            },
-        )
+        delta: dict[str, Any] = {
+            "handler_status": "ok",
+            "new_hire_details": details,
+            "audit_trail": [f"collect: details submitted for {details.get('full_name')}"],
+        }
+        if reply:
+            delta["output_messages"] = [reply]
+        return _log_exit("collect", delta)
 
-    last_ai = next(
-        (m for m in reversed(agent_messages) if isinstance(m, AIMessage) and m.content),
-        None,
-    )
     log.info(
-        "[HANDLER] collect  no tool call yet — clarifying (ai=%r)",
-        (last_ai.content[:80] if last_ai else None),
+        "[HANDLER] collect  incomplete — asking (reply=%r)",
+        reply[:80] if reply else None,
     )
+    missing = [k for k in ("full_name", "role", "start_date") if not details.get(k)]
+    ask = reply or f"I still need: {', '.join(missing)}."
+    # Print/notify for operators (CLI also surfaces output_messages).
+    print(f"[onboarding notify] missing fields ({', '.join(missing)}): {ask}")
     return _log_exit(
         "collect",
         {
             "handler_status": "ok",
-            "output_messages": [last_ai.content] if last_ai else [],
-            "audit_trail": ["collect: awaiting more details"],
+            "new_hire_details": details,
+            "output_messages": [ask],
+            "audit_trail": [f"collect: awaiting more details (missing={missing})"],
         },
     )
 

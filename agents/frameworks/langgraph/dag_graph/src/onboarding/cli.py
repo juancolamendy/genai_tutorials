@@ -70,6 +70,8 @@ async def _cmd_chat(graph: Graph, thread_id: str, message: str) -> str:
     result = await graph.aemit_event(
         thread_id=thread_id, event_source="human", event_type="message", input_message=message
     )
+    for line in result.get("output_messages") or []:
+        print(line)
     log.info("[CLI] chat  result=%s", _format_result(result))
     return _format_result(result)
 
