@@ -61,6 +61,27 @@ def make_guardrail(*checks: GuardrailFn) -> GuardrailFn:
 # its own state enum / transition table / error fallback state.
 # ─────────────────────────────────────────────────────────────────────────────
 
+def make_handler_status_guardrail(error_state: Any) -> GuardrailFn:
+    """Build a guardrail that diverts when ``handler_status == "error"``.
+
+    Fallible handlers stamp ``handler_status`` / ``error_message`` on caught
+    business failures. The engine runs this check in ``_guardrail_node``
+    *before* the domain registry entry for ``proposed_next``, so every
+    pipeline gets the divert-to-ERROR behavior without duplicating the check.
+    """
+
+    def check_handler_status(state: dict[str, Any]) -> GuardrailResult:
+        if state.get("handler_status") == "error":
+            return GuardrailResult(
+                passed=False,
+                reason=state.get("error_message") or "handler failed",
+                fallback=error_state,
+            )
+        return GuardrailResult(passed=True)
+
+    return check_handler_status
+
+
 def make_transition_guardrail(
     state_enum: type,
     is_transition_allowed: Callable[[Any, Any], bool],

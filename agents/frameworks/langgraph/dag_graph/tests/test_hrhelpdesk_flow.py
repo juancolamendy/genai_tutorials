@@ -513,3 +513,33 @@ async def test_faq_path_never_calls_booking_tools():
 
     assert result["status"] == "ok"
     assert len(_booking_store) == 0
+
+
+@pytest.mark.asyncio
+async def test_escalate_chain_failure_diverts_to_error():
+    """Engine runs handler_status check before domain IDLE guardrail — a
+    failed escalate must not park at idle."""
+    graph = build_graph()
+    thread_id = str(uuid4())
+
+    failing = MagicMock()
+    failing.invoke.side_effect = RuntimeError("llm down")
+
+    with (
+        patch(
+            "src.hrhelpdesk.handlers.classify_utterance",
+            return_value=_decision("escalate"),
+        ),
+        patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
+        patch("src.hrhelpdesk.handlers.escalate_chain", failing),
+    ):
+        result = await graph.aemit_event(
+            thread_id=thread_id,
+            source="human",
+            event_type="message",
+            input_message="Please open a ticket",
+        )
+
+    assert result["status"] == "error"
+    assert result.get("current_state") == State.ERROR.value
+    assert "llm down" in (result.get("error_message") or "")

@@ -22,17 +22,6 @@ def _booking_confirmed(state: HelpdeskState) -> bool:
     return bool(topic_data.get("booking_confirmed"))
 
 
-def check_handler_status(state: HelpdeskState) -> GuardrailResult:
-    """Divert to ERROR when the previous handler stamped handler_status=\"error\"."""
-    if state.get("handler_status") == "error":
-        return GuardrailResult(
-            passed=False,
-            reason=state.get("error_message") or "handler failed",
-            fallback=State.ERROR,
-        )
-    return GuardrailResult(passed=True)
-
-
 def check_booking_sticky(state: HelpdeskState) -> GuardrailResult:
     """Self-loop TOPIC_BOOKING until confirmed; otherwise proceed to IDLE."""
     if state.get("active_topic") != "booking":
@@ -47,11 +36,11 @@ def check_booking_sticky(state: HelpdeskState) -> GuardrailResult:
 
 
 guardrails: Dict[State, GuardrailFn] = {
-    State.CLARIFY: make_guardrail(check_handler_status, check_transition_allowed),
-    State.TOPIC_FAQ: make_guardrail(check_handler_status, check_transition_allowed),
-    State.TOPIC_ESCALATE: make_guardrail(check_handler_status, check_transition_allowed),
+    # handler_status → ERROR is enforced centrally in EngineGraph._guardrail_node.
+    State.CLARIFY: make_guardrail(check_transition_allowed),
+    State.TOPIC_FAQ: make_guardrail(check_transition_allowed),
+    State.TOPIC_ESCALATE: make_guardrail(check_transition_allowed),
     State.TOPIC_BOOKING: make_guardrail(
-        check_handler_status,
         check_booking_sticky,
         check_transition_allowed,
     ),
@@ -62,7 +51,6 @@ guardrails: Dict[State, GuardrailFn] = {
 
 __all__ = [
     "check_transition_allowed",
-    "check_handler_status",
     "check_booking_sticky",
     "guardrails",
 ]

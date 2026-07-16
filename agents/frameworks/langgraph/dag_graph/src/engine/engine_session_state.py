@@ -81,11 +81,12 @@ class EngineSessionState(TypedDict, total=False):
     Individual handlers never set this themselves."""
 
     handler_status: Literal["ok", "error"]
-    """Per-handler business outcome for guardrail diversion. Fallible handlers
-    stamp "error" on caught business failures (e.g. LLM/tool exceptions) and
-    "ok" on success. A domain guardrail (check_handler_status) reading this
-    can divert to ERROR — do not use session status for that; dispatch resets
-    status to "ok" on every non-ERROR handler."""
+    """Per-handler business outcome. Fallible handlers stamp "error" on caught
+    business failures (e.g. LLM/tool exceptions) and "ok" on success.
+    EngineGraph._guardrail_node always runs make_handler_status_guardrail
+    before the domain registry, diverting to ERROR when this is "error" —
+    do not use session status for that; dispatch resets status to "ok" on
+    every non-ERROR handler."""
 
     guardrail_ok: bool
     """Guardrail validation result. True if proposed_next passed guardrails."""

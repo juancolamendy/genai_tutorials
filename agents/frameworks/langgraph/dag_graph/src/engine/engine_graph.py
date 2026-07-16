@@ -258,6 +258,10 @@ class EngineGraph:
     def _guardrail_node(self, state: dict[str, Any]) -> dict[str, Any]:
         """Validate proposed_next; apply fallback if needed.
 
+        Always runs the universal ``handler_status`` check first (divert to
+        ERROR on a prior handler failure), then the domain guardrail for
+        ``proposed_next``.
+
         If the (possibly fallback-adjusted) target state waits for input, park
         current_state there without running its handler — the handler only
         runs once, on the turn that actually supplies fresh input for it (see
@@ -269,12 +273,19 @@ class EngineGraph:
         Returns:
             Updated state with guardrail result applied
         """
+        from src.engine.guardrail import GuardrailResult, make_handler_status_guardrail
         from src.engine.handler_registry import does_state_wait_for_input
 
         proposed = self._get_proposed_state(state)
         guardrails = self._get_guardrails()
-        guard = guardrails.get(proposed, lambda _: type("Result", (), {"passed": True})())
-        result = guard(state)
+        domain_guard = guardrails.get(
+            proposed, lambda _: GuardrailResult(passed=True)
+        )
+
+        # Universal control-plane check — before any domain-specific gate.
+        result = make_handler_status_guardrail(self.state_enum.ERROR)(state)
+        if result.passed:
+            result = domain_guard(state)
 
         if result.passed:
             log.info("[GUARDRAIL] ✅  %s passed", proposed)

@@ -137,14 +137,15 @@ def test_it_provisioned_stamps_handler_status_error_on_chain_failure():
     assert "it_provisioned" not in result
 
 
-def test_check_handler_status_diverts_to_error():
-    from src.onboarding.guardrails import check_handler_status
+def test_make_handler_status_guardrail_diverts_to_error():
+    from src.engine.guardrail import make_handler_status_guardrail
     from src.onboarding.state_transitions import State
 
-    ok = check_handler_status({**new_onboarding_session_state(), "handler_status": "ok"})
+    check = make_handler_status_guardrail(State.ERROR)
+    ok = check({**new_onboarding_session_state(), "handler_status": "ok"})
     assert ok.passed is True
 
-    bad = check_handler_status(
+    bad = check(
         {
             **new_onboarding_session_state(),
             "handler_status": "error",
