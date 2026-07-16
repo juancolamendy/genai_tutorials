@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock
 
+import pytest
+
 from src.engine.chat_engine_graph import ChatEngineGraph, TopicDecision
 from src.engine.escape_checker import DefaultEscapeChecker, EscapeDecision, EscapeOutput
 
@@ -62,6 +64,30 @@ def test_run_escape_uses_escape_checker():
     g.escape_checker = mock
     assert g.run_escape("switch to PTO").escape is True
     mock.check.assert_called_once_with("switch to PTO")
+
+
+@pytest.mark.asyncio
+async def test_arun_escape_uses_acheck():
+    from unittest.mock import AsyncMock
+
+    g = _TinyChatGraph()
+    mock = MagicMock()
+    mock.acheck = AsyncMock(return_value=EscapeDecision(escape=True))
+    g.escape_checker = mock
+    assert (await g.arun_escape("switch to PTO")).escape is True
+    mock.acheck.assert_awaited_once_with("switch to PTO")
+
+
+@pytest.mark.asyncio
+async def test_default_escape_checker_acheck_uses_ainvoke():
+    from unittest.mock import AsyncMock
+
+    checker = DefaultEscapeChecker()
+    chain = MagicMock()
+    chain.ainvoke = AsyncMock(return_value=EscapeOutput(escape=True))
+    checker._get_chain = MagicMock(return_value=chain)  # type: ignore[method-assign]
+    assert (await checker.acheck("cancel this")).escape is True
+    chain.ainvoke.assert_awaited_once_with({"input": "cancel this"})
 
 
 def test_default_escape_checker_failure_stays_in_lane():

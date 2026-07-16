@@ -5,7 +5,7 @@ existing test file invokes a real chain/agent directly).
 """
 
 import importlib
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -113,25 +113,29 @@ def test_complete_sets_hr_notified_once():
     assert "already" in second_result["audit_trail"][0]
 
 
-def test_it_provisioned_sets_guard_flag_once():
+@pytest.mark.asyncio
+async def test_it_provisioned_sets_guard_flag_once():
     state = {**new_onboarding_session_state(), "new_hire_details": {"full_name": "Jane Doe"}}
     with patch("src.onboarding.chains.username_chain") as mock_chain:
-        mock_chain.invoke.return_value = {"username_prefix": "jdoe", "reasoning": "first+last"}
-        result = handle_it_provisioned(state)
+        mock_chain.ainvoke = AsyncMock(
+            return_value={"username_prefix": "jdoe", "reasoning": "first+last"}
+        )
+        result = await handle_it_provisioned(state)
     assert result["it_provisioned"] is True
     assert result["username_prefix"] == "jdoe"
     assert result["handler_status"] == "ok"
 
     already_provisioned_state = {**state, "it_provisioned": True}
-    second_result = handle_it_provisioned(already_provisioned_state)
+    second_result = await handle_it_provisioned(already_provisioned_state)
     assert "already provisioned" in second_result["audit_trail"][0]
 
 
-def test_it_provisioned_stamps_handler_status_error_on_chain_failure():
+@pytest.mark.asyncio
+async def test_it_provisioned_stamps_handler_status_error_on_chain_failure():
     state = {**new_onboarding_session_state(), "new_hire_details": {"full_name": "Jane Doe"}}
     with patch("src.onboarding.chains.username_chain") as mock_chain:
-        mock_chain.invoke.side_effect = RuntimeError("llm down")
-        result = handle_it_provisioned(state)
+        mock_chain.ainvoke = AsyncMock(side_effect=RuntimeError("llm down"))
+        result = await handle_it_provisioned(state)
     assert result["handler_status"] == "error"
     assert "llm down" in result["error_message"]
     assert "it_provisioned" not in result
@@ -167,11 +171,11 @@ def test_escalated_produces_output_message():
 # handle_collect — tool-calling agent, mocked
 # ─────────────────────────────────────────────────────────────────────────────
 
-def test_handle_collect_extracts_details_from_tool_call():
+@pytest.mark.asyncio
+async def test_handle_collect_extracts_details_from_tool_call():
     from langchain_core.messages import AIMessage, ToolMessage
 
-    mock_agent = MagicMock()
-    mock_agent.invoke.return_value = {
+    value = {
         "messages": [
             AIMessage(content="", tool_calls=[{"name": "submit_new_hire", "args": {}, "id": "1"}]),
             ToolMessage(
@@ -181,29 +185,33 @@ def test_handle_collect_extracts_details_from_tool_call():
             ),
         ]
     }
+    mock_agent = MagicMock()
+    mock_agent.ainvoke = AsyncMock(return_value=value)
     state = {
         **new_onboarding_session_state(),
         "input_message": "Jane Doe, Engineer, starts Aug 1 2026",
     }
 
     with patch("src.onboarding.chains.collect_agent", mock_agent):
-        result = handle_collect(state)
+        result = await handle_collect(state)
 
     assert result["new_hire_details"]["full_name"] == "Jane Doe"
     assert result["new_hire_details"]["role"] == "Engineer"
 
 
-def test_handle_collect_asks_for_more_when_incomplete():
+@pytest.mark.asyncio
+async def test_handle_collect_asks_for_more_when_incomplete():
     from langchain_core.messages import AIMessage
 
-    mock_agent = MagicMock()
-    mock_agent.invoke.return_value = {
+    value = {
         "messages": [AIMessage(content="What's your start date?")],
     }
+    mock_agent = MagicMock()
+    mock_agent.ainvoke = AsyncMock(return_value=value)
     state = {**new_onboarding_session_state(), "input_message": "Jane Doe, Engineer"}
 
     with patch("src.onboarding.chains.collect_agent", mock_agent):
-        result = handle_collect(state)
+        result = await handle_collect(state)
 
     assert "new_hire_details" not in result
     assert result["output_messages"] == ["What's your start date?"]
@@ -237,18 +245,12 @@ def test_build_graph_produces_compiled_graph():
     assert isinstance(graph, Graph)
 
 
-def test_invoke_drives_collect_to_await_documents_signed_end_to_end():
-    """Plan success criterion: build_graph() must produce a working
-    compiled graph drivable with plain invoke() from COLLECT to the first
-    park state, using only synthetic state deltas — no aemit_event needed
-    yet (that's Phase 10's integration test).
+@pytest.mark.asyncio
+async def test_ainvoke_drives_collect_to_await_documents_signed_end_to_end():
+    """Async collect handler requires ainvoke on the turn that dispatches it.
 
-    Two turns, matching docprocessing's own UPLOAD_DOCUMENTS convention
-    exactly: turn 1 parks at COLLECT without ever dispatching its handler
-    (COLLECT waits_for_input=True, so the graph run ends at the park
-    point before running it — confirmed by tracing _guardrail_router);
-    turn 2's resume-dispatch step is what actually runs handle_collect
-    with the real input.
+    Turn 1 can still use sync invoke (parks at COLLECT without running the
+    handler). Turn 2 resume-dispatches async handle_collect.
     """
     from uuid import uuid4
 
@@ -260,8 +262,7 @@ def test_invoke_drives_collect_to_await_documents_signed_end_to_end():
     turn1 = graph.invoke(user_id="user-1", session_id=session_id, input_message="start onboarding")
     assert turn1["current_state"] == State.COLLECT.value
 
-    mock_agent = MagicMock()
-    mock_agent.invoke.return_value = {
+    agent_value = {
         "messages": [
             AIMessage(content="", tool_calls=[{"name": "submit_new_hire", "args": {}, "id": "1"}]),
             ToolMessage(
@@ -274,13 +275,17 @@ def test_invoke_drives_collect_to_await_documents_signed_end_to_end():
             ),
         ]
     }
+    mock_agent = MagicMock()
+    mock_agent.ainvoke = AsyncMock(return_value=agent_value)
     mock_username_chain = MagicMock()
-    mock_username_chain.invoke.return_value = {"username_prefix": "jdoe", "reasoning": "n/a"}
+    mock_username_chain.ainvoke = AsyncMock(
+        return_value={"username_prefix": "jdoe", "reasoning": "n/a"}
+    )
 
     with patch("src.onboarding.chains.collect_agent", mock_agent), patch(
         "src.onboarding.chains.username_chain", mock_username_chain
     ):
-        turn2 = graph.invoke(
+        turn2 = await graph.ainvoke(
             user_id="user-1",
             session_id=session_id,
             input_message="Jane Doe, Engineer, starting 2026-08-01",

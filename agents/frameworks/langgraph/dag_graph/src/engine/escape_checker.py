@@ -47,6 +47,8 @@ class EscapeChecker(Protocol):
 
     def check(self, text: str) -> EscapeDecision: ...
 
+    async def acheck(self, text: str) -> EscapeDecision: ...
+
 
 class DefaultEscapeChecker:
     """LLM escape checker reusable across chatbot domains.
@@ -78,16 +80,27 @@ class DefaultEscapeChecker:
             )
         return self._chain
 
+    def _decision_from_raw(self, raw: Any) -> EscapeDecision:
+        response: Any = (
+            raw if isinstance(raw, self.output_schema) else self.output_schema(**raw)
+        )
+        return EscapeDecision(escape=bool(response.escape))
+
     def check(self, text: str) -> EscapeDecision:
         """Classify whether ``text`` is leaving the current sticky topic."""
         try:
-            raw = self._get_chain().invoke({"input": text})
-            response: Any = (
-                raw if isinstance(raw, self.output_schema) else self.output_schema(**raw)
-            )
-            return EscapeDecision(escape=bool(response.escape))
+            return self._decision_from_raw(self._get_chain().invoke({"input": text}))
         except Exception as exc:
             log.exception("[DefaultEscapeChecker] check() failed: %s", exc)
+            return EscapeDecision(escape=False)
+
+    async def acheck(self, text: str) -> EscapeDecision:
+        """Async twin of ``check`` — uses ``chain.ainvoke``."""
+        try:
+            raw = await self._get_chain().ainvoke({"input": text})
+            return self._decision_from_raw(raw)
+        except Exception as exc:
+            log.exception("[DefaultEscapeChecker] acheck() failed: %s", exc)
             return EscapeDecision(escape=False)
 
 

@@ -72,7 +72,7 @@ def _log_exit(handler_name: str, delta: dict[str, Any]) -> dict[str, Any]:
     wait_kind="human",
     description="Collect new-hire details via conversation",
 )
-def handle_collect(state: OnboardingState) -> OnboardingState:
+async def handle_collect(state: OnboardingState) -> OnboardingState:
     """Gather new-hire details through a tool-calling agent.
 
     Tool execution — not model prose — performs the transition: this node
@@ -97,7 +97,7 @@ def handle_collect(state: OnboardingState) -> OnboardingState:
     log.info("[HANDLER] collect  input=%r", input_message[:80])
 
     try:
-        result = collect_agent.invoke(
+        result = await collect_agent.ainvoke(
             {"messages": [HumanMessage(content=input_message)]}
         )
     except Exception as e:
@@ -218,7 +218,7 @@ def handle_await_documents_signed(state: OnboardingState) -> OnboardingState:
     waits_for_input=False,
     description="Provision IT account (username selection)",
 )
-def handle_it_provisioned(state: OnboardingState) -> OnboardingState:
+async def handle_it_provisioned(state: OnboardingState) -> OnboardingState:
     """Select a username prefix, once.
 
     Args:
@@ -243,7 +243,7 @@ def handle_it_provisioned(state: OnboardingState) -> OnboardingState:
     details = state.get("new_hire_details") or {}
     log.info("[HANDLER] it_provisioned  selecting username from details=%s", details)
     try:
-        result = username_chain.invoke({"input": str(details)})
+        result = await username_chain.ainvoke({"input": str(details)})
         prefix = chain_field(result, "username_prefix", "user")
     except Exception as e:
         log.error("[HANDLER] username chain failed: %s", e)

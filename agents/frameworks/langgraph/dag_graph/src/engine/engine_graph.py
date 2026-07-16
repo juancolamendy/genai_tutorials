@@ -36,6 +36,16 @@ _EMIT_RESERVED_PAYLOAD_KEYS = frozenset(
 # ERROR HANDLING & SAFETY
 # ─────────────────────────────────────────────────────────────────────────
 
+def _safe_node_error_delta(state: dict[str, Any], exc: Exception) -> dict[str, Any]:
+    return {
+        **state,
+        "error_message": str(exc),
+        "error_type": type(exc).__name__,
+        "session_status": "error",
+        "proposed_next": "error",  # Route to error state
+    }
+
+
 def safe_node(func: Callable) -> Callable:
     """Wrap node function with error handling.
 
@@ -43,8 +53,26 @@ def safe_node(func: Callable) -> Callable:
     declares a second parameter, the LangGraph invocation config is forwarded
     to it — used by nodes that need a per-invocation runtime setting (e.g.
     router timeout) without persisting it in the checkpointed session state.
+
+    Async ``func`` values get an async wrapper so LangGraph can ``ainvoke``
+    them; sync ``func`` keeps the existing sync wrapper (works under both
+    ``invoke`` and ``ainvoke``).
     """
     accepts_config = len(inspect.signature(func).parameters) > 1
+
+    if inspect.iscoroutinefunction(func):
+
+        @wraps(func)
+        async def awrapper(
+            state: dict[str, Any], config: Optional[RunnableConfig] = None
+        ) -> dict[str, Any]:
+            try:
+                return await (func(state, config) if accepts_config else func(state))
+            except Exception as e:
+                log.error(f"Node {func.__name__} failed: {e}", exc_info=True)
+                return _safe_node_error_delta(state, e)
+
+        return awrapper
 
     @wraps(func)
     def wrapper(state: dict[str, Any], config: Optional[RunnableConfig] = None) -> dict[str, Any]:
@@ -52,13 +80,8 @@ def safe_node(func: Callable) -> Callable:
             return func(state, config) if accepts_config else func(state)
         except Exception as e:
             log.error(f"Node {func.__name__} failed: {e}", exc_info=True)
-            return {
-                **state,
-                "error_message": str(e),
-                "error_type": type(e).__name__,
-                "session_status": "error",
-                "proposed_next": "error",  # Route to error state
-            }
+            return _safe_node_error_delta(state, e)
+
     return wrapper
 
 
@@ -344,8 +367,19 @@ class EngineGraph:
     # handlers never set current_state/session_status themselves)
     # ─────────────────────────────────────────────────────────────────────────
 
+    def _stamp_handler_result(self, state_val: Any, result: dict[str, Any]) -> dict[str, Any]:
+        """Stamp current_state / session_status onto a handler delta."""
+        return {
+            **result,
+            "current_state": state_val.value,
+            "session_status": "error" if state_val == self.state_enum.ERROR else "ok",
+        }
+
     def _dispatch_handler(self, state_val: Any, state: dict[str, Any]) -> dict[str, Any]:
         """Run the handler registered for state_val and stamp its result.
+
+        Sync path only — used by ``invoke()`` and sync graph nodes. Async
+        handlers must use ``_adispatch_handler`` / ``ainvoke`` instead.
 
         A handler is only ever run because state_val's node was dispatched to
         (whether by the graph or, on multi-turn resume, directly by invoke()),
@@ -369,15 +403,40 @@ class EngineGraph:
             The handler's delta, plus current_state/session_status stamped on top
         """
         handler_fn = self.handler_map[state_val]
+        if inspect.iscoroutinefunction(handler_fn):
+            raise TypeError(
+                f"handler for {state_val.value!r} is async; use ainvoke/aemit_event "
+                "(sync invoke cannot run async handlers)"
+            )
         result = handler_fn(state)
-        return {
-            **result,
-            "current_state": state_val.value,
-            "session_status": "error" if state_val == self.state_enum.ERROR else "ok",
-        }
+        return self._stamp_handler_result(state_val, result)
+
+    async def _adispatch_handler(self, state_val: Any, state: dict[str, Any]) -> dict[str, Any]:
+        """Async twin of ``_dispatch_handler`` — awaits coroutine handlers.
+
+        Sync handlers still run inline (no thread offload); that matches
+        LangGraph's behavior for sync nodes under ``ainvoke``.
+        """
+        handler_fn = self.handler_map[state_val]
+        if inspect.iscoroutinefunction(handler_fn):
+            result = await handler_fn(state)
+        else:
+            result = handler_fn(state)
+        return self._stamp_handler_result(state_val, result)
 
     def _make_handler_node(self, state_val: Any) -> Callable:
-        """Build a 1-arg node function bound to state_val, for add_node()."""
+        """Build a 1-arg node function bound to state_val, for add_node().
+
+        Async handlers become async nodes (ainvoke-only). Sync handlers stay
+        sync nodes (work under both invoke and ainvoke).
+        """
+        handler_fn = self.handler_map[state_val]
+        if inspect.iscoroutinefunction(handler_fn):
+
+            async def anode(state: dict[str, Any]) -> dict[str, Any]:
+                return await self._adispatch_handler(state_val, state)
+
+            return anode
 
         def node(state: dict[str, Any]) -> dict[str, Any]:
             return self._dispatch_handler(state_val, state)
@@ -780,7 +839,9 @@ class EngineGraph:
 
             current_state_str = state.get("current_state", "init")
             if does_state_wait_for_input(current_state_str):
-                delta = self._dispatch_handler(self.state_enum(current_state_str), state)
+                delta = await self._adispatch_handler(
+                    self.state_enum(current_state_str), state
+                )
                 state = {**state, **delta}
 
             if hasattr(self, "_init_router"):
@@ -913,7 +974,9 @@ class EngineGraph:
             current_state_str = state.get("current_state", "init")
             tokens_emitted = False
             if does_state_wait_for_input(current_state_str):
-                delta = self._dispatch_handler(self.state_enum(current_state_str), state)
+                delta = await self._adispatch_handler(
+                    self.state_enum(current_state_str), state
+                )
                 state = {**state, **delta}
 
             if hasattr(self, "_init_router"):

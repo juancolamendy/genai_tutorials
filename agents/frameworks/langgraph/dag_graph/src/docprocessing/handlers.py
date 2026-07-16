@@ -90,7 +90,7 @@ def handle_upload_documents(state: SessionState) -> SessionState:
     waits_for_input=False,
     description="Validate document schema and content",
 )
-def handle_validate(state: SessionState) -> SessionState:
+async def handle_validate(state: SessionState) -> SessionState:
     """Validate schema of raw_data and populate validated_data using VALIDATE_CHAIN.
 
     Args:
@@ -108,7 +108,7 @@ def handle_validate(state: SessionState) -> SessionState:
 
     try:
         # Invoke the validation chain
-        result = validate_chain.invoke({"input": str(raw)})
+        result = await validate_chain.ainvoke({"input": str(raw)})
 
         is_valid = chain_field(result, "is_valid", False)
         sanitized = chain_field(result, "sanitized_data", {})
@@ -136,7 +136,7 @@ def handle_validate(state: SessionState) -> SessionState:
 
 
 @handler(state="enrich", waits_for_input=False, description="Add metadata and tags to document")
-def handle_enrich(state: SessionState) -> SessionState:
+async def handle_enrich(state: SessionState) -> SessionState:
     """Add metadata and tags to validated_data using ENRICH_CHAIN.
 
     Args:
@@ -154,7 +154,7 @@ def handle_enrich(state: SessionState) -> SessionState:
 
     try:
         # Invoke the enrichment chain
-        result = enrich_chain.invoke({"input": str(base)})
+        result = await enrich_chain.ainvoke({"input": str(base)})
 
         tags = chain_field(result, "tags", [])
         summary = chain_field(result, "summary", "")
@@ -239,7 +239,7 @@ def handle_retry(state: SessionState) -> SessionState:
 
 
 @handler(state="human_review", waits_for_input=True, description="Wait for human expert review")
-def handle_human_review(state: SessionState) -> SessionState:
+async def handle_human_review(state: SessionState) -> SessionState:
     """Route document to human review using REVIEW_CHAIN.
 
     Args:
@@ -257,7 +257,7 @@ def handle_human_review(state: SessionState) -> SessionState:
 
     try:
         # Invoke the review chain
-        result = review_chain.invoke({"input": str(raw)})
+        result = await review_chain.ainvoke({"input": str(raw)})
 
         approved = chain_field(result, "approved", False)
         fixed_data = chain_field(result, "fixed_data", {})

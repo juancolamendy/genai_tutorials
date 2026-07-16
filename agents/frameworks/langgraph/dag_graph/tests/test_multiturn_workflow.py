@@ -10,6 +10,8 @@ allowing the user to provide feedback before continuing.
 
 from uuid import uuid4
 
+import pytest
+
 # Import handlers FIRST to populate the metadata registry via @handler decorators
 from src.docprocessing import handlers  # noqa: F401
 from src.docprocessing.graph import build_graph
@@ -17,7 +19,8 @@ from src.docprocessing.state_transitions import State
 from src.engine.handler_registry import does_state_wait_for_input
 
 
-def test_multiturn_workflow_pause_at_upload_documents() -> None:
+@pytest.mark.asyncio
+async def test_multiturn_workflow_pause_at_upload_documents() -> None:
     """Test multi-turn workflow with pause/resume at UPLOAD_DOCUMENTS.
 
     Demonstrates the auto-progression feature with document upload:
@@ -51,7 +54,7 @@ def test_multiturn_workflow_pause_at_upload_documents() -> None:
 
     # Invoke turn with mocked fetch to ensure it succeeds (mock skips random failure)
     with patch("src.docprocessing.handlers.random.random", return_value=0.9):
-        response_1 = graph.invoke(
+        response_1 = await graph.ainvoke(
             user_id=user_id,
             session_id=session_id,
             input_message="Please process this document for me",
@@ -109,7 +112,7 @@ def test_multiturn_workflow_pause_at_upload_documents() -> None:
 
     # Continue with uploaded documents and mocked handlers
     with patch("src.docprocessing.handlers.random.random", return_value=0.9):  # Skip fetch failure
-        response_2 = graph.invoke(
+        response_2 = await graph.ainvoke(
             user_id=user_id,
             session_id=session_id,
             input_message="Here are the supporting documents",
@@ -163,7 +166,8 @@ def test_multiturn_workflow_pause_at_upload_documents() -> None:
     )
 
 
-def test_multiturn_auto_progression() -> None:
+@pytest.mark.asyncio
+async def test_multiturn_auto_progression() -> None:
     """Test that non-blocking states auto-progress within a single turn.
 
     Verifies that a turn can progress through multiple non-blocking states
@@ -187,7 +191,7 @@ def test_multiturn_auto_progression() -> None:
     print("  Input: Process this document")
 
     with patch("src.docprocessing.handlers.random.random", return_value=0.9):  # Skip fetch failure
-        response = graph.invoke(
+        response = await graph.ainvoke(
             user_id="user-456",
             session_id=session_id,
             input_message="Process this document",
@@ -214,7 +218,8 @@ def test_multiturn_auto_progression() -> None:
     print("   INIT → FETCH → UPLOAD_DOCUMENTS (blocked)")
 
 
-def test_turn_semantics() -> None:
+@pytest.mark.asyncio
+async def test_turn_semantics() -> None:
     """Test that turn metadata and conversation tracking work correctly."""
     from unittest.mock import patch
 
@@ -224,7 +229,7 @@ def test_turn_semantics() -> None:
 
     # Turn 1 - mock fetch to ensure success
     with patch("src.docprocessing.handlers.random.random", return_value=0.9):
-        response_1 = graph.invoke(
+        response_1 = await graph.ainvoke(
             user_id="user-789",
             session_id=session_id,
             input_message="Start workflow",
@@ -237,7 +242,7 @@ def test_turn_semantics() -> None:
     # Turn 2 - provide document data to progress from upload_documents
     docs = [{"name": "doc1.pdf", "content": "test"}]
     with patch("src.docprocessing.handlers.random.random", return_value=0.9):
-        response_2 = graph.invoke(
+        response_2 = await graph.ainvoke(
             user_id="user-789",
             session_id=session_id,
             input_message="Here's the document",

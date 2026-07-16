@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import importlib
 import tempfile
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -48,8 +48,10 @@ def _escape(escape: bool = False):
 def _mock_faq_chain(answer: str = "You get 15 days PTO per year. [pto-001]"):
     from src.hrhelpdesk.chains import FaqAnswer
 
+    value = FaqAnswer(answer=answer)
     mock = MagicMock()
-    mock.invoke.return_value = FaqAnswer(answer=answer)
+    mock.ainvoke = AsyncMock(return_value=value)
+    mock.invoke.return_value = value
     return mock
 
 
@@ -62,13 +64,15 @@ def _mock_escalate_chain(
 ):
     from src.hrhelpdesk.chains import EscalateDecision
 
-    mock = MagicMock()
-    mock.invoke.return_value = EscalateDecision(
+    value = EscalateDecision(
         should_create=should_create,
         subject=subject,
         body=body,
         reply=reply,
     )
+    mock = MagicMock()
+    mock.ainvoke = AsyncMock(return_value=value)
+    mock.invoke.return_value = value
     return mock
 
 
@@ -82,14 +86,16 @@ def _mock_booking_chain(
 ):
     from src.hrhelpdesk.chains import BookingDecision
 
-    mock = MagicMock()
-    mock.invoke.return_value = BookingDecision(
+    value = BookingDecision(
         date=date,
         location=location,
         seat_pref=seat_pref,
         confirm=confirm,
         reply=reply if not confirm else f"Booked {date} at {location}.",
     )
+    mock = MagicMock()
+    mock.ainvoke = AsyncMock(return_value=value)
+    mock.invoke.return_value = value
     return mock
 
 
@@ -101,9 +107,10 @@ async def test_faq_happy_path_clears_active_topic():
     with (
         patch(
             "src.hrhelpdesk.handlers.classify_utterance",
+            new_callable=AsyncMock,
             return_value=_decision("faq"),
         ),
-        patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
+        patch("src.hrhelpdesk.handlers.run_escape", new_callable=AsyncMock, return_value=_escape(False)),
         patch("src.hrhelpdesk.handlers.faq_chain", _mock_faq_chain()),
     ):
         result = await graph.aemit_event(
@@ -129,7 +136,7 @@ async def test_clarify_reroutes_user_reply_to_faq():
             "src.hrhelpdesk.handlers.classify_utterance",
             side_effect=[_decision("unclear", 0.4), _decision("faq")],
         ),
-        patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
+        patch("src.hrhelpdesk.handlers.run_escape", new_callable=AsyncMock, return_value=_escape(False)),
         patch("src.hrhelpdesk.handlers.faq_chain", _mock_faq_chain()),
     ):
         turn1 = await graph.aemit_event(
@@ -165,9 +172,10 @@ async def test_escalate_creates_one_ticket_ledger_dedupes():
     with (
         patch(
             "src.hrhelpdesk.handlers.classify_utterance",
+            new_callable=AsyncMock,
             return_value=_decision("escalate"),
         ),
-        patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
+        patch("src.hrhelpdesk.handlers.run_escape", new_callable=AsyncMock, return_value=_escape(False)),
         patch("src.hrhelpdesk.handlers.escalate_chain", _mock_escalate_chain()),
     ):
         first = await graph.aemit_event(
@@ -204,9 +212,10 @@ async def test_escalate_create_ticket_called_once():
     with (
         patch(
             "src.hrhelpdesk.handlers.classify_utterance",
+            new_callable=AsyncMock,
             return_value=_decision("escalate"),
         ),
-        patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
+        patch("src.hrhelpdesk.handlers.run_escape", new_callable=AsyncMock, return_value=_escape(False)),
         patch("src.hrhelpdesk.handlers.escalate_chain", _mock_escalate_chain()),
         patch("src.hrhelpdesk.handlers.create_ticket", side_effect=_tracking_create),
     ):
@@ -231,9 +240,10 @@ async def test_booking_sticky_two_turn_confirm():
     with (
         patch(
             "src.hrhelpdesk.handlers.classify_utterance",
+            new_callable=AsyncMock,
             return_value=_decision("booking"),
         ),
-        patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
+        patch("src.hrhelpdesk.handlers.run_escape", new_callable=AsyncMock, return_value=_escape(False)),
         patch(
             "src.hrhelpdesk.handlers.booking_chain",
             _mock_booking_chain(date="2026-08-01", location="NYC"),
@@ -253,7 +263,7 @@ async def test_booking_sticky_two_turn_confirm():
     assert not turn1.get("topic_data", {}).get("booking_confirmed")
 
     with (
-        patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
+        patch("src.hrhelpdesk.handlers.run_escape", new_callable=AsyncMock, return_value=_escape(False)),
         patch(
             "src.hrhelpdesk.handlers.booking_chain",
             _mock_booking_chain(
@@ -285,9 +295,10 @@ async def test_escape_mid_booking_reroutes():
     with (
         patch(
             "src.hrhelpdesk.handlers.classify_utterance",
+            new_callable=AsyncMock,
             return_value=_decision("booking"),
         ),
-        patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
+        patch("src.hrhelpdesk.handlers.run_escape", new_callable=AsyncMock, return_value=_escape(False)),
         patch(
             "src.hrhelpdesk.handlers.booking_chain",
             _mock_booking_chain(date="2026-08-01", location="NYC"),
@@ -303,9 +314,10 @@ async def test_escape_mid_booking_reroutes():
     with (
         patch(
             "src.hrhelpdesk.handlers.classify_utterance",
+            new_callable=AsyncMock,
             return_value=_decision("faq"),
         ),
-        patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(True)),
+        patch("src.hrhelpdesk.handlers.run_escape", new_callable=AsyncMock, return_value=_escape(True)),
         patch("src.hrhelpdesk.handlers.faq_chain", _mock_faq_chain()),
     ):
         result = await graph.aemit_event(
@@ -347,9 +359,10 @@ async def test_topic_timeout_clears_booking():
     with (
         patch(
             "src.hrhelpdesk.handlers.classify_utterance",
+            new_callable=AsyncMock,
             return_value=_decision("booking"),
         ),
-        patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
+        patch("src.hrhelpdesk.handlers.run_escape", new_callable=AsyncMock, return_value=_escape(False)),
         patch(
             "src.hrhelpdesk.handlers.booking_chain",
             _mock_booking_chain(date="2026-08-01", location="NYC"),
@@ -370,8 +383,11 @@ async def test_topic_timeout_clears_booking():
         raise AssertionError("LLM/tool call must not run for a system-sourced turn")
 
     with (
-        patch("src.hrhelpdesk.handlers.run_escape", side_effect=_forbidden),
-        patch("src.hrhelpdesk.handlers.booking_chain", MagicMock(invoke=_forbidden)),
+        patch("src.hrhelpdesk.handlers.run_escape", new_callable=AsyncMock, side_effect=_forbidden),
+        patch(
+            "src.hrhelpdesk.handlers.booking_chain",
+            MagicMock(ainvoke=AsyncMock(side_effect=_forbidden)),
+        ),
     ):
         result = await graph.aemit_event(
             thread_id=thread_id,
@@ -398,9 +414,10 @@ async def test_ticket_resolved_during_clarify_short_circuits():
     with (
         patch(
             "src.hrhelpdesk.handlers.classify_utterance",
+            new_callable=AsyncMock,
             return_value=_decision("escalate"),
         ),
-        patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
+        patch("src.hrhelpdesk.handlers.run_escape", new_callable=AsyncMock, return_value=_escape(False)),
         patch("src.hrhelpdesk.handlers.escalate_chain", _mock_escalate_chain()),
     ):
         first = await graph.aemit_event(
@@ -414,9 +431,10 @@ async def test_ticket_resolved_during_clarify_short_circuits():
     with (
         patch(
             "src.hrhelpdesk.handlers.classify_utterance",
+            new_callable=AsyncMock,
             return_value=_decision("unclear", 0.3),
         ),
-        patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
+        patch("src.hrhelpdesk.handlers.run_escape", new_callable=AsyncMock, return_value=_escape(False)),
     ):
         second = await graph.aemit_event(
             thread_id=thread_id,
@@ -431,7 +449,7 @@ async def test_ticket_resolved_during_clarify_short_circuits():
     def _forbidden(*_a, **_k):
         raise AssertionError("router must not run for a system-sourced turn")
 
-    with patch("src.hrhelpdesk.handlers.classify_utterance", side_effect=_forbidden):
+    with patch("src.hrhelpdesk.handlers.classify_utterance", new_callable=AsyncMock, side_effect=_forbidden):
         result = await graph.aemit_event(
             thread_id=thread_id,
             source="system",
@@ -457,9 +475,10 @@ async def test_ticket_resolved_from_idle_removes_open_ticket():
     with (
         patch(
             "src.hrhelpdesk.handlers.classify_utterance",
+            new_callable=AsyncMock,
             return_value=_decision("escalate"),
         ),
-        patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
+        patch("src.hrhelpdesk.handlers.run_escape", new_callable=AsyncMock, return_value=_escape(False)),
         patch("src.hrhelpdesk.handlers.escalate_chain", _mock_escalate_chain()),
     ):
         first = await graph.aemit_event(
@@ -498,9 +517,10 @@ async def test_faq_path_never_calls_booking_tools():
     with (
         patch(
             "src.hrhelpdesk.handlers.classify_utterance",
+            new_callable=AsyncMock,
             return_value=_decision("faq"),
         ),
-        patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
+        patch("src.hrhelpdesk.handlers.run_escape", new_callable=AsyncMock, return_value=_escape(False)),
         patch("src.hrhelpdesk.handlers.faq_chain", _mock_faq_chain()),
         patch("src.hrhelpdesk.services.confirm_booking", side_effect=_forbidden_booking),
     ):
@@ -523,14 +543,16 @@ async def test_escalate_chain_failure_diverts_to_error():
     thread_id = str(uuid4())
 
     failing = MagicMock()
+    failing.ainvoke = AsyncMock(side_effect=RuntimeError("llm down"))
     failing.invoke.side_effect = RuntimeError("llm down")
 
     with (
         patch(
             "src.hrhelpdesk.handlers.classify_utterance",
+            new_callable=AsyncMock,
             return_value=_decision("escalate"),
         ),
-        patch("src.hrhelpdesk.handlers.run_escape", return_value=_escape(False)),
+        patch("src.hrhelpdesk.handlers.run_escape", new_callable=AsyncMock, return_value=_escape(False)),
         patch("src.hrhelpdesk.handlers.escalate_chain", failing),
     ):
         result = await graph.aemit_event(

@@ -49,6 +49,12 @@ class TopicRouter(Protocol):
         history: Optional[list[Any]] = None,
     ) -> TopicDecision: ...
 
+    async def aclassify(
+        self,
+        input_message: str,
+        history: Optional[list[Any]] = None,
+    ) -> TopicDecision: ...
+
 
 class ChatEngineGraph(EngineGraph):
     """EngineGraph specialized for hub + sticky-topic chatbots.
@@ -140,6 +146,16 @@ class ChatEngineGraph(EngineGraph):
             return TopicDecision(topic=self.unclear_topic, confidence=0.0)
         return self.topic_router.classify(input_message, history)
 
+    async def aclassify_utterance(
+        self,
+        input_message: str,
+        history: Optional[list[Any]] = None,
+    ) -> TopicDecision:
+        """Async twin of ``classify_utterance`` — prefers ``aclassify``."""
+        if self.topic_router is None:
+            return TopicDecision(topic=self.unclear_topic, confidence=0.0)
+        return await self.topic_router.aclassify(input_message, history)
+
     def _get_escape_checker(self) -> EscapeChecker:
         """Return configured checker, lazily installing the engine default."""
         if self.escape_checker is None:
@@ -149,6 +165,10 @@ class ChatEngineGraph(EngineGraph):
     def run_escape(self, text: str) -> EscapeDecision:
         """Detect leave-intent via ``escape_checker`` (default engine prompt)."""
         return self._get_escape_checker().check(text)
+
+    async def arun_escape(self, text: str) -> EscapeDecision:
+        """Async twin of ``run_escape`` — prefers ``acheck``."""
+        return await self._get_escape_checker().acheck(text)
 
     def _resolve_proposed_next(
         self, state: dict[str, Any], config: Optional[RunnableConfig] = None

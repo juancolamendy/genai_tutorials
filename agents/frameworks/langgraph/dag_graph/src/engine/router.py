@@ -365,18 +365,33 @@ class DefaultTopicRouter:
         surfacing as a handler error.
         """
         try:
-            raw = self._get_chain().invoke({"input": input_message})
-            # output_schema is subclass-defined (topic/confidence fields vary
-            # per domain), so there is no static type narrower than Any to
-            # give `response` here without over-claiming a shape this base
-            # class doesn't actually know.
-            response: Any = (
-                raw if isinstance(raw, self.output_schema) else self.output_schema(**raw)
-            )
-            topic = response.topic
-            topic_val = topic.value if hasattr(topic, "value") else str(topic)
-            confidence = max(0.0, min(1.0, float(response.confidence)))
-            return TopicDecision(topic=topic_val, confidence=confidence)
+            return self._decision_from_raw(self._get_chain().invoke({"input": input_message}))
         except Exception as exc:
             log.exception("[DefaultTopicRouter] classify() failed: %s", exc)
             return TopicDecision(topic=self.unclear_topic, confidence=0.0)
+
+    async def aclassify(
+        self,
+        input_message: str,
+        history: Optional[list] = None,
+    ) -> TopicDecision:
+        """Async twin of ``classify`` — uses ``chain.ainvoke``."""
+        try:
+            raw = await self._get_chain().ainvoke({"input": input_message})
+            return self._decision_from_raw(raw)
+        except Exception as exc:
+            log.exception("[DefaultTopicRouter] aclassify() failed: %s", exc)
+            return TopicDecision(topic=self.unclear_topic, confidence=0.0)
+
+    def _decision_from_raw(self, raw: Any) -> TopicDecision:
+        # output_schema is subclass-defined (topic/confidence fields vary
+        # per domain), so there is no static type narrower than Any to
+        # give `response` here without over-claiming a shape this base
+        # class doesn't actually know.
+        response: Any = (
+            raw if isinstance(raw, self.output_schema) else self.output_schema(**raw)
+        )
+        topic = response.topic
+        topic_val = topic.value if hasattr(topic, "value") else str(topic)
+        confidence = max(0.0, min(1.0, float(response.confidence)))
+        return TopicDecision(topic=topic_val, confidence=confidence)

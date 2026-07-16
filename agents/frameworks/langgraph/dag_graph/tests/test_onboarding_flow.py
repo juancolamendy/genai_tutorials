@@ -8,7 +8,7 @@ ledger, auto-progression) is exercised for real.
 """
 
 import importlib
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -34,7 +34,7 @@ def _mock_collect_agent(complete=True):
     mock_agent = MagicMock()
     if complete:
         tool_call = {"name": "submit_new_hire", "args": {}, "id": "1"}
-        mock_agent.invoke.return_value = {
+        value = {
             "messages": [
                 AIMessage(content="", tool_calls=[tool_call]),
                 ToolMessage(
@@ -48,15 +48,19 @@ def _mock_collect_agent(complete=True):
             ]
         }
     else:
-        mock_agent.invoke.return_value = {
+        value = {
             "messages": [AIMessage(content="What role?")],
         }
+    mock_agent.ainvoke = AsyncMock(return_value=value)
+    mock_agent.invoke.return_value = value
     return mock_agent
 
 
 def _mock_username_chain():
     mock_chain = MagicMock()
-    mock_chain.invoke.return_value = {"username_prefix": "jdoe", "reasoning": "n/a"}
+    value = {"username_prefix": "jdoe", "reasoning": "n/a"}
+    mock_chain.ainvoke = AsyncMock(return_value=value)
+    mock_chain.invoke.return_value = value
     return mock_chain
 
 

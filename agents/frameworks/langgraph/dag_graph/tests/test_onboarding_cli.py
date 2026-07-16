@@ -56,7 +56,7 @@ async def test_sweep_escalates_a_stale_thread():
     mock_agent = MagicMock()
     from langchain_core.messages import AIMessage, ToolMessage
 
-    mock_agent.invoke.return_value = {
+    agent_value = {
         "messages": [
             AIMessage(content="", tool_calls=[{"name": "submit_new_hire", "args": {}, "id": "1"}]),
             ToolMessage(
@@ -66,6 +66,8 @@ async def test_sweep_escalates_a_stale_thread():
             ),
         ]
     }
+    mock_agent.ainvoke = AsyncMock(return_value=agent_value)
+    mock_agent.invoke.return_value = agent_value
     with patch("src.onboarding.chains.collect_agent", mock_agent):
         result = await graph.aemit_event(
             thread_id=thread_id, source="human", event_type="message", input_message="go"

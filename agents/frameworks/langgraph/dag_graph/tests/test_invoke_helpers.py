@@ -58,10 +58,14 @@ def test_thread_id_matches_existing_formula_for_non_empty_user_id():
     assert graph._thread_id("user-1", "sess-abc") == "user-1:sess-abc"
 
 
-def test_invoke_with_empty_user_id_resumes_across_turns():
-    """Regression test for the confirmed bug: two invoke() calls with
+@pytest.mark.asyncio
+async def test_invoke_with_empty_user_id_resumes_across_turns():
+    """Regression test for the confirmed bug: two turns with
     user_id="" and the same session_id must resume (turn 2 sees turn 1's
-    state), not silently create a fresh session each time."""
+    state), not silently create a fresh session each time.
+
+    Turn 2 uses ainvoke because validate/enrich handlers are async.
+    """
     graph = _build_graph()
     session_id = str(uuid4())
 
@@ -76,7 +80,7 @@ def test_invoke_with_empty_user_id_resumes_across_turns():
     assert turn1["turn_number"] == 1
 
     with patch("src.docprocessing.handlers.random.random", return_value=0.9):
-        turn2 = graph.invoke(
+        turn2 = await graph.ainvoke(
             user_id="",
             session_id=session_id,
             input_message="here are the supporting documents",
@@ -135,10 +139,10 @@ def test_prepare_input_still_rejects_invalid_non_empty_input():
         pass
 
 
-def test_existing_multi_turn_behavior_unchanged_for_non_empty_user_id():
-    """Regression guard: the exact multi-turn pause/resume scenario that
-    already worked with a non-empty user_id (docprocessing's real usage)
-    must still work identically after the fix."""
+@pytest.mark.asyncio
+async def test_existing_multi_turn_behavior_unchanged_for_non_empty_user_id():
+    """Regression guard: multi-turn pause/resume with a non-empty user_id
+    still works; turn 2 uses ainvoke for async validate/enrich handlers."""
     graph = _build_graph()
     session_id = str(uuid4())
 
@@ -152,7 +156,7 @@ def test_existing_multi_turn_behavior_unchanged_for_non_empty_user_id():
     assert turn1["current_state"] == "upload_documents"
 
     with patch("src.docprocessing.handlers.random.random", return_value=0.9):
-        turn2 = graph.invoke(
+        turn2 = await graph.ainvoke(
             user_id="user-demo",
             session_id=session_id,
             input_message="here you go",

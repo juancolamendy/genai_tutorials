@@ -52,6 +52,22 @@ def test_classify_returns_topic_decision():
     fake_chain.invoke.assert_called_once_with({"input": "How much PTO do I get?"})
 
 
+@pytest.mark.asyncio
+async def test_aclassify_uses_ainvoke():
+    from unittest.mock import AsyncMock
+
+    fake_chain = MagicMock()
+    fake_chain.ainvoke = AsyncMock(
+        return_value=_MockTopicOutput(topic="faq", confidence=0.91)
+    )
+    router = _with_fake_chain(_MockTopicRouter(), fake_chain)
+
+    decision = await router.aclassify("How much PTO do I get?")
+
+    assert decision == TopicDecision(topic="faq", confidence=0.91)
+    fake_chain.ainvoke.assert_awaited_once_with({"input": "How much PTO do I get?"})
+
+
 def test_classify_normalizes_dict_response():
     fake_chain = MagicMock()
     fake_chain.invoke.return_value = {"topic": "booking", "confidence": 0.8}

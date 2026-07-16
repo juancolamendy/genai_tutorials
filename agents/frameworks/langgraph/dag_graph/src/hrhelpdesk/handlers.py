@@ -57,9 +57,9 @@ def _require_chat_graph() -> ChatEngineGraph:
     return _chat_graph
 
 
-def classify_utterance(input_message: str, history: Any = None):
-    """Patchable wrapper around the bound Graph's classifier."""
-    return _require_chat_graph().classify_utterance(input_message, history)
+async def classify_utterance(input_message: str, history: Any = None):
+    """Patchable wrapper around the bound Graph's async classifier."""
+    return await _require_chat_graph().aclassify_utterance(input_message, history)
 
 
 def topic_decision_to_delta(decision: Any, *, source: str = "chat"):
@@ -67,9 +67,9 @@ def topic_decision_to_delta(decision: Any, *, source: str = "chat"):
     return _require_chat_graph().topic_decision_to_delta(decision, source=source)
 
 
-def run_escape(text: str):
-    """Patchable wrapper around the bound Graph's escape checker."""
-    return _require_chat_graph().run_escape(text)
+async def run_escape(text: str):
+    """Patchable wrapper around the bound Graph's async escape checker."""
+    return await _require_chat_graph().arun_escape(text)
 
 
 CLARIFY_PROMPT = (
@@ -78,7 +78,7 @@ CLARIFY_PROMPT = (
 )
 
 
-def _process_booking_turn(state: HelpdeskState, user_text: str) -> dict[str, Any]:
+async def _process_booking_turn(state: HelpdeskState, user_text: str) -> dict[str, Any]:
     """Shared booking specialist logic for IDLE bootstrap and TOPIC_BOOKING."""
     topic_data = dict(state.get("topic_data") or {})
     prior_messages = state.get("messages") or []
@@ -95,7 +95,7 @@ def _process_booking_turn(state: HelpdeskState, user_text: str) -> dict[str, Any
     )
 
     try:
-        decision = booking_chain.invoke({"input": chain_input})
+        decision = await booking_chain.ainvoke({"input": chain_input})
     except Exception as exc:
         log.error("[HANDLER] booking chain failed: %s", exc)
         return {
@@ -161,7 +161,7 @@ def _process_booking_turn(state: HelpdeskState, user_text: str) -> dict[str, Any
     return delta
 
 
-def _route_human_message(
+async def _route_human_message(
     state: HelpdeskState,
     input_message: str,
     *,
@@ -175,14 +175,14 @@ def _route_human_message(
     ``unclear`` (handled inside ``HelpdeskSemanticRouter.classify``) rather
     than surfacing as ``handler_status="error"``.
     """
-    decision = classify_utterance(input_message, state.get("messages"))
+    decision = await classify_utterance(input_message, state.get("messages"))
     base = topic_decision_to_delta(decision, source=source)
     if base.get("pending_clarify"):
         base["output_messages"] = [CLARIFY_PROMPT]
         return base
 
     if decision.topic == "booking":
-        booking_delta = _process_booking_turn({**state, **base}, input_message)
+        booking_delta = await _process_booking_turn({**state, **base}, input_message)
         base.update(booking_delta)
     return base
 
@@ -199,7 +199,7 @@ def _route_human_message(
     expected_events=["ticket_resolved", "booking_cancelled_by_system", "topic_timeout"],
     description="Hub park — route human turns; accept legal system events",
 )
-def handle_idle(state: HelpdeskState) -> HelpdeskState:
+async def handle_idle(state: HelpdeskState) -> HelpdeskState:
     """Thin hub handler: escape check, semantic route, booking bootstrap."""
     log_handler_enter("idle", state)
     event_source = state.get("current_event_source", "human")
@@ -220,7 +220,7 @@ def handle_idle(state: HelpdeskState) -> HelpdeskState:
 
     if active_topic:
         try:
-            if run_escape(input_message).escape:
+            if (await run_escape(input_message)).escape:
                 cleared = close_topic_delta(messages, "User changed topic.")
                 cleared["pending_clarify"] = False
                 cleared["audit_trail"] = ["idle: escape — topic cleared"]
@@ -230,7 +230,7 @@ def handle_idle(state: HelpdeskState) -> HelpdeskState:
             log.error("[HANDLER] escape check failed: %s", exc)
 
     if active_topic == "booking":
-        return log_handler_exit("idle", _process_booking_turn(state, input_message))
+        return log_handler_exit("idle", await _process_booking_turn(state, input_message))
 
     if active_topic in ("faq", "escalate"):
         return log_handler_exit(
@@ -240,7 +240,7 @@ def handle_idle(state: HelpdeskState) -> HelpdeskState:
 
     return log_handler_exit(
         "idle",
-        _route_human_message(state, input_message, source="idle"),
+        await _route_human_message(state, input_message, source="idle"),
     )
 
 
@@ -250,7 +250,7 @@ def handle_idle(state: HelpdeskState) -> HelpdeskState:
     wait_kind="human",
     description="Re-route after unclear classification using the user's reply",
 )
-def handle_clarify(state: HelpdeskState) -> HelpdeskState:
+async def handle_clarify(state: HelpdeskState) -> HelpdeskState:
     """Process the user's disambiguation reply — do not ignore input_message."""
     log_handler_enter("clarify", state)
     event_source = state.get("current_event_source", "human")
@@ -268,12 +268,12 @@ def handle_clarify(state: HelpdeskState) -> HelpdeskState:
     input_message = state.get("input_message") or ""
     return log_handler_exit(
         "clarify",
-        _route_human_message(state, input_message, source="clarify"),
+        await _route_human_message(state, input_message, source="clarify"),
     )
 
 
 @handler(state=State.TOPIC_FAQ.value, waits_for_input=False, description="Policy Q&A specialist")
-def handle_topic_faq(state: HelpdeskState) -> HelpdeskState:
+async def handle_topic_faq(state: HelpdeskState) -> HelpdeskState:
     log_handler_enter("topic_faq", state)
     input_message = state.get("input_message") or ""
     messages = state.get("messages") or []
@@ -286,7 +286,7 @@ def handle_topic_faq(state: HelpdeskState) -> HelpdeskState:
     )
 
     try:
-        result = faq_chain.invoke({"input": chain_input})
+        result = await faq_chain.ainvoke({"input": chain_input})
     except Exception as exc:
         log.error("[HANDLER] faq chain failed: %s", exc)
         return log_handler_exit(
@@ -311,13 +311,13 @@ def handle_topic_faq(state: HelpdeskState) -> HelpdeskState:
 
 
 @handler(state=State.TOPIC_ESCALATE.value, waits_for_input=False, description="Ticket specialist")
-def handle_topic_escalate(state: HelpdeskState) -> HelpdeskState:
+async def handle_topic_escalate(state: HelpdeskState) -> HelpdeskState:
     log_handler_enter("topic_escalate", state)
     input_message = state.get("input_message") or ""
     messages = state.get("messages") or []
 
     try:
-        decision = escalate_chain.invoke({"input": input_message})
+        decision = await escalate_chain.ainvoke({"input": input_message})
     except Exception as exc:
         log.error("[HANDLER] escalate chain failed: %s", exc)
         return log_handler_exit(
@@ -370,7 +370,7 @@ def handle_topic_escalate(state: HelpdeskState) -> HelpdeskState:
     wait_kind="human",
     description="Sticky desk booking specialist",
 )
-def handle_topic_booking(state: HelpdeskState) -> HelpdeskState:
+async def handle_topic_booking(state: HelpdeskState) -> HelpdeskState:
     log_handler_enter("topic_booking", state)
     event_source = state.get("current_event_source", "human")
 
@@ -388,10 +388,10 @@ def handle_topic_booking(state: HelpdeskState) -> HelpdeskState:
     messages = state.get("messages") or []
 
     try:
-        if run_escape(input_message).escape:
+        if (await run_escape(input_message)).escape:
             cleared = close_topic_delta(messages, "User changed topic.")
             cleared["pending_clarify"] = False
-            decision = classify_utterance(input_message, messages)
+            decision = await classify_utterance(input_message, messages)
             routed = topic_decision_to_delta(
                 decision, source="topic_booking"
             )
@@ -403,7 +403,7 @@ def handle_topic_booking(state: HelpdeskState) -> HelpdeskState:
     except Exception as exc:
         log.error("[HANDLER] escape check failed: %s", exc)
 
-    delta = _process_booking_turn(state, input_message)
+    delta = await _process_booking_turn(state, input_message)
     return log_handler_exit("topic_booking", delta)
 
 
