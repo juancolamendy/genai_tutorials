@@ -26,7 +26,7 @@ uv run python -m src.hrhelpdesk.cli --sessions-dir "$SESSIONS" \
 
 # Escalate (creates a ticket into open_tickets), then resolve it.
 # ticket_resolved is ILLEGAL unless that id is already in open_tickets —
-# a hardcoded TICKET-1 after only an FAQ turn yields status=ignored.
+# a hardcoded TICKET-1 after only an FAQ turn yields emit_status=ignored.
 export THREAD_ID=hd-emp-1
 uv run python -m src.hrhelpdesk.cli --sessions-dir "$SESSIONS" \
   chat "$THREAD_ID" "My March 1 paycheck is short \$200 — missing overtime. Please open an HR ticket with subject Payroll shortfall."
@@ -44,7 +44,7 @@ uv run python -m src.hrhelpdesk.cli --sessions-dir "$SESSIONS" \
   event "$THREAD_ID" ticket_resolved --event-id "$THREAD_ID-evt-1" \
   --payload ticket_id=$TICKET
 # expect: notify line e.g. "Good news — ticket TICKET-2 has been resolved."
-#         then status=ok current_state=idle … (hub park, not linear COMPLETE)
+#         then emit_status=ok current_state=idle … (hub park, not linear COMPLETE)
 
 # Booking sticky + optional sweep (sweep only acts on stale booking lanes)
 uv run python -m src.hrhelpdesk.cli --sessions-dir "$SESSIONS" \
@@ -64,7 +64,7 @@ Use the same `--sessions-dir` for every command (default matches `$SESSIONS` abo
 
 | Symptom | Cause |
 |---|---|
-| `event … ticket_resolved` → `status=ignored` | `ticket_id` not in this thread’s `open_tickets` (escalate must create via structured decision; peek `open_tickets` before resolving) |
+| `event … ticket_resolved` → `emit_status=ignored` | `ticket_id` not in this thread’s `open_tickets` (escalate must create via structured decision; peek `open_tickets` before resolving) |
 | Escalate chat leaves `open_tickets=[]` | Chain returned `should_create=false` — use a concrete “please open a ticket …” message; escalate is one-shot |
 | Expected to leave `idle` after resolve | Chatbots park at `idle`; notify runs then returns home — not a linear `COMPLETE` |
 | `sweep` does nothing | Only emits `topic_timeout` for stale sticky **booking** sessions |

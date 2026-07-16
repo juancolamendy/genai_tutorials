@@ -25,4 +25,4 @@ class GraphAlreadyCompleteError(Exception):
 
 
 class GraphRunError(Exception):
-    """A run ended with status="error"."""
+    """A run ended with session_status="error"."""

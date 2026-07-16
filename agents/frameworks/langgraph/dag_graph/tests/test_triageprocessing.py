@@ -42,7 +42,7 @@ async def test_run_parks_at_await_approval(tmp_path: Path):
         },
     )
 
-    assert result["status"] == "blocked_needs_input"
+    assert result["emit_status"] == "blocked_needs_input"
     assert result["current_state"] == State.AWAIT_APPROVAL.value
     assert result["run_status"] == "awaiting_approval"
     assert result.get("diff_path")
@@ -75,7 +75,7 @@ async def test_system_approve_publishes_and_writes_report(tmp_path: Path):
         payload={"by": "alice", "note": "lgtm", "approved": True},
     )
 
-    assert result["status"] == "ok"
+    assert result["emit_status"] == "ok"
     assert result["current_state"] == State.COMPLETE.value
     assert result["run_status"] == "published"
     assert result["published"] is True
@@ -108,7 +108,7 @@ async def test_system_reject_lands_in_rejected(tmp_path: Path):
         payload={"by": "bob", "note": "needs tests", "approved": False},
     )
 
-    assert result["status"] == "ok"
+    assert result["emit_status"] == "ok"
     assert result["current_state"] == State.REJECTED.value
     assert result["run_status"] == "rejected"
     assert result.get("published") is not True
@@ -139,7 +139,7 @@ async def test_human_chat_approve_either_path(tmp_path: Path):
         input_message="approve",
     )
 
-    assert result["status"] == "ok"
+    assert result["emit_status"] == "ok"
     assert result["current_state"] == State.COMPLETE.value
     assert result["published"] is True
 
@@ -169,7 +169,7 @@ async def test_duplicate_approve_event_id(tmp_path: Path):
         event_id=event_id,
         payload={"by": "alice", "approved": True},
     )
-    assert first["status"] == "ok"
+    assert first["emit_status"] == "ok"
 
     second = await graph.aemit_event(
         thread_id=run_id,
@@ -178,7 +178,7 @@ async def test_duplicate_approve_event_id(tmp_path: Path):
         event_id=event_id,
         payload={"by": "alice", "approved": True},
     )
-    assert second["status"] == "duplicate"
+    assert second["emit_status"] == "duplicate"
 
 
 def test_current_thread_id_persisted_under_sessions_dir(tmp_path: Path):

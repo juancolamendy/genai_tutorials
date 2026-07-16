@@ -27,10 +27,13 @@ def _parse_payload(pairs: list[str] | None) -> dict[str, str]:
 
 
 def _format_result(result: dict[str, Any]) -> str:
-    status = result.get("status")
+    emit_status = result.get("emit_status")
     current_state = result.get("current_state")
     active_topic = result.get("active_topic")
-    return f"status={status} current_state={current_state} active_topic={active_topic}"
+    return (
+        f"emit_status={emit_status} current_state={current_state} "
+        f"active_topic={active_topic}"
+    )
 
 
 def _format_output_messages(result: dict[str, Any]) -> str:
@@ -69,7 +72,7 @@ def _configure_logging(verbose: bool = False) -> None:
 async def _stream_human_turn(graph: Graph, thread_id: str, message: str) -> dict[str, Any]:
     """Run a human turn via aemit_event_stream; print tokens as they arrive."""
     log.info("[CLI] chat(stream)  thread=%s  message=%r", thread_id, message[:80])
-    final: dict[str, Any] = {"status": "error"}
+    final: dict[str, Any] = {"emit_status": "error"}
     async for chunk in graph.aemit_event_stream(
         thread_id=thread_id,
         source="human",
@@ -86,8 +89,8 @@ async def _stream_human_turn(graph: Graph, thread_id: str, message: str) -> dict
     if final.get("type") == "result":
         state = final.get("state") or {}
         print()
-        print(_format_result({**state, "status": final.get("status")}))
-        return {**state, "status": final.get("status")}
+        print(_format_result({**state, "emit_status": final.get("emit_status")}))
+        return {**state, "emit_status": final.get("emit_status")}
 
     print()
     print(_format_result(final))
@@ -136,7 +139,7 @@ def _cmd_status(graph: Graph, thread_id: str) -> str:
     state = graph._get_or_init_state(session_id=thread_id, user_id="")
     return (
         f"thread={thread_id} current_state={state.get('current_state')} "
-        f"active_topic={state.get('active_topic')} status={state.get('status')}"
+        f"active_topic={state.get('active_topic')} session_status={state.get('session_status')}"
     )
 
 

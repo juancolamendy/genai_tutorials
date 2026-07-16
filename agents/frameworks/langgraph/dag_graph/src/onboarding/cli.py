@@ -43,9 +43,9 @@ def _parse_payload(pairs: list[str] | None) -> dict[str, str]:
 
 
 def _format_result(result: dict[str, Any]) -> str:
-    status = result.get("status")
+    emit_status = result.get("emit_status")
     current_state = result.get("current_state")
-    return f"status={status} current_state={current_state}"
+    return f"emit_status={emit_status} current_state={current_state}"
 
 
 def _configure_logging(verbose: bool = False) -> None:
@@ -107,14 +107,17 @@ async def _cmd_sweep(graph: Graph) -> str:
 def _cmd_status(graph: Graph, thread_id: str) -> str:
     state = graph._get_or_init_state(session_id=thread_id, user_id="")
     current_state = state.get("current_state")
-    status = state.get("status")
+    session_status = state.get("session_status")
     log.info(
-        "[CLI] status  thread=%s  current_state=%s  status=%s",
+        "[CLI] status  thread=%s  current_state=%s  session_status=%s",
         thread_id,
         current_state,
-        status,
+        session_status,
     )
-    return f"thread={thread_id} current_state={current_state} status={status}"
+    return (
+        f"thread={thread_id} current_state={current_state} "
+        f"session_status={session_status}"
+    )
 
 
 async def _serve(graph: Graph) -> None:

@@ -65,7 +65,7 @@ def test_existing_fields_unaffected_by_new_additions():
     state = new_engine_session_state()
     assert state["current_state"] == "init"
     assert state["proposed_next"] == "init"
-    assert state["status"] == "ok"
+    assert state["session_status"] == "ok"
     assert state["audit_trail"] == ["init session state"]
     assert state["messages"] == []
     assert state["turn_number"] == 0

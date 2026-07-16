@@ -5,7 +5,7 @@ Each handler executes business logic for a state and must:
   2. Process the data
   3. Return ONLY the fields it's updating (a partial delta)
 
-current_state and status are stamped centrally by EngineGraph._run_handler —
+current_state and session_status are stamped centrally by EngineGraph._dispatch_handler —
 handlers never set them. audit_trail is reducer-backed (operator.add), so
 handlers return only the new entry/entries, not the accumulated list.
 """
@@ -43,7 +43,6 @@ def handle_fetch(state: SessionState) -> SessionState:
     if random.random() < 0.30 and state["retry_count"] == 0:
         log.warning("[HANDLER] fetch failed – will retry")
         return {
-            "status": "error",
             "raw_data": None,
             "audit_trail": ["fetch FAILED"],
         }
@@ -125,14 +124,12 @@ def handle_validate(state: SessionState) -> SessionState:
         else:
             log.warning("[HANDLER] validation failed – %s", "; ".join(issues))
             return {
-                "status": "error",
                 "validated_data": None,
                 "audit_trail": [f"validate FAILED – {'; '.join(issues)}"],
             }
     except Exception as e:
         log.error("[HANDLER] validation chain error: %s", str(e))
         return {
-            "status": "error",
             "validated_data": None,
             "audit_trail": [f"validate ERROR – {str(e)}"],
         }
@@ -182,7 +179,6 @@ def handle_enrich(state: SessionState) -> SessionState:
         # Fallback to simple enrichment
         enriched = {**base, "tags": ["unknown"], "word_count": len(str(base))}
         return {
-            "status": "error",
             "enriched_data": enriched,
             "audit_trail": [f"enrich FALLBACK – {str(e)}"],
         }
@@ -294,7 +290,6 @@ def handle_human_review(state: SessionState) -> SessionState:
             "_validated": True,
         }
         return {
-            "status": "error",
             "validated_data": approved_data,
             "audit_trail": [f"human_review: FALLBACK approved – {str(e)[:30]}"],
         }

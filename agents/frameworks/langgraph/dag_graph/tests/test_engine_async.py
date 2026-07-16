@@ -82,7 +82,7 @@ async def test_ainvoke_with_empty_input_message_does_not_raise():
         input_message="",
         state_delta={"document_id": "doc1"},
     )
-    assert result["status"] != "error"
+    assert result["session_status"] != "error"
     assert result.get("error_message") is None
 
 
@@ -432,7 +432,7 @@ async def test_get_active_sessions_prefers_latest_when_pause_is_stale():
     done = await graph.aemit_event(
         thread_id=thread_id, source="system", event_type="go", event_id="evt-go"
     )
-    assert done["status"] == "ok"
+    assert done["emit_status"] == "ok"
     assert done["current_state"] == _StalePauseState.DONE.value
 
     sessions = {s["thread_id"]: s["state"] for s in graph.get_active_sessions()}
@@ -503,4 +503,4 @@ async def test_ainvoke_forwards_max_auto_iters_to_auto_progress():
             max_auto_iters=3,
         )
 
-    assert result["status"] == "ok"
+    assert result["session_status"] == "ok"

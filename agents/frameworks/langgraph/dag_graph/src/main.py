@@ -27,7 +27,7 @@ def print_turn_state(state: dict) -> None:
     print(f"  │ Input Message   : {state.get('input_message')}")
     print(f"  │ Current State   : {state.get('current_state').upper()}")
     print(f"  │ Proposed Next State   : {state.get('proposed_next').upper()}")
-    print(f"  │ Status   : {state.get('status')}")
+    print(f"  │ Status   : {state.get('session_status')}")
     print(f"  │ Error   : {state.get('error_message')}")
     print(f"  │ Audit Trail     : {state.get('audit_trail')}")
     print(f"  │ Messages     : {state.get('messages')}")

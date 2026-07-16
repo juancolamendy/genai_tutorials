@@ -288,7 +288,7 @@ def test_invoke_drives_collect_to_await_documents_signed_end_to_end():
 
     # COLLECT (resume-dispatch, succeeds) -> WELCOME_SENT (auto-progress) ->
     # AWAIT_DOCUMENTS_SIGNED (waits_for_input=True, parks here)
-    assert turn2["status"] != "error"
+    assert turn2["session_status"] != "error"
     assert turn2["current_state"] == State.AWAIT_DOCUMENTS_SIGNED.value
     assert turn2["new_hire_details"]["full_name"] == "Jane Doe"
     assert turn2["welcome_sent"] is True

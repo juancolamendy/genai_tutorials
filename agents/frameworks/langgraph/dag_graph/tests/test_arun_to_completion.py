@@ -136,7 +136,7 @@ async def test_blocked_needs_input_when_parked_at_wait_state():
         user_id="", session_id=session_id, initial_state_delta={}
     )
 
-    assert result["status"] == "blocked_needs_input"
+    assert result["emit_status"] == "blocked_needs_input"
     assert result["current_state"] == _RtcState.WAITING.value
 
 
@@ -195,7 +195,32 @@ async def test_fresh_session_id_after_completion_starts_a_new_run():
     result = await graph.arun_to_completion(
         user_id="", session_id=session_id_2, initial_state_delta={}
     )
-    assert result["status"] == "blocked_needs_input"
+    assert result["emit_status"] == "blocked_needs_input"
+
+
+@pytest.mark.asyncio
+async def test_arun_to_completion_success_sets_emit_status_ok():
+    """Terminal success must stamp emit_status (not only session_status) so
+    callers/CLIs that switched off the overloaded status field keep working."""
+    graph = _build_rtc_graph()
+    session_id = str(uuid.uuid4())
+
+    with patch.object(graph, "ainvoke", new_callable=AsyncMock) as mock_ainvoke:
+        mock_ainvoke.return_value = {
+            "session_status": "ok",
+            "current_state": _RtcState.DONE.value,
+            "turn_number": 1,
+            "semantic_context": {},
+            "router_confidence": 0.0,
+            "messages": [],
+        }
+        result = await graph.arun_to_completion(
+            user_id="", session_id=session_id, initial_state_delta={}
+        )
+
+    assert result["emit_status"] == "ok"
+    assert result["session_status"] == "ok"
+    assert result["current_state"] == _RtcState.DONE.value
 
 
 @pytest.mark.asyncio
@@ -207,7 +232,7 @@ async def test_arun_to_completion_forwards_max_auto_iters_to_ainvoke():
 
     with patch.object(graph, "ainvoke", new_callable=AsyncMock) as mock_ainvoke:
         mock_ainvoke.return_value = {
-            "status": "ok",
+            "session_status": "ok",
             "current_state": _RtcState.WAITING.value,
             "turn_number": 1,
             "semantic_context": {},
@@ -231,7 +256,7 @@ async def test_arun_to_completion_default_max_auto_iters_is_10():
 
     with patch.object(graph, "ainvoke", new_callable=AsyncMock) as mock_ainvoke:
         mock_ainvoke.return_value = {
-            "status": "ok",
+            "session_status": "ok",
             "current_state": _RtcState.WAITING.value,
             "turn_number": 1,
             "semantic_context": {},

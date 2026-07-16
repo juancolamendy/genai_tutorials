@@ -58,7 +58,7 @@ async def test_astream_yields_result_matching_ainvoke_state(monkeypatch):
 
     assert result_state is not None
     assert result_state.get("current_state") == ainvoke_state.get("current_state")
-    assert result_state.get("status") != "error"
+    assert result_state.get("session_status") != "error"
 
 
 @pytest.mark.asyncio
@@ -97,7 +97,7 @@ async def test_aemit_event_stream_human_yields_ok_result():
                 result = chunk
 
     assert result is not None
-    assert result.get("status") == "ok"
+    assert result.get("emit_status") == "ok"
     assert result["state"].get("current_state") in {
         "upload_documents",
         "complete",

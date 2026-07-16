@@ -56,7 +56,7 @@ def safe_node(func: Callable) -> Callable:
                 **state,
                 "error_message": str(e),
                 "error_type": type(e).__name__,
-                "status": "error",
+                "session_status": "error",
                 "proposed_next": "error",  # Route to error state
             }
     return wrapper
@@ -319,7 +319,7 @@ class EngineGraph:
             # Parking at a blocking state is a normal pause, not a failure —
             # and it's never the ERROR state (ERROR isn't waits_for_input).
             new_state["current_state"] = target
-            new_state["status"] = "ok"
+            new_state["session_status"] = "ok"
 
         return new_state
 
@@ -341,7 +341,7 @@ class EngineGraph:
 
     # ─────────────────────────────────────────────────────────────────────────
     # HANDLER DISPATCH (centralizes what every handler call needs, so
-    # handlers never set current_state/status themselves)
+    # handlers never set current_state/session_status themselves)
     # ─────────────────────────────────────────────────────────────────────────
 
     def _dispatch_handler(self, state_val: Any, state: dict[str, Any]) -> dict[str, Any]:
@@ -350,7 +350,7 @@ class EngineGraph:
         A handler is only ever run because state_val's node was dispatched to
         (whether by the graph or, on multi-turn resume, directly by invoke()),
         so current_state is fully determined by state_val — no handler needs
-        to (or should) set it. status flips to "error" only when state_val is
+        to (or should) set it. session_status flips to "error" only when state_val is
         the domain's designated ERROR state; every other dispatch resets it
         to "ok", so a later successful state self-heals a prior error.
 
@@ -366,14 +366,14 @@ class EngineGraph:
             state: Current state dict, passed through to the handler to read
 
         Returns:
-            The handler's delta, plus current_state/status stamped on top
+            The handler's delta, plus current_state/session_status stamped on top
         """
         handler_fn = self.handler_map[state_val]
         result = handler_fn(state)
         return {
             **result,
             "current_state": state_val.value,
-            "status": "error" if state_val == self.state_enum.ERROR else "ok",
+            "session_status": "error" if state_val == self.state_enum.ERROR else "ok",
         }
 
     def _make_handler_node(self, state_val: Any) -> Callable:
@@ -716,7 +716,7 @@ class EngineGraph:
         except InputValidationError as e:
             return {
                 "error_message": str(e),
-                "status": "error",
+                "session_status": "error",
                 "current_state": None,
                 "turn_number": 0,
                 "semantic_context": {},
@@ -726,7 +726,7 @@ class EngineGraph:
             log.exception("[invoke] Error: %s", e)
             return {
                 "error_message": str(e),
-                "status": "error",
+                "session_status": "error",
                 "current_state": "error",
                 "turn_number": 0,
                 "semantic_context": {},
@@ -851,7 +851,7 @@ class EngineGraph:
         except InputValidationError as e:
             return {
                 "error_message": str(e),
-                "status": "error",
+                "session_status": "error",
                 "current_state": None,
                 "turn_number": 0,
                 "semantic_context": {},
@@ -861,7 +861,7 @@ class EngineGraph:
             log.exception("[ainvoke] Error: %s", e)
             return {
                 "error_message": str(e),
-                "status": "error",
+                "session_status": "error",
                 "current_state": "error",
                 "turn_number": 0,
                 "semantic_context": {},
@@ -1025,7 +1025,7 @@ class EngineGraph:
                 "type": "result",
                 "state": {
                     "error_message": str(e),
-                    "status": "error",
+                    "session_status": "error",
                     "current_state": None,
                     "turn_number": 0,
                     "semantic_context": {},
@@ -1038,7 +1038,7 @@ class EngineGraph:
                 "type": "result",
                 "state": {
                     "error_message": str(e),
-                    "status": "error",
+                    "session_status": "error",
                     "current_state": "error",
                     "turn_number": 0,
                     "semantic_context": {},
@@ -1060,7 +1060,7 @@ class EngineGraph:
         Non-ok funnel outcomes (duplicate, ignored, waiting, …) yield a single
         ``{"type": "status", ...}`` chunk. Successful human/system turns yield
         the same token stream as ``astream``, ending with
-        ``{"type": "result", "state": ..., "status": "ok"}``.
+        ``{"type": "result", "state": ..., "emit_status": "ok"}``.
 
         Turn body matches ``invoke``/``ainvoke``: ``input_message`` for text,
         ``payload`` fully merged into state (plus event source/type stamps).
@@ -1087,7 +1087,7 @@ class EngineGraph:
         async with self._locks[thread_id]:
             if source == "system" and ledger_id is not None:
                 if await self._ledger.is_processed(ledger_id):
-                    yield {"type": "status", "status": "duplicate", "event_id": event_id}
+                    yield {"type": "status", "emit_status": "duplicate", "event_id": event_id}
                     return
 
             from src.engine.handler_registry import does_state_wait_for_input, get_handler_metadata
@@ -1101,14 +1101,14 @@ class EngineGraph:
                     await self._ledger.mark_processed(ledger_id)
                 yield {
                     "type": "status",
-                    "status": "already_terminal",
+                    "emit_status": "already_terminal",
                     "current_state": current,
                 }
                 return
             if not does_state_wait_for_input(current):
                 yield {
                     "type": "status",
-                    "status": "not_waiting",
+                    "emit_status": "not_waiting",
                     "current_state": current,
                 }
                 return
@@ -1129,12 +1129,12 @@ class EngineGraph:
                     else:
                         yield chunk
                 if final_state is None:
-                    yield {"type": "status", "status": "error"}
+                    yield {"type": "status", "emit_status": "error"}
                     return
-                if final_state.get("status") == "error":
-                    yield {"type": "result", "status": "error", "state": final_state}
+                if final_state.get("session_status") == "error":
+                    yield {"type": "result", "emit_status": "error", "state": final_state}
                     return
-                yield {"type": "result", "status": "ok", "state": final_state}
+                yield {"type": "result", "emit_status": "ok", "state": final_state}
                 return
 
             if not self._is_system_event_legal(state, event_type, payload):
@@ -1142,7 +1142,7 @@ class EngineGraph:
                     await self._ledger.mark_processed(ledger_id)
                 yield {
                     "type": "status",
-                    "status": "ignored",
+                    "emit_status": "ignored",
                     "current_state": current,
                     "event_type": event_type,
                 }
@@ -1160,14 +1160,14 @@ class EngineGraph:
                 else:
                     yield chunk
             if final_state is None:
-                yield {"type": "status", "status": "error"}
+                yield {"type": "status", "emit_status": "error"}
                 return
-            if final_state.get("status") == "error":
-                yield {"type": "result", "status": "error", "state": final_state}
+            if final_state.get("session_status") == "error":
+                yield {"type": "result", "emit_status": "error", "state": final_state}
                 return
             if ledger_id:
                 await self._ledger.mark_processed(ledger_id)
-            yield {"type": "result", "status": "ok", "state": final_state}
+            yield {"type": "result", "emit_status": "ok", "state": final_state}
 
     async def aemit_event(
         self,
@@ -1193,7 +1193,7 @@ class EngineGraph:
           • legacy: ``payload["text"]`` still accepted as the utterance when
             ``input_message`` is empty
 
-        Returns a dict with a "status" key distinguishable by callers:
+        Returns a dict with an "emit_status" key distinguishable by callers:
         "ok", "error", "duplicate", "ignored", "not_waiting", "already_terminal",
         or "waiting" (from _describe_wait — a human message against a
         wait_kind="system_event" state, read-only, state untouched).
@@ -1221,7 +1221,7 @@ class EngineGraph:
             if source == "system" and ledger_id is not None:
                 already_seen = await self._ledger.is_processed(ledger_id)
             if already_seen:
-                return {"status": "duplicate", "event_id": event_id}
+                return {"emit_status": "duplicate", "event_id": event_id}
 
             from src.engine.handler_registry import does_state_wait_for_input, get_handler_metadata
 
@@ -1232,9 +1232,9 @@ class EngineGraph:
             if current in self.terminal_states:
                 if ledger_id:
                     await self._ledger.mark_processed(ledger_id)
-                return {"status": "already_terminal", "current_state": current}
+                return {"emit_status": "already_terminal", "current_state": current}
             if not does_state_wait_for_input(current):
-                return {"status": "not_waiting", "current_state": current}
+                return {"emit_status": "not_waiting", "current_state": current}
 
             if source == "human":
                 if meta and meta.wait_kind == "system_event":
@@ -1245,9 +1245,9 @@ class EngineGraph:
                     input_message=turn_text,
                     state_delta=state_delta,
                 )
-                if result.get("status") == "error":
-                    return {"status": "error", **result}
-                return {"status": "ok", **result}
+                if result.get("session_status") == "error":
+                    return {"emit_status": "error", **result}
+                return {"emit_status": "ok", **result}
 
             # source == "system" — legality via overridable predicate hook
             if not self._is_system_event_legal(state, event_type, payload):
@@ -1256,7 +1256,11 @@ class EngineGraph:
                 # rather than retried forever.
                 if ledger_id:
                     await self._ledger.mark_processed(ledger_id)
-                return {"status": "ignored", "current_state": current, "event_type": event_type}
+                return {
+                    "emit_status": "ignored",
+                    "current_state": current,
+                    "event_type": event_type,
+                }
 
             result = await self.ainvoke(
                 user_id="",
@@ -1269,19 +1273,19 @@ class EngineGraph:
             # with no recovery path. A retry landing in that gap here just
             # gets correctly reclassified as "ignored" next time (state
             # already moved past that event), not reprocessed. ainvoke()
-            # returns status="error" instead of raising, so treat that as
+            # returns session_status="error" instead of raising, so treat that as
             # failure too — marking would permanently block recovery.
-            if result.get("status") == "error":
-                return {"status": "error", **result}
+            if result.get("session_status") == "error":
+                return {"emit_status": "error", **result}
             if ledger_id:
                 await self._ledger.mark_processed(ledger_id)
-            return {"status": "ok", **result}
+            return {"emit_status": "ok", **result}
 
     def _describe_wait(self, state: dict[str, Any], meta: Any) -> dict[str, Any]:
         """Read-only reply for a human message against a wait_kind="system_event"
         state — state stays untouched, but the caller gets more than silence."""
         return {
-            "status": "waiting",
+            "emit_status": "waiting",
             "current_state": state.get("current_state"),
             "wait_kind": meta.wait_kind,
             "expected_events": meta.expected_events,
@@ -1310,7 +1314,7 @@ class EngineGraph:
             a new session_id for a new run instead)
 
         If the run ends up parked at a waits_for_input state, degrades
-        gracefully to {"status": "blocked_needs_input", ...} rather than
+        gracefully to {"emit_status": "blocked_needs_input", ...} rather than
         raising — confirmed with the user: a bg/batch caller treats "this
         needs a human/system event" as a normal outcome, not an exception,
         and can hand the result straight to aemit_event() later.
@@ -1347,21 +1351,20 @@ class EngineGraph:
             timeout_sec=timeout_sec,
             max_auto_iters=max_auto_iters,
         )
-        if result.get("status") == "error":
+        if result.get("session_status") == "error":
             raise GraphRunError(result.get("error_message"))
 
         current = result.get("current_state")
         if does_state_wait_for_input(current):
-            # **result must come first: result's own "status" (e.g. "ok"
-            # from handler dispatch) would otherwise silently overwrite
-            # this override, since later dict-literal keys win.
-            return {**result, "status": "blocked_needs_input"}
+            # **result must come first: result's own session_status (e.g. "ok"
+            # from handler dispatch) must not be confused with emit_status.
+            return {**result, "emit_status": "blocked_needs_input"}
         if current not in self.terminal_states:
             raise GraphIncompleteError(
                 f"stopped at '{current}' without reaching terminal "
                 f"(max_auto_iters={max_auto_iters}?)"
             )
-        return result
+        return {**result, "emit_status": "ok"}
 
     def _build_new_messages(self, escaped: str, state: dict[str, Any]) -> list[Any]:
         """Per-turn message convention (§11) — replaces the previous

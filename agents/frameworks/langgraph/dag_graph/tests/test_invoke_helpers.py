@@ -106,7 +106,7 @@ def test_invoke_with_empty_input_message_does_not_raise_validation_error():
             state_delta={"document_id": "doc1"},
         )
 
-    assert result["status"] != "error"
+    assert result["session_status"] != "error"
     assert result.get("error_message") is None
 
 

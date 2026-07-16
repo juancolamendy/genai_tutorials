@@ -113,7 +113,7 @@ async def test_faq_happy_path_clears_active_topic():
             input_message="How much PTO do I get?",
         )
 
-    assert result["status"] == "ok"
+    assert result["emit_status"] == "ok"
     assert result.get("active_topic") is None
     assert any("15 days" in msg for msg in result.get("output_messages", []))
 
@@ -138,7 +138,7 @@ async def test_clarify_reroutes_user_reply_to_faq():
             event_type="message",
             input_message="help",
         )
-        assert turn1["status"] == "ok"
+        assert turn1["emit_status"] == "ok"
         assert turn1.get("current_state") == State.CLARIFY.value
         assert turn1.get("pending_clarify") is True
         assert any("FAQ" in m or "book" in m.lower() for m in turn1.get("output_messages", []))
@@ -150,7 +150,7 @@ async def test_clarify_reroutes_user_reply_to_faq():
             input_message="policy question about PTO",
         )
 
-    assert turn2["status"] == "ok"
+    assert turn2["emit_status"] == "ok"
     assert turn2.get("pending_clarify") is False
     assert turn2.get("active_topic") is None  # FAQ one-shot closes topic
     assert turn2.get("current_state") == State.IDLE.value
@@ -183,10 +183,10 @@ async def test_escalate_creates_one_ticket_ledger_dedupes():
             input_message="My paycheck is wrong again",
         )
 
-    assert first["status"] == "ok"
+    assert first["emit_status"] == "ok"
     assert len(first.get("open_tickets", [])) == 1
     assert any("TICKET-" in m for m in first.get("output_messages", []))
-    assert second["status"] == "ok"
+    assert second["emit_status"] == "ok"
     assert len(second.get("open_tickets", [])) == 1
 
 
@@ -217,7 +217,7 @@ async def test_escalate_create_ticket_called_once():
             input_message="Please open a ticket — paycheck short $200",
         )
 
-    assert result["status"] == "ok"
+    assert result["emit_status"] == "ok"
     assert create_calls == [("Pay issue", "Paycheck wrong")]
     assert result.get("open_tickets") == ["TICKET-1"]
     assert any("TICKET-1" in m for m in result.get("output_messages", []))
@@ -246,7 +246,7 @@ async def test_booking_sticky_two_turn_confirm():
             input_message="Book a desk Monday NYC",
         )
 
-    assert turn1["status"] == "ok"
+    assert turn1["emit_status"] == "ok"
     assert turn1.get("active_topic") == "booking"
     assert turn1.get("topic_data", {}).get("date") == "2026-08-01"
     assert turn1.get("topic_data", {}).get("location") == "NYC"
@@ -271,7 +271,7 @@ async def test_booking_sticky_two_turn_confirm():
             input_message="Window seat please",
         )
 
-    assert turn2["status"] == "ok"
+    assert turn2["emit_status"] == "ok"
     assert turn2.get("active_topic") is None
     assert len(turn2.get("bookings", [])) == 1
     assert turn2["bookings"][0]["seat_pref"] == "window"
@@ -315,7 +315,7 @@ async def test_escape_mid_booking_reroutes():
             input_message="Actually how much PTO?",
         )
 
-    assert result["status"] == "ok"
+    assert result["emit_status"] == "ok"
     assert result.get("active_topic") is None
 
 
@@ -332,7 +332,7 @@ async def test_illegal_system_event_ignored():
         payload={"ticket_id": "TICKET-999"},
     )
 
-    assert result["status"] == "ignored"
+    assert result["emit_status"] == "ignored"
 
 
 @pytest.mark.asyncio
@@ -362,7 +362,7 @@ async def test_topic_timeout_clears_booking():
             input_message="Book a desk Monday NYC",
         )
 
-    assert turn1["status"] == "ok"
+    assert turn1["emit_status"] == "ok"
     assert turn1.get("current_state") == State.TOPIC_BOOKING.value
     assert turn1.get("active_topic") == "booking"
 
@@ -380,7 +380,7 @@ async def test_topic_timeout_clears_booking():
             event_id="evt-timeout",
         )
 
-    assert result["status"] == "ok"
+    assert result["emit_status"] == "ok"
     assert result.get("active_topic") is None
     assert result.get("topic_data") == {}
     assert result.get("current_state") == State.IDLE.value
@@ -440,7 +440,7 @@ async def test_ticket_resolved_during_clarify_short_circuits():
             payload={"ticket_id": ticket_id},
         )
 
-    assert result["status"] == "ok"
+    assert result["emit_status"] == "ok"
     assert ticket_id not in (result.get("open_tickets") or [])
     assert any(ticket_id in m for m in result.get("output_messages", []))
     assert result.get("current_state") == State.IDLE.value
@@ -479,7 +479,7 @@ async def test_ticket_resolved_from_idle_removes_open_ticket():
         payload={"ticket_id": ticket_id},
     )
 
-    assert result["status"] == "ok"
+    assert result["emit_status"] == "ok"
     assert ticket_id not in (result.get("open_tickets") or [])
     assert result.get("output_messages") == [
         f"Good news — ticket {ticket_id} has been resolved."
@@ -511,7 +511,7 @@ async def test_faq_path_never_calls_booking_tools():
             input_message="PTO policy?",
         )
 
-    assert result["status"] == "ok"
+    assert result["emit_status"] == "ok"
     assert len(_booking_store) == 0
 
 
@@ -540,6 +540,6 @@ async def test_escalate_chain_failure_diverts_to_error():
             input_message="Please open a ticket",
         )
 
-    assert result["status"] == "error"
+    assert result["emit_status"] == "error"
     assert result.get("current_state") == State.ERROR.value
     assert "llm down" in (result.get("error_message") or "")

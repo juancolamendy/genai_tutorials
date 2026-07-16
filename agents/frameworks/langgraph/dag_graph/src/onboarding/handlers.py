@@ -5,7 +5,7 @@ Each handler executes business logic for a state and must:
   2. Process the data
   3. Return ONLY the fields it's updating (a partial delta)
 
-current_state and status are stamped centrally by EngineGraph._dispatch_handler
+current_state and session_status are stamped centrally by EngineGraph._dispatch_handler
 — handlers never set them. audit_trail/output_messages are reducer-backed
 (operator.add), so handlers return only the new entry/entries, not the
 accumulated list.

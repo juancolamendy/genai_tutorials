@@ -37,7 +37,7 @@ async def test_ainvoke_works_against_json_checkpointer():
 
     result = await graph.compiled_graph.ainvoke(state, config=config)
 
-    assert result["status"] != "error"
+    assert result["session_status"] != "error"
     # A real checkpoint round-trip: the state we get back must be loadable
     # again via the sync path too (proves aput actually persisted it).
     loaded = checkpointer.get_tuple(config)
@@ -55,7 +55,7 @@ async def test_ainvoke_works_against_sqlite_checkpointer_memory():
 
     result = await graph.compiled_graph.ainvoke(state, config=config)
 
-    assert result["status"] != "error"
+    assert result["session_status"] != "error"
     loaded = checkpointer.get_tuple(config)
     assert loaded is not None
 
@@ -72,7 +72,7 @@ async def test_ainvoke_works_against_sqlite_checkpointer_file(tmp_path):
 
     result = await graph.compiled_graph.ainvoke(state, config=config)
 
-    assert result["status"] != "error"
+    assert result["session_status"] != "error"
     loaded = checkpointer.get_tuple(config)
     assert loaded is not None
 
@@ -101,7 +101,7 @@ async def test_sqlite_checkpointer_concurrent_access_different_threads():
         graph2.compiled_graph.ainvoke(state2, config=config2),
     )
 
-    assert all(r["status"] != "error" for r in results)
+    assert all(r["session_status"] != "error" for r in results)
     assert checkpointer.get_tuple(config1) is not None
     assert checkpointer.get_tuple(config2) is not None
 

@@ -89,7 +89,7 @@ resolve_run_id = resolve_thread_id
 
 def _format_result(result: dict[str, Any]) -> str:
     return (
-        f"status={result.get('status')} "
+        f"emit_status={result.get('emit_status')} "
         f"current_state={result.get('current_state')} "
         f"run_status={result.get('run_status')} "
         f"report={result.get('report_path')}"
@@ -113,7 +113,7 @@ async def _cmd_run(
     )
     save_current_thread_id(sessions_dir, thread_id)
     line = f"thread_id={thread_id}\n{_format_result(result)}"
-    if result.get("status") == "blocked_needs_input":
+    if result.get("emit_status") == "blocked_needs_input":
         line += f"\nawaiting approval — diff: {result.get('diff_path')}"
     return line
 
@@ -181,7 +181,7 @@ def _cmd_status(graph: Graph, thread_id: str) -> str:
     state = graph._get_or_init_state(session_id=thread_id, user_id="")
     return (
         f"thread={thread_id} current_state={state.get('current_state')} "
-        f"run_status={state.get('run_status')} status={state.get('status')}"
+        f"run_status={state.get('run_status')} session_status={state.get('session_status')}"
     )
 
 

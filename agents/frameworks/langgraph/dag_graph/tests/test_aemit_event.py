@@ -128,7 +128,7 @@ async def test_status_ok_for_system_sourced_legal_event():
         thread_id=thread_id, source="system", event_type="thing_happened", event_id="evt-1"
     )
 
-    assert result["status"] == "ok"
+    assert result["emit_status"] == "ok"
     assert result["current_state"] == _TestState.DONE.value
 
 
@@ -141,14 +141,14 @@ async def test_status_duplicate_for_repeated_event_id():
     first = await graph.aemit_event(
         thread_id=thread_id, source="system", event_type="thing_happened", event_id="evt-dup"
     )
-    assert first["status"] == "ok"
+    assert first["emit_status"] == "ok"
 
     # Reset back to AWAIT_SYS to prove the second call is skipped because of
     # the ledger, not because the state simply isn't waiting anymore.
     second = await graph.aemit_event(
         thread_id=thread_id, source="system", event_type="thing_happened", event_id="evt-dup"
     )
-    assert second["status"] == "duplicate"
+    assert second["emit_status"] == "duplicate"
     assert second["event_id"] == "evt-dup"
 
 
@@ -162,7 +162,7 @@ async def test_status_ignored_for_event_type_not_in_expected_events():
         thread_id=thread_id, source="system", event_type="unrelated_event", event_id="evt-2"
     )
 
-    assert result["status"] == "ignored"
+    assert result["emit_status"] == "ignored"
     assert result["current_state"] == _TestState.AWAIT_SYS.value
 
 
@@ -216,7 +216,7 @@ async def test_status_ignored_symmetric_guard_system_event_against_human_state()
         thread_id=thread_id, source="system", event_type="should_never_matter", event_id="evt-3"
     )
 
-    assert result["status"] == "ignored"
+    assert result["emit_status"] == "ignored"
 
 
 @pytest.mark.asyncio
@@ -229,7 +229,7 @@ async def test_status_not_waiting_for_fresh_session():
         thread_id=thread_id, source="system", event_type="thing_happened", event_id="evt-4"
     )
 
-    assert result["status"] == "not_waiting"
+    assert result["emit_status"] == "not_waiting"
 
 
 @pytest.mark.asyncio
@@ -245,7 +245,7 @@ async def test_status_already_terminal():
         thread_id=thread_id, source="system", event_type="thing_happened", event_id="evt-6"
     )
 
-    assert result["status"] == "already_terminal"
+    assert result["emit_status"] == "already_terminal"
     assert result["current_state"] == _TestState.DONE.value
 
 
@@ -270,7 +270,7 @@ async def test_user_id_is_always_empty_regardless_of_source():
     result = await graph.aemit_event(
         thread_id=thread_id, source="system", event_type="thing_happened", event_id="evt-7"
     )
-    assert result["status"] == "ok"
+    assert result["emit_status"] == "ok"
 
     # Loading the same thread_id directly (user_id="") must see the
     # post-event state — proving both calls agreed on one thread identity.
@@ -304,7 +304,7 @@ async def test_human_branch_smoke_test_against_real_docprocessing_graph():
             input_message="here are the docs",
         )
 
-    assert result["status"] == "ok"
+    assert result["emit_status"] == "ok"
     assert result["current_state"] == "complete"
 
 
@@ -320,7 +320,7 @@ async def test_human_event_against_system_only_state_returns_describe_wait():
         thread_id=thread_id, source="human", event_type="message", input_message="hello?"
     )
 
-    assert result["status"] == "waiting"
+    assert result["emit_status"] == "waiting"
     assert result["current_state"] == _TestState.AWAIT_SYS.value
     assert result["wait_kind"] == "system_event"
     assert result["expected_events"] == ["thing_happened"]
@@ -332,7 +332,7 @@ async def test_human_event_against_system_only_state_returns_describe_wait():
 
 @pytest.mark.asyncio
 async def test_failed_ainvoke_does_not_mark_ledger():
-    """Mark only after a successful turn — a status=error result must leave
+    """Mark only after a successful turn — a session_status=error result must leave
     the event_id unmarked so a provider retry can recover."""
     graph = _build_test_graph()
     thread_id = str(uuid.uuid4())
@@ -343,7 +343,7 @@ async def test_failed_ainvoke_does_not_mark_ledger():
         "ainvoke",
         new_callable=AsyncMock,
         return_value={
-            "status": "error",
+            "session_status": "error",
             "error_message": "boom",
             "current_state": "error",
             "turn_number": 0,
@@ -358,7 +358,7 @@ async def test_failed_ainvoke_does_not_mark_ledger():
             event_id="evt-fail",
         )
 
-    assert result["status"] == "error"
+    assert result["emit_status"] == "error"
     assert await graph._ledger.is_processed("evt-fail") is False
 
 
@@ -417,7 +417,7 @@ async def test_human_aemit_merges_payload_into_state():
             payload={"document_id": "doc-merged"},
         )
 
-    assert result["status"] == "ok"
+    assert result["emit_status"] == "ok"
     # document_id from payload should have been visible during the turn;
     # final state may advance past upload — assert merge path didn't error.
     assert result.get("error_message") in (None, "")

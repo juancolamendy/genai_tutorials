@@ -147,7 +147,7 @@ def test_new_onboarding_session_state_has_business_fields():
 
 def test_onboarding_state_inherits_engine_session_state_fields():
     state = new_onboarding_session_state()
-    assert state["status"] == "ok"
+    assert state["session_status"] == "ok"
     assert state["audit_trail"] == ["init session state"]
     assert state["output_messages"] == []
 

@@ -80,7 +80,7 @@ async def _kickoff_and_collect(graph, thread_id):
             event_type="message",
             input_message="Jane Doe, Engineer, starting 2026-08-01",
         )
-    assert result["status"] == "ok"
+    assert result["emit_status"] == "ok"
     assert result["current_state"] == State.AWAIT_DOCUMENTS_SIGNED.value
     return result
 
@@ -101,7 +101,7 @@ async def test_full_happy_path_through_aemit_event():
             event_type="document_signed",
             event_id="evt-signed",
         )
-    assert signed["status"] == "ok"
+    assert signed["emit_status"] == "ok"
     assert signed["current_state"] == State.AWAIT_HARDWARE_DELIVERED.value
     assert signed["it_provisioned"] is True
     assert signed["username_prefix"] == "jdoe"
@@ -112,7 +112,7 @@ async def test_full_happy_path_through_aemit_event():
         event_type="hardware_delivered",
         event_id="evt-delivered",
     )
-    assert delivered["status"] == "ok"
+    assert delivered["emit_status"] == "ok"
     assert delivered["current_state"] == State.COMPLETE.value
     assert delivered["schedule_sent"] is True
     assert delivered["hr_notified"] is True
@@ -131,7 +131,7 @@ async def test_timeout_escalation_from_await_documents_signed():
         event_id="evt-timeout-1",
     )
 
-    assert result["status"] == "ok"
+    assert result["emit_status"] == "ok"
     assert result["current_state"] == State.ESCALATED.value
 
 
@@ -154,7 +154,7 @@ async def test_timeout_escalation_from_await_hardware_delivered():
         event_id="evt-timeout-2",
     )
 
-    assert result["status"] == "ok"
+    assert result["emit_status"] == "ok"
     assert result["current_state"] == State.ESCALATED.value
 
 
@@ -171,7 +171,7 @@ async def test_duplicate_event_id_does_not_double_process():
             event_type="document_signed",
             event_id="evt-dup",
         )
-    assert first["status"] == "ok"
+    assert first["emit_status"] == "ok"
     audit_len_after_first = len(first.get("audit_trail", []))
 
     second = await graph.aemit_event(
@@ -181,7 +181,7 @@ async def test_duplicate_event_id_does_not_double_process():
         event_id="evt-dup",
     )
 
-    assert second["status"] == "duplicate"
+    assert second["emit_status"] == "duplicate"
     # State genuinely untouched: get_active_sessions() reads the true
     # persisted checkpoint (unlike _get_or_init_state, which always resets
     # audit_trail/messages to [] since it's meant to feed back into the

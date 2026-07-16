@@ -75,7 +75,7 @@ async def test_sweep_escalates_a_stale_thread():
     results = await sweep(graph, {"await_documents_signed": 7 * 24 * 3600.0})
 
     assert len(results) == 1
-    assert results[0]["status"] == "ok"
+    assert results[0]["emit_status"] == "ok"
     assert results[0]["current_state"] == State.ESCALATED.value
 
 
@@ -109,14 +109,16 @@ async def test_sweep_ignores_states_not_in_thresholds():
 @pytest.mark.asyncio
 async def test_cmd_chat_calls_aemit_event_with_human_source():
     mock_graph = MagicMock()
-    mock_graph.aemit_event = AsyncMock(return_value={"status": "ok", "current_state": "collect"})
+    mock_graph.aemit_event = AsyncMock(
+        return_value={"emit_status": "ok", "current_state": "collect"}
+    )
 
     output = await cli._cmd_chat(mock_graph, "thread-1", "hello")
 
     mock_graph.aemit_event.assert_awaited_once_with(
         thread_id="thread-1", source="human", event_type="message", input_message="hello"
     )
-    assert "status=ok" in output
+    assert "emit_status=ok" in output
     assert "current_state=collect" in output
 
 
@@ -124,7 +126,7 @@ async def test_cmd_chat_calls_aemit_event_with_human_source():
 async def test_cmd_event_calls_aemit_event_with_system_source_and_payload():
     mock_graph = MagicMock()
     mock_graph.aemit_event = AsyncMock(
-        return_value={"status": "ok", "current_state": "it_provisioned"}
+        return_value={"emit_status": "ok", "current_state": "it_provisioned"}
     )
 
     await cli._cmd_event(
@@ -143,7 +145,7 @@ async def test_cmd_event_calls_aemit_event_with_system_source_and_payload():
 @pytest.mark.asyncio
 async def test_cmd_sweep_calls_sweep_module_function():
     mock_graph = MagicMock()
-    with patch("src.onboarding.cli.run_sweep", new=AsyncMock(return_value=[{"status": "ok"}])):
+    with patch("src.onboarding.cli.run_sweep", new=AsyncMock(return_value=[{"emit_status": "ok"}])):
         output = await cli._cmd_sweep(mock_graph)
 
     assert "Swept 1 stale thread(s)" in output
@@ -151,7 +153,10 @@ async def test_cmd_sweep_calls_sweep_module_function():
 
 def test_cmd_status_reads_via_get_or_init_state():
     mock_graph = MagicMock()
-    mock_graph._get_or_init_state.return_value = {"current_state": "collect", "status": "ok"}
+    mock_graph._get_or_init_state.return_value = {
+        "current_state": "collect",
+        "session_status": "ok",
+    }
 
     output = cli._cmd_status(mock_graph, "thread-1")
 

@@ -29,10 +29,11 @@ class EngineSessionState(TypedDict, total=False):
       • current_state: Current state in the state machine
       • proposed_next: Router's suggestion for next state
       • retry_count: Number of retries attempted
-      • error_message: Error description if status='error'
-      • error_type: Exception class name if status='error'
-      • status: 'ok' or 'error' — set centrally (safe_node, handler dispatch),
-        never by individual handlers
+      • error_message: Error description if session_status='error'
+      • error_type: Exception class name if session_status='error'
+      • session_status: 'ok' or 'error' — set centrally (safe_node, handler
+        dispatch), never by individual handlers
+      • handler_status: per-handler business outcome ('ok' / 'error')
       • guardrail_ok: Guardrail validation result
       • fallback_depth: Consecutive guardrail-fallback count (cascade detection)
       • audit_trail: Append-only log of state transitions (reducer: operator.add)
@@ -70,12 +71,12 @@ class EngineSessionState(TypedDict, total=False):
     """Number of retries attempted for current operation. Incremented by retry handler."""
 
     error_message: Optional[str]
-    """Error description if status='error'. None otherwise."""
+    """Error description if session_status='error'. None otherwise."""
 
     error_type: Optional[str]
-    """Exception class name if status='error' (set by safe_node). None otherwise."""
+    """Exception class name if session_status='error' (set by safe_node). None otherwise."""
 
-    status: Literal["ok", "error"]
+    session_status: Literal["ok", "error"]
     """Overall session health. Set centrally — by safe_node on uncaught exceptions,
     and by handler dispatch when the state entered is the domain's ERROR state.
     Individual handlers never set this themselves."""
@@ -85,8 +86,8 @@ class EngineSessionState(TypedDict, total=False):
     business failures (e.g. LLM/tool exceptions) and "ok" on success.
     EngineGraph._guardrail_node always runs make_handler_status_guardrail
     before the domain registry, diverting to ERROR when this is "error" —
-    do not use session status for that; dispatch resets status to "ok" on
-    every non-ERROR handler."""
+    do not use session_status for that; dispatch resets session_status to "ok"
+    on every non-ERROR handler."""
 
     guardrail_ok: bool
     """Guardrail validation result. True if proposed_next passed guardrails."""
@@ -182,7 +183,7 @@ def new_engine_session_state() -> EngineSessionState:
         retry_count=0,
         error_message=None,
         error_type=None,
-        status="ok",
+        session_status="ok",
         handler_status="ok",
         guardrail_ok=True,
         fallback_depth=0,
