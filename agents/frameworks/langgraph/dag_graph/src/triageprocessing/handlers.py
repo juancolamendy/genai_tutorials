@@ -44,7 +44,7 @@ def _log_cmd(cmd: str, detail: str = "") -> list[dict[str, Any]]:
 
 def _resolve_decision(state: TriageState) -> Optional[Literal["approve", "reject"]]:
     """Option C: system event_type approve|reject, or human text/payload."""
-    event_type = (state.get("current_event_type") or "").lower()
+    event_type = (state.get("event_type") or "").lower()
     if event_type in ("approve", "reject"):
         return event_type  # type: ignore[return-value]
 

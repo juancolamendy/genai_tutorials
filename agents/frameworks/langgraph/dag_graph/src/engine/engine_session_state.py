@@ -47,9 +47,9 @@ class EngineSessionState(TypedDict, total=False):
       • router_reasoning: Optional explanation from semantic router
       • started_at: Workflow start timestamp
       • timeout_seconds: Max execution time for entire workflow
-      • current_event_source: Which kind of event resumed this turn
+      • event_source: Which kind of event resumed this turn
         ("human" or "system"); absent until an event-gate call stamps it
-      • current_event_type: The specific event type for this turn (e.g.
+      • event_type: The specific event type for this turn (e.g.
         "message", "document_signed", "timeout_escalation")
       • output_messages: Per-turn messages a handler wants said to a human,
         if any (reducer: operator.add)
@@ -145,18 +145,18 @@ class EngineSessionState(TypedDict, total=False):
     """Maximum execution time for entire workflow (default: 300.0)."""
 
     # ─ Event Extension ───────────────────────────────────────────────────
-    current_event_source: Literal["human", "system"]
+    event_source: Literal["human", "system"]
     """Which kind of event resumed this turn. Stamped fresh by aemit_event's
     human/system branches on every turn — never carried over from a prior
     turn. Absent on turns that never went through aemit_event (e.g. every
     existing docprocessing call); read via
-    state.get("current_event_source", "human") so those default to
+    state.get("event_source", "human") so those default to
     human-sourced."""
 
-    current_event_type: str
+    event_type: str
     """The specific event type for this turn (e.g. "message",
     "document_signed", "timeout_escalation"). Stamped alongside
-    current_event_source. Read via state.get("current_event_type",
+    event_source. Read via state.get("event_type",
     "message") when absent."""
 
     output_messages: Annotated[list[str], operator.add]
@@ -171,7 +171,7 @@ class EngineSessionState(TypedDict, total=False):
 def new_engine_session_state() -> EngineSessionState:
     """Create fresh session state.
 
-    current_event_source/current_event_type are deliberately omitted here
+    event_source/event_type are deliberately omitted here
     (left absent, not pre-seeded) — they are stamped fresh by aemit_event's
     branches on every turn that goes through it, and pre-seeding a value
     here would be indistinguishable from a stale value carried over from a

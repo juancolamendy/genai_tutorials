@@ -30,7 +30,7 @@
   `EngineGraph.invoke/ainvoke/astream` dispatches whatever handler is parked at
   `current_state` *before* the router or `_is_system_event_legal` ever run (the
   "resume-at-blocking-state" step). A sticky topic's handler must check
-  `state.get("current_event_source") == "system"` and short-circuit *before* doing any LLM/tool
+  `state.get("event_source") == "system"` and short-circuit *before* doing any LLM/tool
   work — mirroring the hub's own `handle_idle` — so a system event never triggers a live model
   call with empty input.
   - **Why:** confirmed by reproduction — a `topic_timeout` event delivered while a booking was

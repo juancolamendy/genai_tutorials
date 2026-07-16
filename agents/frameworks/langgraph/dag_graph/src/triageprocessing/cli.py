@@ -146,7 +146,7 @@ async def _cmd_decide(
     if as_system:
         result = await graph.aemit_event(
             thread_id=thread_id,
-            source="system",
+            event_source="system",
             event_type=decision,
             event_id=event_id,
             payload={"by": by, "note": note, "approved": decision == "approve"},
@@ -154,7 +154,7 @@ async def _cmd_decide(
     else:
         result = await graph.aemit_event(
             thread_id=thread_id,
-            source="human",
+            event_source="human",
             event_type="message",
             input_message=decision,
         )
@@ -165,7 +165,7 @@ async def _cmd_decide(
 async def _cmd_chat(graph: Graph, thread_id: str, message: str) -> str:
     result = await graph.aemit_event(
         thread_id=thread_id,
-        source="human",
+        event_source="human",
         event_type="message",
         input_message=message,
     )

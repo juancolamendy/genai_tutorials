@@ -95,7 +95,7 @@ def log_handler_enter(handler_name: str, state: dict[str, Any]) -> None:
         handler_name,
         state.get("current_state"),
         state.get("active_topic"),
-        state.get("current_event_type"),
+        state.get("event_type"),
     )
 
 

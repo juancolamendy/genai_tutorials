@@ -116,7 +116,7 @@ may keep you in `COLLECT` (incomplete details) or divert to `ESCALATED` /
    `audit_trail`. Engine stamps `current_state` / `status` on dispatch.
    Use guard flags so retries never double-send welcome / provision / schedule.
 
-5. **System events** — emit via `aemit_event(source="system", event_type=…,
+5. **System events** — emit via `aemit_event(event_source="system", event_type=…,
    event_id=…)`. Ledger dedupes by `event_id`. Payload merges into state
    before the parked handler runs. Sweep emits `timeout_escalation` for
    stale parks (onboarding: docs 7d, hardware 3d).
@@ -139,7 +139,7 @@ may keep you in `COLLECT` (incomplete details) or divert to `ESCALATED` /
 
 1. Same `sessions_dir` for every process? (CLI default vs bootstrap)
 2. `current_state` — parked where you expect, or terminal?
-3. Was this human or system? (`current_event_source` / `current_event_type`)
+3. Was this human or system? (`event_source` / `event_type`)
 4. Did the handler set the business fields / guard flags?
 5. What did the router propose? (`proposed_next` / happy path)
 6. Did a guardrail divert or self-loop? (e.g. incomplete collect)

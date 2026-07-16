@@ -125,7 +125,7 @@ async def test_status_ok_for_system_sourced_legal_event():
     await _park_at_await_sys(graph, thread_id)
 
     result = await graph.aemit_event(
-        thread_id=thread_id, source="system", event_type="thing_happened", event_id="evt-1"
+        thread_id=thread_id, event_source="system", event_type="thing_happened", event_id="evt-1"
     )
 
     assert result["emit_status"] == "ok"
@@ -139,14 +139,14 @@ async def test_status_duplicate_for_repeated_event_id():
     await _park_at_await_sys(graph, thread_id)
 
     first = await graph.aemit_event(
-        thread_id=thread_id, source="system", event_type="thing_happened", event_id="evt-dup"
+        thread_id=thread_id, event_source="system", event_type="thing_happened", event_id="evt-dup"
     )
     assert first["emit_status"] == "ok"
 
     # Reset back to AWAIT_SYS to prove the second call is skipped because of
     # the ledger, not because the state simply isn't waiting anymore.
     second = await graph.aemit_event(
-        thread_id=thread_id, source="system", event_type="thing_happened", event_id="evt-dup"
+        thread_id=thread_id, event_source="system", event_type="thing_happened", event_id="evt-dup"
     )
     assert second["emit_status"] == "duplicate"
     assert second["event_id"] == "evt-dup"
@@ -159,7 +159,7 @@ async def test_status_ignored_for_event_type_not_in_expected_events():
     await _park_at_await_sys(graph, thread_id)
 
     result = await graph.aemit_event(
-        thread_id=thread_id, source="system", event_type="unrelated_event", event_id="evt-2"
+        thread_id=thread_id, event_source="system", event_type="unrelated_event", event_id="evt-2"
     )
 
     assert result["emit_status"] == "ignored"
@@ -213,7 +213,7 @@ async def test_status_ignored_symmetric_guard_system_event_against_human_state()
     graph._get_or_init_state(session_id=thread_id, user_id="")  # materialize a fresh session
 
     result = await graph.aemit_event(
-        thread_id=thread_id, source="system", event_type="should_never_matter", event_id="evt-3"
+        thread_id=thread_id, event_source="system", event_type="should_never_matter", event_id="evt-3"
     )
 
     assert result["emit_status"] == "ignored"
@@ -226,7 +226,7 @@ async def test_status_not_waiting_for_fresh_session():
     graph._get_or_init_state(session_id=thread_id, user_id="")  # current_state=INIT, not waiting
 
     result = await graph.aemit_event(
-        thread_id=thread_id, source="system", event_type="thing_happened", event_id="evt-4"
+        thread_id=thread_id, event_source="system", event_type="thing_happened", event_id="evt-4"
     )
 
     assert result["emit_status"] == "not_waiting"
@@ -238,11 +238,11 @@ async def test_status_already_terminal():
     thread_id = str(uuid.uuid4())
     await _park_at_await_sys(graph, thread_id)
     await graph.aemit_event(
-        thread_id=thread_id, source="system", event_type="thing_happened", event_id="evt-5"
+        thread_id=thread_id, event_source="system", event_type="thing_happened", event_id="evt-5"
     )  # advances to DONE
 
     result = await graph.aemit_event(
-        thread_id=thread_id, source="system", event_type="thing_happened", event_id="evt-6"
+        thread_id=thread_id, event_source="system", event_type="thing_happened", event_id="evt-6"
     )
 
     assert result["emit_status"] == "already_terminal"
@@ -254,7 +254,7 @@ async def test_system_sourced_event_requires_event_id():
     graph = _build_test_graph()
     with pytest.raises(ValueError):
         await graph.aemit_event(
-            thread_id=str(uuid.uuid4()), source="system", event_type="thing_happened", event_id=None
+            thread_id=str(uuid.uuid4()), event_source="system", event_type="thing_happened", event_id=None
         )
 
 
@@ -268,7 +268,7 @@ async def test_user_id_is_always_empty_regardless_of_source():
     await _park_at_await_sys(graph, thread_id)
 
     result = await graph.aemit_event(
-        thread_id=thread_id, source="system", event_type="thing_happened", event_id="evt-7"
+        thread_id=thread_id, event_source="system", event_type="thing_happened", event_id="evt-7"
     )
     assert result["emit_status"] == "ok"
 
@@ -299,7 +299,7 @@ async def test_human_branch_smoke_test_against_real_docprocessing_graph():
     with patch("src.docprocessing.handlers.random.random", return_value=0.9):
         result = await graph.aemit_event(
             thread_id=thread_id,
-            source="human",
+            event_source="human",
             event_type="message",
             input_message="here are the docs",
         )
@@ -317,7 +317,7 @@ async def test_human_event_against_system_only_state_returns_describe_wait():
     await _park_at_await_sys(graph, thread_id)
 
     result = await graph.aemit_event(
-        thread_id=thread_id, source="human", event_type="message", input_message="hello?"
+        thread_id=thread_id, event_source="human", event_type="message", input_message="hello?"
     )
 
     assert result["emit_status"] == "waiting"
@@ -353,7 +353,7 @@ async def test_failed_ainvoke_does_not_mark_ledger():
     ):
         result = await graph.aemit_event(
             thread_id=thread_id,
-            source="system",
+            event_source="system",
             event_type="thing_happened",
             event_id="evt-fail",
         )
@@ -365,26 +365,26 @@ async def test_failed_ainvoke_does_not_mark_ledger():
 def test_resolve_emit_turn_prefers_input_message_and_merges_payload():
     graph = _build_test_graph()
     text, delta = graph._resolve_emit_turn(
-        source="human",
+        event_source="human",
         event_type="message",
         input_message="hello",
         payload={
             "ticket_id": "T-1",
             "text": "ignored-legacy",
-            "current_event_source": "system",  # must not spoof
+            "event_source": "system",  # must not spoof
         },
     )
     assert text == "hello"
     assert delta["ticket_id"] == "T-1"
-    assert delta["current_event_source"] == "human"
-    assert delta["current_event_type"] == "message"
+    assert delta["event_source"] == "human"
+    assert delta["event_type"] == "message"
     assert "text" not in delta
 
 
 def test_resolve_emit_turn_legacy_payload_text():
     graph = _build_test_graph()
     text, delta = graph._resolve_emit_turn(
-        source="human",
+        event_source="human",
         event_type="message",
         input_message="",
         payload={"text": "legacy hi", "foo": 1},
@@ -411,7 +411,7 @@ async def test_human_aemit_merges_payload_into_state():
         )
         result = await graph.aemit_event(
             thread_id=thread_id,
-            source="human",
+            event_source="human",
             event_type="message",
             input_message="here are the docs",
             payload={"document_id": "doc-merged"},

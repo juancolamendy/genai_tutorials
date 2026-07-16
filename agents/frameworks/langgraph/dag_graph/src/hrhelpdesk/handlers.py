@@ -202,15 +202,15 @@ async def _route_human_message(
 async def handle_idle(state: HelpdeskState) -> HelpdeskState:
     """Thin hub handler: escape check, semantic route, booking bootstrap."""
     log_handler_enter("idle", state)
-    event_source = state.get("current_event_source", "human")
+    event_source = state.get("event_source", "human")
 
     if event_source == "system":
         return log_handler_exit(
             "idle",
             {
-                "last_event": state.get("current_event_type"),
+                "last_event": state.get("event_type"),
                 "last_event_at": datetime.now(timezone.utc).isoformat(),
-                "audit_trail": [f"idle: system event {state.get('current_event_type')}"],
+                "audit_trail": [f"idle: system event {state.get('event_type')}"],
             },
         )
 
@@ -253,15 +253,15 @@ async def handle_idle(state: HelpdeskState) -> HelpdeskState:
 async def handle_clarify(state: HelpdeskState) -> HelpdeskState:
     """Process the user's disambiguation reply — do not ignore input_message."""
     log_handler_enter("clarify", state)
-    event_source = state.get("current_event_source", "human")
+    event_source = state.get("event_source", "human")
 
     if event_source == "system":
         return log_handler_exit(
             "clarify",
             {
-                "last_event": state.get("current_event_type"),
+                "last_event": state.get("event_type"),
                 "last_event_at": datetime.now(timezone.utc).isoformat(),
-                "audit_trail": [f"clarify: system event {state.get('current_event_type')}"],
+                "audit_trail": [f"clarify: system event {state.get('event_type')}"],
             },
         )
 
@@ -372,15 +372,15 @@ async def handle_topic_escalate(state: HelpdeskState) -> HelpdeskState:
 )
 async def handle_topic_booking(state: HelpdeskState) -> HelpdeskState:
     log_handler_enter("topic_booking", state)
-    event_source = state.get("current_event_source", "human")
+    event_source = state.get("event_source", "human")
 
     if event_source == "system":
         return log_handler_exit(
             "topic_booking",
             {
-                "last_event": state.get("current_event_type"),
+                "last_event": state.get("event_type"),
                 "last_event_at": datetime.now(timezone.utc).isoformat(),
-                "audit_trail": [f"topic_booking: system event {state.get('current_event_type')}"],
+                "audit_trail": [f"topic_booking: system event {state.get('event_type')}"],
             },
         )
 
@@ -410,7 +410,7 @@ async def handle_topic_booking(state: HelpdeskState) -> HelpdeskState:
 @handler(state=State.NOTIFY_USER.value, waits_for_input=False, description="Render system events")
 def handle_notify_user(state: HelpdeskState) -> HelpdeskState:
     log_handler_enter("notify_user", state)
-    event_type = state.get("current_event_type")
+    event_type = state.get("event_type")
     messages = state.get("messages") or []
     delta: dict[str, Any] = {
         "last_event": None,

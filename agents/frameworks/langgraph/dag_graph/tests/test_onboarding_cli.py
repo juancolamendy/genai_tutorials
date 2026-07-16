@@ -70,7 +70,7 @@ async def test_sweep_escalates_a_stale_thread():
     mock_agent.invoke.return_value = agent_value
     with patch("src.onboarding.chains.collect_agent", mock_agent):
         result = await graph.aemit_event(
-            thread_id=thread_id, source="human", event_type="message", input_message="go"
+            thread_id=thread_id, event_source="human", event_type="message", input_message="go"
         )
     assert result["current_state"] == State.AWAIT_DOCUMENTS_SIGNED.value
 
@@ -118,7 +118,7 @@ async def test_cmd_chat_calls_aemit_event_with_human_source():
     output = await cli._cmd_chat(mock_graph, "thread-1", "hello")
 
     mock_graph.aemit_event.assert_awaited_once_with(
-        thread_id="thread-1", source="human", event_type="message", input_message="hello"
+        thread_id="thread-1", event_source="human", event_type="message", input_message="hello"
     )
     assert "emit_status=ok" in output
     assert "current_state=collect" in output
@@ -137,7 +137,7 @@ async def test_cmd_event_calls_aemit_event_with_system_source_and_payload():
 
     mock_graph.aemit_event.assert_awaited_once_with(
         thread_id="thread-1",
-        source="system",
+        event_source="system",
         event_type="document_signed",
         event_id="evt-1",
         payload={"tracking_id": "abc"},

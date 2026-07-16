@@ -35,8 +35,8 @@ def _log_enter(handler_name: str, state: OnboardingState) -> None:
         "session_id=%s  turn=%s",
         handler_name,
         state.get("current_state"),
-        state.get("current_event_source", "human"),
-        state.get("current_event_type", "message"),
+        state.get("event_source", "human"),
+        state.get("event_type", "message"),
         state.get("session_id") or "(none)",
         state.get("turn_number", 0),
     )
@@ -199,7 +199,7 @@ def handle_await_documents_signed(state: OnboardingState) -> OnboardingState:
     recorded here.
     """
     _log_enter("await_documents_signed", state)
-    event_type = state.get("current_event_type")
+    event_type = state.get("event_type")
     if event_type == "timeout_escalation":
         log.info("[HANDLER] await_documents_signed  branch=timeout_escalation")
         return _log_exit(
@@ -276,11 +276,11 @@ async def handle_it_provisioned(state: OnboardingState) -> OnboardingState:
     description="Wait for hardware delivery confirmation (system event) or timeout",
 )
 def handle_await_hardware_delivered(state: OnboardingState) -> OnboardingState:
-    """Same current_event_type branching as handle_await_documents_signed
+    """Same event_type branching as handle_await_documents_signed
     (design spec §3) — hardware_tracking_id, if supplied, already landed
     in state via aemit_event's payload merge before this handler ran."""
     _log_enter("await_hardware_delivered", state)
-    event_type = state.get("current_event_type")
+    event_type = state.get("event_type")
     tracking = state.get("hardware_tracking_id")
     if event_type == "timeout_escalation":
         log.info("[HANDLER] await_hardware_delivered  branch=timeout_escalation")
@@ -357,7 +357,7 @@ def handle_escalated(state: OnboardingState) -> OnboardingState:
     _log_enter("escalated", state)
     log.info(
         "[HANDLER] escalated  terminal diversion  prior_event_type=%s",
-        state.get("current_event_type"),
+        state.get("event_type"),
     )
     return _log_exit(
         "escalated",

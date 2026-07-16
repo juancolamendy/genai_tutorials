@@ -50,7 +50,7 @@ def test_resolve_proposed_next_from_typed_fields():
     system = g._resolve_proposed_next(
         {
             "current_state": "idle",
-            "current_event_source": "system",
+            "event_source": "system",
             "pending_clarify": False,
         }
     )

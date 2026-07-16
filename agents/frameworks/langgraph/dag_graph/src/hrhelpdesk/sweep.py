@@ -34,7 +34,7 @@ async def sweep(graph: Any, thresholds: dict[str, float]) -> list[dict[str, Any]
             results.append(
                 await graph.aemit_event(
                     thread_id=thread_id,
-                    source="system",
+                    event_source="system",
                     event_type="topic_timeout",
                     event_id=f"sweep:{thread_id}:topic_timeout",
                 )

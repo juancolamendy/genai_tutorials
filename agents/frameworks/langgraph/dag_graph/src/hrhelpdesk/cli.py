@@ -75,7 +75,7 @@ async def _stream_human_turn(graph: Graph, thread_id: str, message: str) -> dict
     final: dict[str, Any] = {"emit_status": "error"}
     async for chunk in graph.aemit_event_stream(
         thread_id=thread_id,
-        source="human",
+        event_source="human",
         event_type="message",
         input_message=message,
     ):
@@ -114,7 +114,7 @@ async def _cmd_event(
     )
     result = await graph.aemit_event(
         thread_id=thread_id,
-        source="system",
+        event_source="system",
         event_type=event_type,
         event_id=event_id,
         payload=payload,

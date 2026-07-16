@@ -74,7 +74,7 @@ async def test_aemit_event_stream_human_yields_ok_result():
         # Seed via non-stream so we park at upload_documents
         await graph.aemit_event(
             thread_id=thread_id,
-            source="human",
+            event_source="human",
             event_type="message",
             input_message="start",
         )
@@ -89,7 +89,7 @@ async def test_aemit_event_stream_human_yields_ok_result():
         )
         async for chunk in graph.aemit_event_stream(
             thread_id=thread_id,
-            source="human",
+            event_source="human",
             event_type="message",
             input_message="here are docs",
         ):

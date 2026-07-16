@@ -24,8 +24,8 @@ log = logging.getLogger(__name__)
 # ``text`` is the legacy human-utterance channel (prefer ``input_message=``).
 _EMIT_RESERVED_PAYLOAD_KEYS = frozenset(
     {
-        "current_event_source",
-        "current_event_type",
+        "event_source",
+        "event_type",
         "input_message",
         "text",
     }
@@ -188,7 +188,7 @@ class EngineGraph:
         # system-sourced turn. An LLM can never decide a system-event
         # transition: this is structural, not a prompt-level instruction,
         # so it holds regardless of whether a semantic_router is attached.
-        if self.semantic_router is not None and state.get("current_event_source") != "system":
+        if self.semantic_router is not None and state.get("event_source") != "system":
             try:
                 current_state = state.get("current_state", "init")
                 input_message = state.get("input_message", "")
@@ -1112,7 +1112,7 @@ class EngineGraph:
     async def aemit_event_stream(
         self,
         thread_id: str,
-        source: str,
+        event_source: str,
         event_type: str,
         payload: Optional[dict[str, Any]] = None,
         event_id: Optional[str] = None,
@@ -1129,7 +1129,7 @@ class EngineGraph:
         ``payload`` fully merged into state (plus event source/type stamps).
         Legacy human turns may still pass the utterance as ``payload["text"]``.
         """
-        if source == "system" and not event_id:
+        if event_source == "system" and not event_id:
             raise ValueError("system-sourced events must supply event_id")
 
         if self._ledger is None:
@@ -1141,14 +1141,14 @@ class EngineGraph:
 
         ledger_id = _event_key(event_id) if event_id else None
         turn_text, state_delta = self._resolve_emit_turn(
-            source=source,
+            event_source=event_source,
             event_type=event_type,
             input_message=input_message,
             payload=payload,
         )
 
         async with self._locks[thread_id]:
-            if source == "system" and ledger_id is not None:
+            if event_source == "system" and ledger_id is not None:
                 if await self._ledger.is_processed(ledger_id):
                     yield {"type": "status", "emit_status": "duplicate", "event_id": event_id}
                     return
@@ -1176,7 +1176,7 @@ class EngineGraph:
                 }
                 return
 
-            if source == "human":
+            if event_source == "human":
                 if meta and meta.wait_kind == "system_event":
                     yield {"type": "status", **self._describe_wait(state, meta)}
                     return
@@ -1235,7 +1235,7 @@ class EngineGraph:
     async def aemit_event(
         self,
         thread_id: str,
-        source: str,
+        event_source: str,
         event_type: str,
         payload: Optional[dict[str, Any]] = None,
         event_id: Optional[str] = None,
@@ -1252,7 +1252,7 @@ class EngineGraph:
         Turn body matches invoke/ainvoke:
           • ``input_message`` — human utterance (system usually "")
           • ``payload`` — full-merge state updates (both sources); engine
-            stamps ``current_event_source`` / ``current_event_type``
+            stamps ``event_source`` / ``event_type``
           • legacy: ``payload["text"]`` still accepted as the utterance when
             ``input_message`` is empty
 
@@ -1261,7 +1261,7 @@ class EngineGraph:
         or "waiting" (from _describe_wait — a human message against a
         wait_kind="system_event" state, read-only, state untouched).
         """
-        if source == "system" and not event_id:
+        if event_source == "system" and not event_id:
             raise ValueError("system-sourced events must supply event_id")
 
         if self._ledger is None:
@@ -1273,7 +1273,7 @@ class EngineGraph:
 
         ledger_id = _event_key(event_id) if event_id else None
         turn_text, state_delta = self._resolve_emit_turn(
-            source=source,
+            event_source=event_source,
             event_type=event_type,
             input_message=input_message,
             payload=payload,
@@ -1281,7 +1281,7 @@ class EngineGraph:
 
         async with self._locks[thread_id]:
             already_seen = False
-            if source == "system" and ledger_id is not None:
+            if event_source == "system" and ledger_id is not None:
                 already_seen = await self._ledger.is_processed(ledger_id)
             if already_seen:
                 return {"emit_status": "duplicate", "event_id": event_id}
@@ -1299,7 +1299,7 @@ class EngineGraph:
             if not does_state_wait_for_input(current):
                 return {"emit_status": "not_waiting", "current_state": current}
 
-            if source == "human":
+            if event_source == "human":
                 if meta and meta.wait_kind == "system_event":
                     return self._describe_wait(state, meta)
                 result = await self.ainvoke(
@@ -1312,7 +1312,7 @@ class EngineGraph:
                     return {"emit_status": "error", **result}
                 return {"emit_status": "ok", **result}
 
-            # source == "system" — legality via overridable predicate hook
+            # event_source == "system" — legality via overridable predicate hook
             if not self._is_system_event_legal(state, event_type, payload):
                 # Consume the delivery so a legitimate retry of a
                 # since-moved-past event gets reclassified as "ignored"
@@ -1455,7 +1455,7 @@ class EngineGraph:
         if outs:
             kwargs = {"turn_number": turn, "state": current_state}
             new_messages.extend(AIMessage(content=m, additional_kwargs=kwargs) for m in outs)
-        elif state.get("current_event_source", "human") == "human":
+        elif state.get("event_source", "human") == "human":
             new_messages.append(
                 AIMessage(
                     content=f"Transitioned to {current_state}",
@@ -1510,7 +1510,7 @@ class EngineGraph:
     def _resolve_emit_turn(
         self,
         *,
-        source: str,
+        event_source: str,
         event_type: str,
         input_message: str = "",
         payload: Optional[dict[str, Any]] = None,
@@ -1528,8 +1528,8 @@ class EngineGraph:
         if not text and raw.get("text") is not None:
             text = str(raw.get("text") or "")
         merge = {k: v for k, v in raw.items() if k not in _EMIT_RESERVED_PAYLOAD_KEYS}
-        merge["current_event_source"] = source
-        merge["current_event_type"] = event_type
+        merge["event_source"] = event_source
+        merge["event_type"] = event_type
         return text, merge
 
     def _get_or_init_state(self, session_id: str, user_id: str = "") -> dict[str, Any]:

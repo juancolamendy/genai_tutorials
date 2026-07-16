@@ -151,7 +151,7 @@ async def test_concurrent_calls_for_same_thread_id_serialize():
 @pytest.mark.asyncio
 async def test_semantic_router_bypassed_for_system_sourced_turn():
     """A router-bypass hook: only attempt semantic routing if
-    current_event_source != "system" — an LLM can never decide a
+    event_source != "system" — an LLM can never decide a
     system-event transition, structurally, regardless of whether a
     semantic_router is attached."""
     mock_router = MagicMock()
@@ -166,7 +166,7 @@ async def test_semantic_router_bypassed_for_system_sourced_turn():
             user_id="",
             session_id=thread_id,
             input_message="",
-            state_delta={"document_id": "doc1", "current_event_source": "system"},
+            state_delta={"document_id": "doc1", "event_source": "system"},
         )
 
     mock_router.route.assert_not_called()
@@ -212,7 +212,7 @@ class _MsgTestState(str, Enum):
 def _register_msgtest_handler():
     @handler(state=_MsgTestState.DONE.value, waits_for_input=False)
     def _handle_msgtest_done(state):
-        if state.get("current_event_type") == "custom_greeting":
+        if state.get("event_type") == "custom_greeting":
             return {"output_messages": ["custom greeting message"]}
         return {}
 
@@ -283,7 +283,7 @@ async def test_system_turn_with_output_messages_skips_fallback():
         user_id="",
         session_id=str(uuid4()),
         input_message="",
-        state_delta={"current_event_source": "system", "current_event_type": "custom_greeting"},
+        state_delta={"event_source": "system", "event_type": "custom_greeting"},
     )
 
     messages = result["messages"]
@@ -300,7 +300,7 @@ async def test_system_turn_with_nothing_to_say_leaves_messages_untouched():
         user_id="",
         session_id=str(uuid4()),
         input_message="",
-        state_delta={"current_event_source": "system", "current_event_type": "other_event"},
+        state_delta={"event_source": "system", "event_type": "other_event"},
     )
 
     assert result["messages"] == []
@@ -430,7 +430,7 @@ async def test_get_active_sessions_prefers_latest_when_pause_is_stale():
     assert parked["current_state"] == _StalePauseState.AWAIT.value
 
     done = await graph.aemit_event(
-        thread_id=thread_id, source="system", event_type="go", event_id="evt-go"
+        thread_id=thread_id, event_source="system", event_type="go", event_id="evt-go"
     )
     assert done["emit_status"] == "ok"
     assert done["current_state"] == _StalePauseState.DONE.value
@@ -450,7 +450,7 @@ async def test_get_or_init_state_clears_output_messages():
         user_id="",
         session_id=session_id,
         input_message="",
-        state_delta={"current_event_source": "system", "current_event_type": "custom_greeting"},
+        state_delta={"event_source": "system", "event_type": "custom_greeting"},
     )
     assert any(m.content == "custom greeting message" for m in result["messages"])
     # Checkpoint still holds the prior turn's reducer value:
@@ -471,7 +471,7 @@ async def test_ainvoke_returns_only_this_turn_output_messages():
         user_id="",
         session_id=session_id,
         input_message="",
-        state_delta={"current_event_source": "system", "current_event_type": "custom_greeting"},
+        state_delta={"event_source": "system", "event_type": "custom_greeting"},
     )
     assert first.get("output_messages") == ["custom greeting message"]
 
@@ -479,7 +479,7 @@ async def test_ainvoke_returns_only_this_turn_output_messages():
         user_id="",
         session_id=session_id,
         input_message="hi",
-        state_delta={"current_event_source": "human", "current_event_type": "message"},
+        state_delta={"event_source": "human", "event_type": "message"},
     )
     # Second turn has no handler output_messages — must not echo the first turn.
     assert "custom greeting message" not in (second.get("output_messages") or [])

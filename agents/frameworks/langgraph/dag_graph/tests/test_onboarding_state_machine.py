@@ -90,7 +90,7 @@ def test_it_provisioned_guardrail_diverts_on_timeout_escalation():
     state = {
         "current_state": State.AWAIT_DOCUMENTS_SIGNED.value,
         "proposed_next": State.IT_PROVISIONED.value,
-        "current_event_type": "timeout_escalation",
+        "event_type": "timeout_escalation",
         "fallback_depth": 0,
     }
     result = guardrails[State.IT_PROVISIONED](state)
@@ -105,7 +105,7 @@ def test_schedule_sent_guardrail_diverts_on_timeout_escalation():
     state = {
         "current_state": State.AWAIT_HARDWARE_DELIVERED.value,
         "proposed_next": State.SCHEDULE_SENT.value,
-        "current_event_type": "timeout_escalation",
+        "event_type": "timeout_escalation",
         "fallback_depth": 0,
     }
     result = guardrails[State.SCHEDULE_SENT](state)
@@ -117,7 +117,7 @@ def test_it_provisioned_guardrail_passes_on_legal_event():
     state = {
         "current_state": State.AWAIT_DOCUMENTS_SIGNED.value,
         "proposed_next": State.IT_PROVISIONED.value,
-        "current_event_type": "document_signed",
+        "event_type": "document_signed",
         "fallback_depth": 0,
     }
     result = guardrails[State.IT_PROVISIONED](state)
@@ -125,10 +125,10 @@ def test_it_provisioned_guardrail_passes_on_legal_event():
 
 
 def test_check_not_timeout_escalation_standalone():
-    passing = check_not_timeout_escalation({"current_event_type": "document_signed"})
+    passing = check_not_timeout_escalation({"event_type": "document_signed"})
     assert passing.passed is True
 
-    failing = check_not_timeout_escalation({"current_event_type": "timeout_escalation"})
+    failing = check_not_timeout_escalation({"event_type": "timeout_escalation"})
     assert failing.passed is False
     assert failing.fallback == State.ESCALATED
 

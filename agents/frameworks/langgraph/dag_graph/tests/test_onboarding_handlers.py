@@ -49,30 +49,30 @@ def _ensure_onboarding_handlers_registered():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# AWAIT_* handlers must branch on current_event_type (design spec §3)
+# AWAIT_* handlers must branch on event_type (design spec §3)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def test_await_documents_signed_records_timeout_not_signature():
-    state = {**new_onboarding_session_state(), "current_event_type": "timeout_escalation"}
+    state = {**new_onboarding_session_state(), "event_type": "timeout_escalation"}
     result = handle_await_documents_signed(state)
     assert "timeout" in result["audit_trail"][0]
     assert "document_signed" not in result["audit_trail"][0]
 
 
 def test_await_documents_signed_records_signature_on_legal_event():
-    state = {**new_onboarding_session_state(), "current_event_type": "document_signed"}
+    state = {**new_onboarding_session_state(), "event_type": "document_signed"}
     result = handle_await_documents_signed(state)
     assert "document_signed event received" in result["audit_trail"][0]
 
 
 def test_await_hardware_delivered_records_timeout_not_delivery():
-    state = {**new_onboarding_session_state(), "current_event_type": "timeout_escalation"}
+    state = {**new_onboarding_session_state(), "event_type": "timeout_escalation"}
     result = handle_await_hardware_delivered(state)
     assert "timeout" in result["audit_trail"][0]
 
 
 def test_await_hardware_delivered_records_delivery_on_legal_event():
-    state = {**new_onboarding_session_state(), "current_event_type": "hardware_delivered"}
+    state = {**new_onboarding_session_state(), "event_type": "hardware_delivered"}
     result = handle_await_hardware_delivered(state)
     assert "hardware_delivered event received" in result["audit_trail"][0]
 

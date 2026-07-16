@@ -1,7 +1,7 @@
 """Tests for EngineSessionState's event-extension fields and engine/errors.py.
 
 Covers the additive fields from the engine-event-extension design (§4):
-current_event_source, current_event_type, output_messages — and the new
+event_source, event_type, output_messages — and the new
 exception types (§2.2) used by ainvoke/aemit_event/arun_to_completion in
 later phases.
 """
@@ -32,31 +32,31 @@ def test_new_session_state_initializes_handler_status_ok():
     assert state["handler_status"] == "ok"
 
 
-def test_new_session_state_does_not_set_current_event_source():
-    """current_event_source is stamped fresh by aemit_event's branches on
+def test_new_session_state_does_not_set_event_source():
+    """event_source is stamped fresh by aemit_event's branches on
     every turn (never carried over from a prior turn), so a freshly
     constructed session should leave it unset rather than pre-seeding a
     value that could go stale."""
     state = new_engine_session_state()
-    assert "current_event_source" not in state
+    assert "event_source" not in state
 
 
-def test_new_session_state_does_not_set_current_event_type():
+def test_new_session_state_does_not_set_event_type():
     state = new_engine_session_state()
-    assert "current_event_type" not in state
+    assert "event_type" not in state
 
 
-def test_current_event_source_defaults_to_human_when_absent():
+def test_event_source_defaults_to_human_when_absent():
     """Documents the read-side contract: callers read this field via
-    state.get("current_event_source", "human") so pre-existing docprocessing
+    state.get("event_source", "human") so pre-existing docprocessing
     sessions (which never set it) behave as human-sourced."""
     state = new_engine_session_state()
-    assert state.get("current_event_source", "human") == "human"
+    assert state.get("event_source", "human") == "human"
 
 
-def test_current_event_type_defaults_to_message_when_absent():
+def test_event_type_defaults_to_message_when_absent():
     state = new_engine_session_state()
-    assert state.get("current_event_type", "message") == "message"
+    assert state.get("event_type", "message") == "message"
 
 
 def test_existing_fields_unaffected_by_new_additions():

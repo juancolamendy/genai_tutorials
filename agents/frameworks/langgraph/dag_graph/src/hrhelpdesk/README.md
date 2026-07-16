@@ -154,7 +154,7 @@ One checkpoint, two responsibilities:
    | Clarify reply | “policy question” | Re-classify (don’t ignore input) |
    | System | `ticket_resolved` | Short-circuit LLMs; stamp event → NOTIFY |
 
-   If a park can receive system events, short-circuit on `current_event_source == "system"` before any model call.
+   If a park can receive system events, short-circuit on `event_source == "system"` before any model call.
 
 4. **Fan-out priority** (check in this order when debugging)
 
@@ -172,7 +172,7 @@ One checkpoint, two responsibilities:
 ### Debugging checklist
 
 1. Where are we parked? `current_state` + `active_topic` + `pending_clarify`
-2. What event is this? `current_event_source` / `current_event_type`
+2. What event is this? `event_source` / `event_type`
 3. Did the handler short-circuit? (system before LLM)
 4. What typed fields did the handler write?
 5. What did fan-out propose? (audit trail `router: …`)

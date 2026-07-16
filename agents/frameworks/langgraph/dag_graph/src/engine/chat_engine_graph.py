@@ -180,7 +180,7 @@ class ChatEngineGraph(EngineGraph):
         clarify = self._state_value(self.clarify_state)
         notify = self._state_value(self.notify_state)
 
-        if state.get("current_event_source") == "system":
+        if state.get("event_source") == "system":
             if current_val != notify:
                 return {
                     "proposed_next": notify,

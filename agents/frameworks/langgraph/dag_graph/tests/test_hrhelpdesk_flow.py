@@ -115,7 +115,7 @@ async def test_faq_happy_path_clears_active_topic():
     ):
         result = await graph.aemit_event(
             thread_id=thread_id,
-            source="human",
+            event_source="human",
             event_type="message",
             input_message="How much PTO do I get?",
         )
@@ -141,7 +141,7 @@ async def test_clarify_reroutes_user_reply_to_faq():
     ):
         turn1 = await graph.aemit_event(
             thread_id=thread_id,
-            source="human",
+            event_source="human",
             event_type="message",
             input_message="help",
         )
@@ -152,7 +152,7 @@ async def test_clarify_reroutes_user_reply_to_faq():
 
         turn2 = await graph.aemit_event(
             thread_id=thread_id,
-            source="human",
+            event_source="human",
             event_type="message",
             input_message="policy question about PTO",
         )
@@ -180,13 +180,13 @@ async def test_escalate_creates_one_ticket_ledger_dedupes():
     ):
         first = await graph.aemit_event(
             thread_id=thread_id,
-            source="human",
+            event_source="human",
             event_type="message",
             input_message="My paycheck is wrong",
         )
         second = await graph.aemit_event(
             thread_id=thread_id,
-            source="human",
+            event_source="human",
             event_type="message",
             input_message="My paycheck is wrong again",
         )
@@ -221,7 +221,7 @@ async def test_escalate_create_ticket_called_once():
     ):
         result = await graph.aemit_event(
             thread_id=thread_id,
-            source="human",
+            event_source="human",
             event_type="message",
             input_message="Please open a ticket — paycheck short $200",
         )
@@ -251,7 +251,7 @@ async def test_booking_sticky_two_turn_confirm():
     ):
         turn1 = await graph.aemit_event(
             thread_id=thread_id,
-            source="human",
+            event_source="human",
             event_type="message",
             input_message="Book a desk Monday NYC",
         )
@@ -276,7 +276,7 @@ async def test_booking_sticky_two_turn_confirm():
     ):
         turn2 = await graph.aemit_event(
             thread_id=thread_id,
-            source="human",
+            event_source="human",
             event_type="message",
             input_message="Window seat please",
         )
@@ -306,7 +306,7 @@ async def test_escape_mid_booking_reroutes():
     ):
         await graph.aemit_event(
             thread_id=thread_id,
-            source="human",
+            event_source="human",
             event_type="message",
             input_message="Book a desk",
         )
@@ -322,7 +322,7 @@ async def test_escape_mid_booking_reroutes():
     ):
         result = await graph.aemit_event(
             thread_id=thread_id,
-            source="human",
+            event_source="human",
             event_type="message",
             input_message="Actually how much PTO?",
         )
@@ -338,7 +338,7 @@ async def test_illegal_system_event_ignored():
 
     result = await graph.aemit_event(
         thread_id=thread_id,
-        source="system",
+        event_source="system",
         event_type="ticket_resolved",
         event_id="evt-bad",
         payload={"ticket_id": "TICKET-999"},
@@ -370,7 +370,7 @@ async def test_topic_timeout_clears_booking():
     ):
         turn1 = await graph.aemit_event(
             thread_id=thread_id,
-            source="human",
+            event_source="human",
             event_type="message",
             input_message="Book a desk Monday NYC",
         )
@@ -391,7 +391,7 @@ async def test_topic_timeout_clears_booking():
     ):
         result = await graph.aemit_event(
             thread_id=thread_id,
-            source="system",
+            event_source="system",
             event_type="topic_timeout",
             event_id="evt-timeout",
         )
@@ -422,7 +422,7 @@ async def test_ticket_resolved_during_clarify_short_circuits():
     ):
         first = await graph.aemit_event(
             thread_id=thread_id,
-            source="human",
+            event_source="human",
             event_type="message",
             input_message="My paycheck is wrong",
         )
@@ -438,7 +438,7 @@ async def test_ticket_resolved_during_clarify_short_circuits():
     ):
         second = await graph.aemit_event(
             thread_id=thread_id,
-            source="human",
+            event_source="human",
             event_type="message",
             input_message="hmm",
         )
@@ -452,7 +452,7 @@ async def test_ticket_resolved_during_clarify_short_circuits():
     with patch("src.hrhelpdesk.handlers.classify_utterance", new_callable=AsyncMock, side_effect=_forbidden):
         result = await graph.aemit_event(
             thread_id=thread_id,
-            source="system",
+            event_source="system",
             event_type="ticket_resolved",
             event_id="evt-ticket-1",
             payload={"ticket_id": ticket_id},
@@ -483,7 +483,7 @@ async def test_ticket_resolved_from_idle_removes_open_ticket():
     ):
         first = await graph.aemit_event(
             thread_id=thread_id,
-            source="human",
+            event_source="human",
             event_type="message",
             input_message="My paycheck is wrong — please open a ticket",
         )
@@ -492,7 +492,7 @@ async def test_ticket_resolved_from_idle_removes_open_ticket():
 
     result = await graph.aemit_event(
         thread_id=thread_id,
-        source="system",
+        event_source="system",
         event_type="ticket_resolved",
         event_id="evt-ticket-idle",
         payload={"ticket_id": ticket_id},
@@ -526,7 +526,7 @@ async def test_faq_path_never_calls_booking_tools():
     ):
         result = await graph.aemit_event(
             thread_id=thread_id,
-            source="human",
+            event_source="human",
             event_type="message",
             input_message="PTO policy?",
         )
@@ -557,7 +557,7 @@ async def test_escalate_chain_failure_diverts_to_error():
     ):
         result = await graph.aemit_event(
             thread_id=thread_id,
-            source="human",
+            event_source="human",
             event_type="message",
             input_message="Please open a ticket",
         )

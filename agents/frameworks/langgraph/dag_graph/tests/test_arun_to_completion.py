@@ -4,7 +4,7 @@ reuse, plus the user-confirmed graceful-degradation outcome for the
 needs-input case).
 
 A minimal test-local graph (INIT -> WAITING (wait) -> DONE, with a
-current_event_type=="force_error" guardrail diverting WAITING's proposal to
+event_type=="force_error" guardrail diverting WAITING's proposal to
 ERROR) exercises all
 four outcomes without needing a domain that pauses unconditionally
 (docprocessing always parks at UPLOAD_DOCUMENTS, which would make it
@@ -55,12 +55,12 @@ class _RtcState(str, Enum):
 
 
 def _check_force_error(state):
-    # Uses current_event_type (declared on EngineSessionState since Phase 1)
+    # Uses event_type (declared on EngineSessionState since Phase 1)
     # rather than an ad-hoc scratch field: an undeclared key passed via
     # state_delta is silently dropped by LangGraph's channel machinery
     # (StateGraph only tracks fields the schema declares), so a guardrail
     # running on a later node invocation would never actually see it.
-    if state.get("current_event_type") == "force_error":
+    if state.get("event_type") == "force_error":
         return GuardrailResult(passed=False, reason="forced for test", fallback=_RtcState.ERROR)
     return GuardrailResult(passed=True)
 
@@ -179,7 +179,7 @@ async def test_graph_run_error_for_status_error_outcome():
         await graph.arun_to_completion(
             user_id="",
             session_id=session_id,
-            initial_state_delta={"current_event_type": "force_error"},
+            initial_state_delta={"event_type": "force_error"},
         )
 
 

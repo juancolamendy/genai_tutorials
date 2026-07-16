@@ -69,7 +69,7 @@ async def test_system_approve_publishes_and_writes_report(tmp_path: Path):
 
     result = await graph.aemit_event(
         thread_id=run_id,
-        source="system",
+        event_source="system",
         event_type="approve",
         event_id=f"evt-approve-{run_id}",
         payload={"by": "alice", "note": "lgtm", "approved": True},
@@ -102,7 +102,7 @@ async def test_system_reject_lands_in_rejected(tmp_path: Path):
 
     result = await graph.aemit_event(
         thread_id=run_id,
-        source="system",
+        event_source="system",
         event_type="reject",
         event_id=f"evt-reject-{run_id}",
         payload={"by": "bob", "note": "needs tests", "approved": False},
@@ -134,7 +134,7 @@ async def test_human_chat_approve_either_path(tmp_path: Path):
 
     result = await graph.aemit_event(
         thread_id=run_id,
-        source="human",
+        event_source="human",
         event_type="message",
         input_message="approve",
     )
@@ -164,7 +164,7 @@ async def test_duplicate_approve_event_id(tmp_path: Path):
 
     first = await graph.aemit_event(
         thread_id=run_id,
-        source="system",
+        event_source="system",
         event_type="approve",
         event_id=event_id,
         payload={"by": "alice", "approved": True},
@@ -173,7 +173,7 @@ async def test_duplicate_approve_event_id(tmp_path: Path):
 
     second = await graph.aemit_event(
         thread_id=run_id,
-        source="system",
+        event_source="system",
         event_type="approve",
         event_id=event_id,
         payload={"by": "alice", "approved": True},

@@ -57,7 +57,7 @@ def check_not_timeout_escalation(state: OnboardingState) -> GuardrailResult:
     of AWAIT_DOCUMENTS_SIGNED and AWAIT_HARDWARE_DELIVERED respectively,
     the two states this can actually divert away from.
     """
-    if state.get("current_event_type") == "timeout_escalation":
+    if state.get("event_type") == "timeout_escalation":
         return GuardrailResult(passed=False, reason="timeout escalation", fallback=State.ESCALATED)
     return GuardrailResult(passed=True)
 

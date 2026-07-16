@@ -80,7 +80,7 @@ async def _kickoff_and_collect(graph, thread_id):
     with patch("src.onboarding.chains.collect_agent", _mock_collect_agent()):
         result = await graph.aemit_event(
             thread_id=thread_id,
-            source="human",
+            event_source="human",
             event_type="message",
             input_message="Jane Doe, Engineer, starting 2026-08-01",
         )
@@ -101,7 +101,7 @@ async def test_full_happy_path_through_aemit_event():
     with patch("src.onboarding.chains.username_chain", _mock_username_chain()):
         signed = await graph.aemit_event(
             thread_id=thread_id,
-            source="system",
+            event_source="system",
             event_type="document_signed",
             event_id="evt-signed",
         )
@@ -112,7 +112,7 @@ async def test_full_happy_path_through_aemit_event():
 
     delivered = await graph.aemit_event(
         thread_id=thread_id,
-        source="system",
+        event_source="system",
         event_type="hardware_delivered",
         event_id="evt-delivered",
     )
@@ -130,7 +130,7 @@ async def test_timeout_escalation_from_await_documents_signed():
 
     result = await graph.aemit_event(
         thread_id=thread_id,
-        source="system",
+        event_source="system",
         event_type="timeout_escalation",
         event_id="evt-timeout-1",
     )
@@ -147,13 +147,13 @@ async def test_timeout_escalation_from_await_hardware_delivered():
 
     with patch("src.onboarding.chains.username_chain", _mock_username_chain()):
         signed = await graph.aemit_event(
-            thread_id=thread_id, source="system", event_type="document_signed", event_id="evt-s"
+            thread_id=thread_id, event_source="system", event_type="document_signed", event_id="evt-s"
         )
     assert signed["current_state"] == State.AWAIT_HARDWARE_DELIVERED.value
 
     result = await graph.aemit_event(
         thread_id=thread_id,
-        source="system",
+        event_source="system",
         event_type="timeout_escalation",
         event_id="evt-timeout-2",
     )
@@ -171,7 +171,7 @@ async def test_duplicate_event_id_does_not_double_process():
     with patch("src.onboarding.chains.username_chain", _mock_username_chain()):
         first = await graph.aemit_event(
             thread_id=thread_id,
-            source="system",
+            event_source="system",
             event_type="document_signed",
             event_id="evt-dup",
         )
@@ -180,7 +180,7 @@ async def test_duplicate_event_id_does_not_double_process():
 
     second = await graph.aemit_event(
         thread_id=thread_id,
-        source="system",
+        event_source="system",
         event_type="document_signed",
         event_id="evt-dup",
     )

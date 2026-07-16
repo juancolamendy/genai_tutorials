@@ -47,7 +47,7 @@ async def sweep(graph: Any, thresholds: dict[str, float]) -> list[dict[str, Any]
             results.append(
                 await graph.aemit_event(
                     thread_id=session["thread_id"],
-                    source="system",
+                    event_source="system",
                     event_type="timeout_escalation",
                     # Deterministic, not timestamp-based: overlapping sweep
                     # runs correctly dedupe against each other via the
