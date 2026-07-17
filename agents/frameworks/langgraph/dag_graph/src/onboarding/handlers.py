@@ -37,6 +37,7 @@ def _log_enter(handler_name: str, state: OnboardingState) -> None:
         state.get("session_id") or "(none)",
         state.get("turn_number", 0),
     )
+    log.info("[HANDLER] ▶ %s  state=%s", handler_name, state)
 
 
 def _log_exit(handler_name: str, delta: dict[str, Any]) -> dict[str, Any]:

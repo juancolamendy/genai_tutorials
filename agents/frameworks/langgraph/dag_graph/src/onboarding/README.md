@@ -33,6 +33,12 @@ print(r['current_state'])
 uv run python -m src.onboarding.cli --sessions-dir "$SESSIONS" status $THREAD_ID
 # expect: current_state=collect
 
+# missing information
+uv run python -m src.onboarding.cli --sessions-dir "$SESSIONS" chat $THREAD_ID "Jane Doe, Engineer"
+
+uv run python -m src.onboarding.cli --sessions-dir "$SESSIONS" chat $THREAD_ID "Start date is 2026-08-10"
+
+# whole information
 uv run python -m src.onboarding.cli --sessions-dir "$SESSIONS" chat $THREAD_ID "Jane Doe, Engineer, 2026-08-01"
 
 uv run python -m src.onboarding.cli --sessions-dir "$SESSIONS" event $THREAD_ID document_signed --event-id "$THREAD_ID-evt-1"
