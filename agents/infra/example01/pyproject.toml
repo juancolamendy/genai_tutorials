@@ -1,0 +1,11 @@
+[project]
+name = "example01"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "celery[redis]>=5.6.3",
+    "click>=8.4.2",
+]
+
