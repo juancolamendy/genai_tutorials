@@ -112,4 +112,5 @@ temp/
 .pytest_cache/
 .coverage
 .venv/
+.python-version
 
