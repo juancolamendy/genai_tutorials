@@ -1,0 +1,14 @@
+[project]
+name = "tutorial01"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "langchain>=1.4.3",
+    "langchain-core>=1.6.7",
+    "langchain-openai>=1.6.7",
+    "langsmith>=0.14.4",
+    "openai>=3.26.0",
+    "python-dotenv>=1.2.4",
+]
