@@ -6,8 +6,10 @@ from pathlib import Path
 from typing import Literal, TypedDict
 
 from langchain.agents import create_agent
-from langchain.agents.middleware import PIIMiddleware
+from langchain.agents.middleware import PIIMiddleware, wrap_model_call
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.checkpoint.memory import InMemorySaver
+from langsmith import traceable
 
 from dotenv import load_dotenv
 
@@ -138,6 +140,39 @@ def check_weather(location: str) -> str:
         return json.dumps(base_result)
 
 
+@wrap_model_call
+@traceable(run_type="chain")
+def trim_tool_messages(request, handler):
+    """
+    Compress conversation context once it reaches 5 messages.
+
+    Removes completed tool exchanges (AIMessage with tool_calls and ToolMessage)
+    from history before the most recent user message, while preserving the
+    current turn's context and all plain AI/user/system messages.
+    """
+    messages = request.messages
+    if len(messages) >= 5:
+        last_human_index = next(
+            (
+                i
+                for i in range(len(messages) - 1, -1, -1)
+                if isinstance(messages[i], HumanMessage)
+            ),
+            -1,
+        )
+
+        kept_prefix = [
+            msg
+            for msg in messages[:last_human_index]
+            if not isinstance(msg, ToolMessage)
+            and not (isinstance(msg, AIMessage) and msg.tool_calls)
+        ]
+        kept_suffix = messages[last_human_index:]
+        request = request.override(messages=kept_prefix + kept_suffix)
+
+    return handler(request)
+
+
 pii_guard = PIIMiddleware(
     "email",
     strategy="redact",
@@ -151,7 +186,7 @@ agent = create_agent(
     tools=[check_weather],
     system_prompt=SYSTEM_PROMPT,
     checkpointer=InMemorySaver(),
-    middleware=[pii_guard],
+    middleware=[pii_guard, trim_tool_messages],
     #debug=True,
 )
 

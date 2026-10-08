@@ -1,6 +1,6 @@
 # Weather Assistant
 
-A conversational travel assistant powered by LangChain/LangGraph that can answer weather-related questions using a real-time weather tool. It demonstrates agent tools, structured outputs, checkpoint memory, and PII redaction middleware.
+A conversational travel assistant powered by LangChain/LangGraph that can answer weather-related questions using a real-time weather tool. It demonstrates agent tools, structured outputs, checkpoint memory, PII redaction, and custom context-compression middleware.
 
 ## Prerequisites
 
@@ -95,3 +95,5 @@ The following changes were made to the original starter script:
 5. **PII redaction middleware** — Added `PIIMiddleware` configured to detect email addresses and redact them from user input, model output, and tool results.
 
 6. **Interactive loop** — Replaced the single-shot invocation with a `while True` loop that continuously accepts user input until the user enters `q`.
+
+7. **Context-compression middleware** — Added a custom `wrap_model_call` middleware that compresses conversation context once it reaches five messages. It removes older `ToolMessage` and tool-call `AIMessage` pairs from history before the most recent user message, while preserving the current turn's tool context and all plain AI/user/system messages. The middleware is decorated with `@traceable` so it appears in LangSmith traces.
