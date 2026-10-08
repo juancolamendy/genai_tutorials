@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Literal, TypedDict
 
 from langchain.agents import create_agent
+from langchain.agents.middleware import PIIMiddleware
 from langgraph.checkpoint.memory import InMemorySaver
 
 from dotenv import load_dotenv
@@ -137,11 +138,20 @@ def check_weather(location: str) -> str:
         return json.dumps(base_result)
 
 
+pii_guard = PIIMiddleware(
+    "email",
+    strategy="redact",
+    apply_to_input=True,
+    apply_to_output=True,
+    apply_to_tool_results=True,
+)
+
 agent = create_agent(
     model="openai:gpt-5",
     tools=[check_weather],
     system_prompt=SYSTEM_PROMPT,
     checkpointer=InMemorySaver(),
+    middleware=[pii_guard],
     #debug=True,
 )
 
