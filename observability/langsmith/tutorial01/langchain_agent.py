@@ -3,6 +3,7 @@ import urllib.parse
 import urllib.request
 import uuid
 from pathlib import Path
+from typing import Literal, TypedDict
 
 from langchain.agents import create_agent
 from langgraph.checkpoint.memory import InMemorySaver
@@ -14,9 +15,21 @@ load_dotenv()
 SYSTEM_PROMPT = Path("langchain_agent_prompt.md").read_text(encoding="utf-8")
 
 
+class WeatherResult(TypedDict):
+    """Structured result returned by the check_weather tool."""
+
+    status: Literal["ok", "error"]
+    location: str
+    condition: str
+    temperature_c: float
+    wind_speed_kmh: float
+    source: str
+    error_message: str
+
+
 def check_weather(location: str) -> str:
     """
-    Return a brief weather report for the given location.
+    Return a structured weather report for a location as a JSON string.
 
     This function queries the free Open-Meteo geocoding and forecast APIs.
     It first resolves the location name to latitude/longitude coordinates,
@@ -26,10 +39,20 @@ def check_weather(location: str) -> str:
         location: A city or place name (e.g., "Miami", "Paris, France").
 
     Returns:
-        A human-readable string describing the current weather, including
-        temperature and wind speed, or an error message if the location
-        cannot be resolved or the weather service is unavailable.
+        A JSON string representing a WeatherResult. On success, status is "ok"
+        and includes weather details. On failure, status is "error" and
+        error_message contains the reason.
     """
+    base_result: WeatherResult = {
+        "status": "error",
+        "location": location,
+        "condition": "",
+        "temperature_c": 0.0,
+        "wind_speed_kmh": 0.0,
+        "source": "Open-Meteo",
+        "error_message": "",
+    }
+
     try:
         # Geocode the location using Open-Meteo's free geocoding API.
         geo_url = (
@@ -41,7 +64,10 @@ def check_weather(location: str) -> str:
 
         results = geo_data.get("results")
         if not results:
-            return f"Could not find weather data for '{location}'."
+            base_result["error_message"] = (
+                f"Could not find weather data for '{location}'."
+            )
+            return json.dumps(base_result)
 
         place = results[0]
         lat = place["latitude"]
@@ -96,12 +122,19 @@ def check_weather(location: str) -> str:
         }
         description = weather_descriptions.get(weather_code, "unknown conditions")
 
-        return (
-            f"The weather in {display_name} is {description} "
-            f"with a temperature of {temp}°C and wind speed of {wind} km/h."
-        )
+        ok_result: WeatherResult = {
+            "status": "ok",
+            "location": display_name,
+            "condition": description,
+            "temperature_c": temp,
+            "wind_speed_kmh": wind,
+            "source": "Open-Meteo",
+            "error_message": "",
+        }
+        return json.dumps(ok_result)
     except Exception as exc:  # noqa: BLE001
-        return f"Sorry, I couldn't retrieve the weather for '{location}': {exc}"
+        base_result["error_message"] = str(exc)
+        return json.dumps(base_result)
 
 
 agent = create_agent(
