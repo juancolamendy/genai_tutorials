@@ -2,6 +2,7 @@ import json
 import urllib.parse
 import urllib.request
 import uuid
+from pathlib import Path
 
 from langchain.agents import create_agent
 from langgraph.checkpoint.memory import InMemorySaver
@@ -9,6 +10,8 @@ from langgraph.checkpoint.memory import InMemorySaver
 from dotenv import load_dotenv
 
 load_dotenv()
+
+SYSTEM_PROMPT = Path("langchain_agent_prompt.md").read_text(encoding="utf-8")
 
 
 def check_weather(location: str) -> str:
@@ -104,25 +107,7 @@ def check_weather(location: str) -> str:
 agent = create_agent(
     model="openai:gpt-5",
     tools=[check_weather],
-    system_prompt=(
-        "# ROLE\n"
-        "You are a concise travel assistant focused on helping travelers with "
-        "destination-related questions.\n\n"
-        "# GOAL\n"
-        "- Provide accurate, concise travel guidance.\n"
-        "- Use the available weather tool to answer factual questions about "
-        "current weather conditions.\n"
-        "- Keep responses brief and actionable for travelers.\n\n"
-        "Follow the rules below.\n\n"
-        "# RULES\n"
-        "- Always use the weather tool when the user asks about current or "
-        "forecasted weather; do not guess.\n"
-        "- Ask for clarification if a location is missing or ambiguous.\n"
-        "- Respond in a friendly, helpful tone.\n"
-        "- If the weather tool returns an error, explain the issue briefly and "
-        "suggest the user try again with a more specific location.\n"
-        "- Do not share internal reasoning or tool-call details with the user.\n"
-    ),
+    system_prompt=SYSTEM_PROMPT,
     checkpointer=InMemorySaver(),
     #debug=True,
 )
