@@ -115,6 +115,8 @@ def get_create_dataset(client: Client, name: str) -> dict:
     """
     try:
         dataset = client.read_dataset(dataset_name=name)
+        print(f"Dataset Loaded: {dataset.name}")
+        print(f"Dataset ID: {dataset.id}")
     except Exception:
         examples = load_dataset()
         langsmith_examples = format_examples(examples)
