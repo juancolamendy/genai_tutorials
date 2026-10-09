@@ -224,24 +224,25 @@ agent = create_agent(
     #debug=True,
 )
 
-thread_id = str(uuid.uuid4())
-print(f'thread_id: {thread_id}')
-config = create_config(
-    thread_id=thread_id,
-    tags=["weather", "assistant", "production"],
-    metadata={"user_key": thread_id[:8]},
-)
-
-print("Weather Assistant (type 'q' to quit)")
-while True:
-    user_input = input("\nYou: ").strip()
-    if user_input.lower() == "q":
-        break
-
-    result = agent.invoke(
-        {"messages": [{"role": "user", "content": user_input}]},
-        config=config,
+if __name__ == "__main__":
+    thread_id = str(uuid.uuid4())
+    print(f'thread_id: {thread_id}')
+    config = create_config(
+        thread_id=thread_id,
+        tags=["weather", "assistant", "production"],
+        metadata={"user_key": thread_id[:8]},
     )
 
-    print("\nLast message:")
-    print(result["messages"][-1].content)
+    print("Weather Assistant (type 'q' to quit)")
+    while True:
+        user_input = input("\nYou: ").strip()
+        if user_input.lower() == "q":
+            break
+
+        result = agent.invoke(
+            {"messages": [{"role": "user", "content": user_input}]},
+            config=config,
+        )
+
+        print("\nLast message:")
+        print(result["messages"][-1].content)
