@@ -1,9 +1,10 @@
 import json
+import os
 import urllib.parse
 import urllib.request
 import uuid
 from pathlib import Path
-from typing import Literal, TypedDict
+from typing import Literal, Optional, TypedDict
 
 from langchain.agents import create_agent
 from langchain.agents.middleware import PIIMiddleware, wrap_model_call
@@ -28,6 +29,39 @@ class WeatherResult(TypedDict):
     wind_speed_kmh: float
     source: str
     error_message: str
+
+
+def create_config(
+    thread_id: str,
+    tags: Optional[list[str]] = None,
+    metadata: Optional[dict] = None,
+) -> dict:
+    """
+    Build the invocation config for the agent.
+
+    Args:
+        thread_id: Unique identifier for the conversation thread.
+        tags: Optional list of LangSmith tags for the run.
+        metadata: Optional custom metadata to merge into the config.
+
+    Returns:
+        A config dict with configurable thread_id, tags, and metadata.
+    """
+    merged_metadata = {
+        "thread_id": thread_id,
+        "workflow": "weather_assistant",
+        "environment": os.getenv("ENVIRONMENT", "local"),
+        "prompt_version": os.getenv("PROMPT_VERSION", "weather-agent-v1"),
+        "app_version": os.getenv("APP_VERSION", "local"),
+    }
+    if metadata:
+        merged_metadata.update(metadata)
+
+    return {
+        "configurable": {"thread_id": thread_id},
+        "tags": tags or ["weather", "assistant", "local"],
+        "metadata": merged_metadata,
+    }
 
 
 def check_weather(location: str) -> str:
@@ -192,7 +226,11 @@ agent = create_agent(
 
 thread_id = str(uuid.uuid4())
 print(f'thread_id: {thread_id}')
-config = {"configurable": {"thread_id": thread_id}}
+config = create_config(
+    thread_id=thread_id,
+    tags=["weather", "assistant", "production"],
+    metadata={"user_key": thread_id[:8]},
+)
 
 print("Weather Assistant (type 'q' to quit)")
 while True:
