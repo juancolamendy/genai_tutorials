@@ -78,7 +78,7 @@ def format_examples(examples: list[dict]) -> list[dict]:
         if "input" in example:
             inputs = {"input": example["input"]}
             outputs = {
-                "expected_output": example.get("expected_output", ""),
+                "output": example.get("expected_output", ""),
                 "metrics": example.get("metrics", {}),
                 "expected_contains": example.get("expected_contains", []),
                 "expected_not_contains": example.get("expected_not_contains", []),
